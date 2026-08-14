@@ -26,6 +26,8 @@ func NewRootCmd() *cobra.Command {
 	}
 
 	root.AddCommand(newVersionCmd())
+	root.AddCommand(newRefreshCmd())
+	root.AddCommand(newCompetitionsCmd())
 
 	return root
 }

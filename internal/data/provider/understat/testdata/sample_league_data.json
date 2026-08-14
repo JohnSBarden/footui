@@ -1,0 +1,34 @@
+{
+  "teams": {
+    "1": {
+      "id": "1",
+      "title": "Arsenal",
+      "history": [
+        {"xG": 2.1, "xGA": 0.5, "scored": 2, "missed": 0, "wins": 1, "draws": 0, "loses": 0, "pts": 3, "date": "2025-08-16"},
+        {"xG": 1.0, "xGA": 1.2, "scored": 1, "missed": 1, "wins": 0, "draws": 1, "loses": 0, "pts": 1, "date": "2025-08-23"}
+      ]
+    },
+    "2": {
+      "id": "2",
+      "title": "Chelsea",
+      "history": [
+        {"xG": 0.8, "xGA": 1.5, "scored": 0, "missed": 2, "wins": 0, "draws": 0, "loses": 1, "pts": 0, "date": "2025-08-16"},
+        {"xG": 1.9, "xGA": 0.9, "scored": 2, "missed": 1, "wins": 1, "draws": 0, "loses": 0, "pts": 3, "date": "2025-08-23"}
+      ]
+    }
+  },
+  "players": [
+    {
+      "id": "100", "player_name": "Test Striker", "games": "2", "time": "180", "goals": "3",
+      "xG": "2.5", "assists": "1", "xA": "0.4", "shots": "10", "key_passes": "3",
+      "yellow_cards": "0", "red_cards": "0", "position": "F", "team_title": "Arsenal",
+      "npg": "3", "npxG": "2.5", "xGChain": "3.0", "xGBuildup": "0.5"
+    },
+    {
+      "id": "101", "player_name": "Test Transfer Midfielder", "games": "10", "time": "800", "goals": "2",
+      "xG": "1.8", "assists": "3", "xA": "2.1", "shots": "15", "key_passes": "20",
+      "yellow_cards": "1", "red_cards": "0", "position": "M", "team_title": "Chelsea,Arsenal",
+      "npg": "2", "npxG": "1.8", "xGChain": "4.0", "xGBuildup": "2.0"
+    }
+  ]
+}
