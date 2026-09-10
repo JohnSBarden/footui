@@ -54,6 +54,7 @@ Then explore:
 footy                          # browse everything cached
 footy league "premier"         # standings table
 footy team "Arsenal"           # club dashboard
+footy player "Saka"            # player career
 ```
 
 Names are matched against what you've cached, so partial names work. A name
@@ -106,6 +107,7 @@ easiest way to improve coverage.
 | `footy` | Browse everything cached |
 | `footy league <name>` | Open a competition's standings |
 | `footy team <name>` | Open a club's dashboard |
+| `footy player <name>` | Open a player's career dashboard |
 | `footy refresh` | Fetch data (`--all`, `--years N`, `--season YYYY`, `--dry-run`) |
 | `footy competitions` | List what can be refreshed |
 | `footy colors` | Apply curated club colors and report coverage |

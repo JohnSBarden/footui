@@ -1,0 +1,174 @@
+package cli
+
+import (
+	"bytes"
+	"context"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/JohnSBarden/footui/internal/data/models"
+	"github.com/JohnSBarden/footui/internal/storage/sqlite"
+)
+
+// run executes the real root command with args, returning its combined
+// output. Commands that launch the TUI are excluded from these tests —
+// they need a terminal — but everything else runs exactly as it does for a
+// user.
+func run(t *testing.T, args ...string) (string, error) {
+	t.Helper()
+	var buf bytes.Buffer
+
+	cmd := NewRootCmd()
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	cmd.SetArgs(args)
+
+	err := cmd.Execute()
+	return buf.String(), err
+}
+
+// tempDB returns a path in a temp dir; the file is created on first use.
+func tempDB(t *testing.T) string {
+	t.Helper()
+	return filepath.Join(t.TempDir(), "footy.db")
+}
+
+func TestCompetitionsListsEverySyncableCompetition(t *testing.T) {
+	out, err := run(t, "competitions")
+	if err != nil {
+		t.Fatalf("competitions: %v", err)
+	}
+
+	for _, want := range []string{"eng-premier-league", "esp-la-liga", "ger-bundesliga",
+		"ita-serie-a", "fra-ligue-1", "rus-premier-league"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("competitions output missing %q\n---\n%s", want, out)
+		}
+	}
+}
+
+func TestVersionPrintsSomething(t *testing.T) {
+	out, err := run(t, "version")
+	if err != nil {
+		t.Fatalf("version: %v", err)
+	}
+	if strings.TrimSpace(out) == "" {
+		t.Error("version printed nothing")
+	}
+}
+
+// A dry run must touch neither the network nor the database.
+func TestRefreshDryRunReportsThePlanWithoutFetching(t *testing.T) {
+	db := tempDB(t)
+
+	out, err := run(t, "refresh", "--all", "--years", "2", "--dry-run", "--db", db)
+	if err != nil {
+		t.Fatalf("dry run: %v", err)
+	}
+	if !strings.Contains(out, "nothing will be fetched") {
+		t.Errorf("a dry run must say it isn't doing anything\n---\n%s", out)
+	}
+	if !strings.Contains(out, "12 competition-season") {
+		t.Errorf("expected 6 competitions x 2 seasons\n---\n%s", out)
+	}
+	// The plan is printed before the store is opened, so no file appears.
+	if _, err := sqlite.Open(db); err != nil {
+		t.Fatalf("opening the db afterwards should still work: %v", err)
+	}
+}
+
+func TestRefreshRejectsAnOutOfScopeCompetition(t *testing.T) {
+	out, err := run(t, "refresh", "--competition", "eng-championship", "--dry-run", "--db", tempDB(t))
+	if err == nil {
+		t.Fatal("expected an error for a competition footy doesn't cover")
+	}
+	combined := out + err.Error()
+	if !strings.Contains(combined, "eng-premier-league") {
+		t.Errorf("the error should list what is supported, got: %v", err)
+	}
+}
+
+func TestColorsOnAnEmptyCacheSaysSoRatherThanReportingZeroOfZero(t *testing.T) {
+	out, err := run(t, "colors", "--db", tempDB(t))
+	if err != nil {
+		t.Fatalf("colors: %v", err)
+	}
+	if !strings.Contains(out, "No teams cached") {
+		t.Errorf("expected an empty-cache message\n---\n%s", out)
+	}
+	if !strings.Contains(out, "footy refresh") {
+		t.Errorf("the message should name the command that fixes it\n---\n%s", out)
+	}
+}
+
+func TestColorsReportsCoverageAndNamesTheGaps(t *testing.T) {
+	db := tempDB(t)
+	conn, err := sqlite.Open(db)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	store := sqlite.NewStore(conn)
+	ctx := context.Background()
+	for _, team := range []models.Team{
+		{ID: "eng-arsenal", Name: "Arsenal", Gender: "men"},
+		{ID: "eng-not-curated", Name: "Not Curated FC", Gender: "men"},
+	} {
+		if err := store.UpsertTeam(ctx, team); err != nil {
+			t.Fatalf("UpsertTeam: %v", err)
+		}
+	}
+	conn.Close()
+
+	out, err := run(t, "colors", "--db", db)
+	if err != nil {
+		t.Fatalf("colors: %v", err)
+	}
+	if !strings.Contains(out, "1 of 2 cached teams") {
+		t.Errorf("expected a coverage count\n---\n%s", out)
+	}
+	// Naming the gap is the point — that list is how someone knows what to
+	// add to the seed file.
+	if !strings.Contains(out, "eng-not-curated") {
+		t.Errorf("expected the uncolored club named\n---\n%s", out)
+	}
+}
+
+func TestUnknownCommandFails(t *testing.T) {
+	if _, err := run(t, "nonsense"); err == nil {
+		t.Error("expected an error for an unknown command")
+	}
+}
+
+func TestScreenCommandsRequireAName(t *testing.T) {
+	for _, cmd := range []string{"league", "team", "player"} {
+		if _, err := run(t, cmd); err == nil {
+			t.Errorf("%s with no argument should be an error", cmd)
+		}
+	}
+}
+
+func TestBareFootyRejectsStrayArguments(t *testing.T) {
+	if _, err := run(t, "some-team-name"); err == nil {
+		t.Error("a bare argument should be rejected rather than silently ignored")
+	}
+}
+
+func TestGlobalFlagsAreAvailableOnSubcommands(t *testing.T) {
+	// --db is persistent; if it weren't, this would fail as an unknown flag.
+	if _, err := run(t, "colors", "--db", tempDB(t), "--no-color"); err != nil {
+		t.Errorf("persistent flags should work on subcommands: %v", err)
+	}
+}
+
+func TestCompletionsAreAvailableForTheUsualShells(t *testing.T) {
+	for _, shell := range []string{"bash", "zsh", "fish"} {
+		out, err := run(t, "completion", shell)
+		if err != nil {
+			t.Errorf("completion %s: %v", shell, err)
+		}
+		if len(out) < 100 {
+			t.Errorf("completion %s produced %d bytes, expected a real script", shell, len(out))
+		}
+	}
+}

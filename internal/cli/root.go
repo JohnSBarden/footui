@@ -47,6 +47,7 @@ func NewRootCmd() *cobra.Command {
 	root.AddCommand(newCompetitionsCmd())
 	root.AddCommand(newLeagueCmd(g))
 	root.AddCommand(newTeamCmd(g))
+	root.AddCommand(newPlayerCmd(g))
 	root.AddCommand(newColorsCmd(g))
 
 	return root

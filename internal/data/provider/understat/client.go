@@ -29,7 +29,10 @@ import (
 	"time"
 )
 
-const baseURL = "https://understat.com"
+// defaultBaseURL is understat.com. It is a Client field rather than a
+// package constant so tests can point the client at a local server and
+// exercise the retry, throttle, and cache paths without a network.
+const defaultBaseURL = "https://understat.com"
 
 // CacheDirEnv names an optional directory for caching raw endpoint
 // responses on disk. When it's set, a league/season payload is read from
@@ -60,6 +63,7 @@ const (
 // same league/season only trigger one HTTP fetch.
 type Client struct {
 	httpClient *http.Client
+	baseURL    string
 	minGap     time.Duration
 	// cacheDir, when non-empty, is a directory of raw JSON responses read
 	// before hitting the network and written after a successful fetch.
@@ -75,6 +79,7 @@ type Client struct {
 func NewClient(minGap time.Duration) *Client {
 	return &Client{
 		httpClient: &http.Client{Timeout: requestTimeout},
+		baseURL:    defaultBaseURL,
 		minGap:     minGap,
 		cacheDir:   os.Getenv(CacheDirEnv),
 		cache:      make(map[string]*leagueData),
@@ -85,6 +90,7 @@ func NewClient(minGap time.Duration) *Client {
 // responses under dir, overriding the environment variable.
 func (c *Client) WithCacheDir(dir string) *Client {
 	clone := NewClient(c.minGap)
+	clone.baseURL = c.baseURL
 	clone.cacheDir = dir
 	return clone
 }
@@ -181,7 +187,7 @@ func (c *Client) writeDiskCache(leagueKey, season string, body []byte) {
 
 // get fetches a league/season payload, retrying transient failures.
 func (c *Client) get(ctx context.Context, leagueKey, season string) ([]byte, error) {
-	url := fmt.Sprintf("%s/getLeagueData/%s/%s", baseURL, leagueKey, season)
+	url := fmt.Sprintf("%s/getLeagueData/%s/%s", c.baseURL, leagueKey, season)
 
 	var lastErr error
 	for attempt := 0; attempt < maxAttempts; attempt++ {
@@ -217,7 +223,7 @@ func (c *Client) attempt(ctx context.Context, url, leagueKey, season string) ([]
 	}
 	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; footui/0.1; +https://github.com/JohnSBarden/footui)")
 	req.Header.Set("X-Requested-With", "XMLHttpRequest")
-	req.Header.Set("Referer", fmt.Sprintf("%s/league/%s", baseURL, leagueKey))
+	req.Header.Set("Referer", fmt.Sprintf("%s/league/%s", c.baseURL, leagueKey))
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {

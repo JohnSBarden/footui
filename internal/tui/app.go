@@ -97,6 +97,11 @@ func NewTeamScreen(deps core.Deps, t models.Team) core.Screen {
 	return team.New(deps, t, "", "")
 }
 
+// NewPlayerScreen constructs the Player screen, for `footy player <name>`.
+func NewPlayerScreen(deps core.Deps, p models.Player) core.Screen {
+	return player.New(deps, p, "")
+}
+
 // NewBrowseScreen constructs the Browse screen, optionally pre-filled with
 // a search query. It is what bare `footy` opens, and where an ambiguous
 // `footy team <name>` lands.
