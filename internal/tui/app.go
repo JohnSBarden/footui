@@ -19,6 +19,7 @@ import (
 	"github.com/JohnSBarden/footui/internal/tui/core"
 	"github.com/JohnSBarden/footui/internal/tui/screens/browse"
 	"github.com/JohnSBarden/footui/internal/tui/screens/league"
+	"github.com/JohnSBarden/footui/internal/tui/screens/player"
 	"github.com/JohnSBarden/footui/internal/tui/screens/team"
 	"github.com/JohnSBarden/footui/internal/tui/styles"
 )
@@ -66,6 +67,9 @@ func navigator() core.Navigator {
 		},
 		Team: func(deps core.Deps, t models.Team, competitionID, seasonID string) core.Screen {
 			return team.New(deps, t, competitionID, seasonID)
+		},
+		Player: func(deps core.Deps, p models.Player, teamID string) core.Screen {
+			return player.New(deps, p, teamID)
 		},
 		Browse: func(deps core.Deps, query string) core.Screen {
 			return browse.New(deps, query)
