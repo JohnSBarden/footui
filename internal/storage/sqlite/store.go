@@ -399,6 +399,52 @@ func (s *Store) ListTeams(ctx context.Context) ([]models.Team, error) {
 	return out, rows.Err()
 }
 
+// --- SyncLogRepo ---
+
+func (s *Store) RecordSyncRun(ctx context.Context, r models.SyncRun) error {
+	_, err := s.db.ExecContext(ctx, `
+		INSERT INTO sync_log (provider, entity_type, competition_id, season_id,
+			started_at, finished_at, status, rows_upserted, error)
+		VALUES (?, 'competition_season', ?, ?, ?, ?, ?, ?, ?)`,
+		r.Provider, r.CompetitionID, r.SeasonID,
+		formatTime(r.StartedAt), formatTime(r.FinishedAt),
+		r.Status, r.RowsUpserted, nullString(r.Error))
+	if err != nil {
+		return fmt.Errorf("sqlite: record sync run %s/%s: %w", r.CompetitionID, r.SeasonID, err)
+	}
+	return nil
+}
+
+func (s *Store) LatestSyncRun(ctx context.Context, competitionID, seasonID string) (models.SyncRun, error) {
+	var r models.SyncRun
+	var startedAt, finishedAt string
+	var errText sql.NullString
+
+	err := s.db.QueryRowContext(ctx, `
+		SELECT id, provider, competition_id, season_id, started_at, finished_at,
+			status, rows_upserted, error
+		FROM sync_log
+		WHERE competition_id = ? AND season_id = ?
+		ORDER BY finished_at DESC LIMIT 1`, competitionID, seasonID).
+		Scan(&r.ID, &r.Provider, &r.CompetitionID, &r.SeasonID, &startedAt, &finishedAt,
+			&r.Status, &r.RowsUpserted, &errText)
+	if errors.Is(err, sql.ErrNoRows) {
+		return r, fmt.Errorf("sqlite: sync_log %s/%s: %w", competitionID, seasonID, storage.ErrNotFound)
+	}
+	if err != nil {
+		return r, fmt.Errorf("sqlite: latest sync run %s/%s: %w", competitionID, seasonID, err)
+	}
+
+	if t, err := parseTime(startedAt); err == nil {
+		r.StartedAt = t
+	}
+	if t, err := parseTime(finishedAt); err == nil {
+		r.FinishedAt = t
+	}
+	r.Error = errText.String
+	return r, nil
+}
+
 // --- TrophiesRepo ---
 
 func (s *Store) InsertTrophy(ctx context.Context, t models.Trophy) error {

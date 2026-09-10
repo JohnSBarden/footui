@@ -16,8 +16,10 @@ package understat
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -40,6 +42,17 @@ const baseURL = "https://understat.com"
 // third-party endpoint with identical requests.
 const CacheDirEnv = "FOOTY_HTTP_CACHE"
 
+// Retry policy. The request timeout is kept short enough that a full
+// retry cycle against a dead host costs well under a minute, because
+// `footy refresh --all` multiplies whatever this is by every
+// competition-season in the run.
+const (
+	requestTimeout = 15 * time.Second
+	maxAttempts    = 3
+	baseBackoff    = 500 * time.Millisecond
+	maxBackoff     = 4 * time.Second
+)
+
 // Client fetches and caches per-(league,season) payloads from
 // understat.com. A single payload contains everything needed to satisfy
 // StandingsProvider, TeamStatsProvider, XGProvider, and PlayerStatsProvider
@@ -61,7 +74,7 @@ type Client struct {
 // between outbound requests (politeness towards an undocumented endpoint).
 func NewClient(minGap time.Duration) *Client {
 	return &Client{
-		httpClient: &http.Client{Timeout: 30 * time.Second},
+		httpClient: &http.Client{Timeout: requestTimeout},
 		minGap:     minGap,
 		cacheDir:   os.Getenv(CacheDirEnv),
 		cache:      make(map[string]*leagueData),
@@ -108,28 +121,9 @@ func (c *Client) fetchLeagueData(ctx context.Context, leagueKey, season string) 
 		return nil, err
 	}
 
-	url := fmt.Sprintf("%s/getLeagueData/%s/%s", baseURL, leagueKey, season)
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	body, err := c.get(ctx, leagueKey, season)
 	if err != nil {
-		return nil, fmt.Errorf("understat: build request: %w", err)
-	}
-	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; footui/0.1; +https://github.com/JohnSBarden/footui)")
-	req.Header.Set("X-Requested-With", "XMLHttpRequest")
-	req.Header.Set("Referer", fmt.Sprintf("%s/league/%s", baseURL, leagueKey))
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("understat: fetch %s %s: %w", leagueKey, season, err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("understat: fetch %s %s: unexpected status %d from %s", leagueKey, season, resp.StatusCode, url)
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("understat: read %s %s: %w", leagueKey, season, err)
+		return nil, err
 	}
 
 	var payload leagueData
@@ -183,6 +177,137 @@ func (c *Client) writeDiskCache(leagueKey, season string, body []byte) {
 		return
 	}
 	_ = os.WriteFile(path, body, 0o644)
+}
+
+// get fetches a league/season payload, retrying transient failures.
+func (c *Client) get(ctx context.Context, leagueKey, season string) ([]byte, error) {
+	url := fmt.Sprintf("%s/getLeagueData/%s/%s", baseURL, leagueKey, season)
+
+	var lastErr error
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		if attempt > 0 {
+			if err := sleepCtx(ctx, backoffFor(attempt)); err != nil {
+				return nil, err
+			}
+		}
+
+		body, err := c.attempt(ctx, url, leagueKey, season)
+		if err == nil {
+			return body, nil
+		}
+		lastErr = err
+
+		if !retryable(err) {
+			return nil, err
+		}
+	}
+
+	return nil, fmt.Errorf("understat: fetch %s %s: giving up after %d attempts: %w",
+		leagueKey, season, maxAttempts, lastErr)
+}
+
+func (c *Client) attempt(ctx context.Context, url, leagueKey, season string) ([]byte, error) {
+	if err := c.throttle(ctx); err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("understat: build request: %w", err)
+	}
+	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; footui/0.1; +https://github.com/JohnSBarden/footui)")
+	req.Header.Set("X-Requested-With", "XMLHttpRequest")
+	req.Header.Set("Referer", fmt.Sprintf("%s/league/%s", baseURL, leagueKey))
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("understat: fetch %s %s: %w", leagueKey, season, err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, &httpStatusError{
+			Status:    resp.StatusCode,
+			LeagueKey: leagueKey,
+			Season:    season,
+			URL:       url,
+		}
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("understat: read %s %s: %w", leagueKey, season, err)
+	}
+	return body, nil
+}
+
+// httpStatusError is a non-200 response, kept as a type so retryability
+// can be decided on the status code rather than by matching error strings.
+type httpStatusError struct {
+	Status    int
+	LeagueKey string
+	Season    string
+	URL       string
+}
+
+func (e *httpStatusError) Error() string {
+	return fmt.Sprintf("understat: fetch %s %s: unexpected status %d from %s",
+		e.LeagueKey, e.Season, e.Status, e.URL)
+}
+
+// retryable reports whether an error is worth another attempt.
+//
+// The distinction that matters is transient versus settled. A timeout or a
+// 503 may well succeed a second later. A 404 means the league/season
+// genuinely isn't there, and a DNS failure means the host can't be
+// resolved at all — retrying either just multiplies the wait before the
+// user learns the same thing.
+func retryable(err error) bool {
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		// A cancelled parent context is the user interrupting.
+		return false
+	}
+
+	var statusErr *httpStatusError
+	if errors.As(err, &statusErr) {
+		return statusErr.Status == http.StatusTooManyRequests || statusErr.Status >= 500
+	}
+
+	var dnsErr *net.DNSError
+	if errors.As(err, &dnsErr) {
+		// A temporary resolver hiccup is worth retrying; "no such host"
+		// is not.
+		return dnsErr.IsTemporary || dnsErr.IsTimeout
+	}
+
+	var netErr net.Error
+	if errors.As(err, &netErr) {
+		return netErr.Timeout()
+	}
+
+	// Anything else (a malformed request, a read failure) is treated as
+	// settled: retrying an unclassified error risks hammering the endpoint
+	// for no reason.
+	return false
+}
+
+// backoffFor returns the delay before the given attempt (1-indexed after
+// the first), growing exponentially.
+func backoffFor(attempt int) time.Duration {
+	d := baseBackoff << (attempt - 1)
+	if d > maxBackoff {
+		return maxBackoff
+	}
+	return d
+}
+
+func sleepCtx(ctx context.Context, d time.Duration) error {
+	select {
+	case <-time.After(d):
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 func (c *Client) throttle(ctx context.Context) error {

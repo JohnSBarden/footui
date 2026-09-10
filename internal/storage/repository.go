@@ -63,6 +63,14 @@ type TeamsRepo interface {
 	ListTeams(ctx context.Context) ([]models.Team, error)
 }
 
+// SyncLogRepo records refresh attempts and answers staleness questions.
+type SyncLogRepo interface {
+	RecordSyncRun(ctx context.Context, r models.SyncRun) error
+	// LatestSyncRun returns the most recent attempt for one
+	// competition-season, or ErrNotFound if it has never been attempted.
+	LatestSyncRun(ctx context.Context, competitionID, seasonID string) (models.SyncRun, error)
+}
+
 // TrophiesRepo persists and queries a club's honours.
 type TrophiesRepo interface {
 	InsertTrophy(ctx context.Context, t models.Trophy) error
@@ -134,4 +142,5 @@ type Repositories interface {
 	PlayerStatsRepo
 	TeamColorsRepo
 	TrophiesRepo
+	SyncLogRepo
 }

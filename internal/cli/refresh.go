@@ -59,7 +59,7 @@ func newRefreshCmd(g *globalFlags) *cobra.Command {
 			}
 			defer db.Close()
 
-			syncer := sync.New(understat.New(), store)
+			syncer := sync.New(understat.New(), store).WithProviderName("understat")
 
 			fmt.Fprintf(out, "Refreshing %d competition-season(s)…\n\n", len(comps)*len(seasons))
 			// Print each unit as it lands rather than batching the whole
@@ -158,11 +158,14 @@ func displaySeasons(seasons []string) []string {
 // a cron job.
 func printUnit(out io.Writer, r sync.UnitResult) {
 	label := fmt.Sprintf("%-24s %-8s", r.Competition.ID, seasonDisplay(r.Season.Label))
-	if r.Failed() {
+	switch {
+	case r.Skipped:
+		fmt.Fprintf(out, "  skip  %s  %v\n", label, r.Err)
+	case r.Failed():
 		fmt.Fprintf(out, "  FAIL  %s  %v\n", label, r.Err)
-		return
+	default:
+		fmt.Fprintf(out, "  ok    %s  %3d teams, %4d players\n", label, r.Result.Teams, r.Result.PlayerStats)
 	}
-	fmt.Fprintf(out, "  ok    %s  %3d teams, %4d players\n", label, r.Result.Teams, r.Result.PlayerStats)
 }
 
 func report(out io.Writer, results []sync.UnitResult, dbPath string) error {
@@ -171,8 +174,12 @@ func report(out io.Writer, results []sync.UnitResult, dbPath string) error {
 		s.Succeeded, s.Units, s.Totals.Teams, s.Totals.TeamStats, s.Totals.Players, s.Totals.PlayerStats)
 	fmt.Fprintf(out, "Cached at %s\n", dbPath)
 
-	if s.Succeeded == 0 && s.Failed > 0 {
-		return fmt.Errorf("every competition-season failed (%d of %d)", s.Failed, s.Units)
+	if s.Skipped > 0 {
+		fmt.Fprintf(out, "%d skipped after repeated failures — the provider looks unreachable.\n", s.Skipped)
+	}
+
+	if s.Succeeded == 0 && (s.Failed > 0 || s.Skipped > 0) {
+		return fmt.Errorf("nothing was refreshed (%d failed, %d skipped of %d)", s.Failed, s.Skipped, s.Units)
 	}
 	if s.Failed > 0 {
 		fmt.Fprintf(out, "\n%d competition-season(s) failed; the rest were cached.\n", s.Failed)

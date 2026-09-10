@@ -149,6 +149,36 @@ type Trophy struct {
 	Source        string
 }
 
+// SyncRun records one attempt to refresh one competition-season. Failed
+// attempts are recorded too: "we tried an hour ago and it didn't work" is
+// different from "we haven't tried since Tuesday", and a staleness
+// indicator that hides failures would show the second when it means the
+// first.
+type SyncRun struct {
+	ID            int64
+	Provider      string
+	CompetitionID string
+	SeasonID      string
+	StartedAt     time.Time
+	FinishedAt    time.Time
+	Status        string // SyncStatus* below
+	RowsUpserted  int
+	Error         string
+}
+
+// Sync run statuses.
+const (
+	SyncStatusOK = "ok"
+	// SyncStatusFailed is a unit that was attempted and errored.
+	SyncStatusFailed = "failed"
+	// SyncStatusSkipped is a unit that was never attempted, because the
+	// run gave up after repeated failures.
+	SyncStatusSkipped = "skipped"
+)
+
+// Succeeded reports whether the run completed without error.
+func (r SyncRun) Succeeded() bool { return r.Status == SyncStatusOK }
+
 // TeamColors are the brand colors used to theme a Team's dashboard.
 type TeamColors struct {
 	TeamID       string

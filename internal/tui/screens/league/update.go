@@ -33,6 +33,7 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 			return m, nil
 		}
 		m.rows = msg.rows
+		m.lastSync = msg.lastSync
 		m.cursor = 0
 		m.loading = false
 		m.loaded = true
@@ -100,6 +101,7 @@ func (m *Model) selectSeason(idx int) tea.Cmd {
 	m.seasonIdx = idx
 	m.loading = true
 	m.rows = nil
+	m.lastSync = nil
 	m.cursor = 0
 	return m.loadStandings(m.seasons[idx].ID)
 }

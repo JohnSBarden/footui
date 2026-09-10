@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/JohnSBarden/footui/internal/data/models"
 	"github.com/JohnSBarden/footui/internal/storage"
@@ -228,4 +229,56 @@ func selectedName(t *testing.T, s core.Screen) string {
 		t.Fatal("no row selected")
 	}
 	return row.Team.Name
+}
+
+func TestFreshnessShowsWhenTheSeasonWasLastRefreshed(t *testing.T) {
+	repos := storagetest.New(t)
+	storagetest.SeedCompetition(t, repos, storagetest.PremierLeague(), "2025", storagetest.SampleStandings())
+
+	if err := repos.RecordSyncRun(context.Background(), models.SyncRun{
+		Provider: "understat", CompetitionID: "eng-premier-league", SeasonID: "eng-premier-league:2025",
+		StartedAt: time.Now().Add(-3 * time.Hour), FinishedAt: time.Now().Add(-3 * time.Hour),
+		Status: models.SyncStatusOK, RowsUpserted: 20,
+	}); err != nil {
+		t.Fatalf("RecordSyncRun: %v", err)
+	}
+
+	s := tuitest.Resize(t, tuitest.Settle(t, league.New(newDeps(repos), "eng-premier-league")), 100, 30)
+	if out := s.View(); !strings.Contains(out, "updated 3 hours ago") {
+		t.Errorf("expected a freshness indicator\n---\n%s", out)
+	}
+}
+
+// "We tried an hour ago and it broke" is what the user needs to act on, so
+// a failed attempt must not be reported as though the data is simply old.
+func TestAFailedRefreshIsReportedAsAFailureNotAsStaleness(t *testing.T) {
+	repos := storagetest.New(t)
+	storagetest.SeedCompetition(t, repos, storagetest.PremierLeague(), "2025", storagetest.SampleStandings())
+
+	if err := repos.RecordSyncRun(context.Background(), models.SyncRun{
+		Provider: "understat", CompetitionID: "eng-premier-league", SeasonID: "eng-premier-league:2025",
+		StartedAt: time.Now().Add(-time.Hour), FinishedAt: time.Now().Add(-time.Hour),
+		Status: models.SyncStatusFailed, Error: "upstream unreachable",
+	}); err != nil {
+		t.Fatalf("RecordSyncRun: %v", err)
+	}
+
+	out := tuitest.Resize(t, tuitest.Settle(t, league.New(newDeps(repos), "eng-premier-league")), 100, 30).View()
+	if !strings.Contains(out, "refresh failed 1 hour ago") {
+		t.Errorf("expected the failure surfaced\n---\n%s", out)
+	}
+	if strings.Contains(out, "updated 1 hour ago") {
+		t.Errorf("a failed attempt was reported as a successful update\n---\n%s", out)
+	}
+}
+
+// Data that predates sync logging, or was seeded by hand, has no run to
+// report — that's normal and must not produce a misleading note.
+func TestNoSyncHistoryShowsNoFreshnessNote(t *testing.T) {
+	s, _ := screen(t, storagetest.SampleStandings())
+
+	out := s.View()
+	if strings.Contains(out, "updated") || strings.Contains(out, "refresh failed") {
+		t.Errorf("expected no freshness note without a sync log entry\n---\n%s", out)
+	}
 }

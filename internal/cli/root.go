@@ -25,6 +25,9 @@ func NewRootCmd() *cobra.Command {
 			"leagues, teams, and players across multiple competitions and seasons.",
 		Args:         cobra.NoArgs,
 		SilenceUsage: true,
+		// Errors are printed once, by Execute below. Without this Cobra
+		// prints them too and every failure appears twice.
+		SilenceErrors: true,
 		// Bare `footy` opens the Browse screen over whatever is cached.
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmdContext(cmd)

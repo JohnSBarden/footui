@@ -36,6 +36,10 @@ type Model struct {
 	rows   []Row
 	cursor int
 
+	// lastSync is the most recent refresh attempt for the displayed
+	// season, or nil when it has never been attempted.
+	lastSync *models.SyncRun
+
 	width  int
 	height int
 
@@ -82,6 +86,10 @@ type competitionLoadedMsg struct {
 type standingsLoadedMsg struct {
 	seasonID string
 	rows     []Row
+	// lastSync is nil when this competition-season has never been
+	// refreshed — a normal state for data loaded before sync logging
+	// existed, or seeded by hand.
+	lastSync *models.SyncRun
 }
 
 // --- commands ---
@@ -135,7 +143,15 @@ func (m *Model) loadStandings(seasonID string) tea.Cmd {
 			}
 			rows = append(rows, Row{Stats: s, Team: team})
 		}
-		return standingsLoadedMsg{seasonID: seasonID, rows: rows}
+
+		// A missing sync log entry is expected, not an error, so it never
+		// fails the load.
+		var lastSync *models.SyncRun
+		if run, err := deps.Repos.LatestSyncRun(deps.Ctx, compID, seasonID); err == nil {
+			lastSync = &run
+		}
+
+		return standingsLoadedMsg{seasonID: seasonID, rows: rows, lastSync: lastSync}
 	}
 }
 

@@ -190,3 +190,133 @@ func TestSyncManyReportsProgressAsUnitsFinish(t *testing.T) {
 		}
 	}
 }
+
+// A run against a dead host would otherwise pay the full network timeout
+// for every competition-season in turn. Consecutive failures are the
+// signal to stop.
+func TestSyncManyGivesUpAfterConsecutiveFailures(t *testing.T) {
+	src := &flakySource{failOn: map[string]bool{}}
+	for _, id := range []string{"a-league", "b-league", "c-league", "d-league", "e-league"} {
+		src.failOn[id+"/2025"] = true
+	}
+	syncer := newSyncer(t, src)
+	syncer.MaxConsecutiveFailures = 3
+
+	results := syncer.SyncMany(context.Background(),
+		competitions("a-league", "b-league", "c-league", "d-league", "e-league"),
+		[]string{"2025"}, nil)
+
+	s := sync.Summarize(results)
+	if s.Failed != 3 {
+		t.Errorf("attempted %d units, want it to stop after 3", s.Failed)
+	}
+	if s.Skipped != 2 {
+		t.Errorf("skipped %d units, want the remaining 2", s.Skipped)
+	}
+	// Only three units should have reached the source.
+	if src.calls != 3 {
+		t.Errorf("made %d upstream calls after giving up, want 3", src.calls)
+	}
+}
+
+// A run where every other competition works is healthy and must not be
+// cut short — total failures are not the signal, consecutive ones are.
+func TestInterleavedFailuresDoNotTripTheCircuitBreaker(t *testing.T) {
+	src := &flakySource{failOn: map[string]bool{
+		"a-league/2025": true,
+		"c-league/2025": true,
+		"e-league/2025": true,
+	}}
+	syncer := newSyncer(t, src)
+	syncer.MaxConsecutiveFailures = 3
+
+	results := syncer.SyncMany(context.Background(),
+		competitions("a-league", "b-league", "c-league", "d-league", "e-league"),
+		[]string{"2025"}, nil)
+
+	s := sync.Summarize(results)
+	if s.Skipped != 0 {
+		t.Errorf("skipped %d units; three non-consecutive failures should not stop a run", s.Skipped)
+	}
+	if s.Succeeded != 2 || s.Failed != 3 {
+		t.Errorf("unexpected summary: %+v", s)
+	}
+}
+
+func TestSkippedUnitsAreDistinctFromFailures(t *testing.T) {
+	src := &flakySource{failOn: map[string]bool{
+		"a-league/2025": true, "b-league/2025": true,
+	}}
+	syncer := newSyncer(t, src)
+	syncer.MaxConsecutiveFailures = 2
+
+	results := syncer.SyncMany(context.Background(),
+		competitions("a-league", "b-league", "c-league"), []string{"2025"}, nil)
+
+	last := results[len(results)-1]
+	if !last.Skipped {
+		t.Fatal("the unit after the breaker tripped should be marked skipped")
+	}
+	if last.Err == nil {
+		t.Error("a skipped unit should still explain why it was skipped")
+	}
+}
+
+func TestSyncRecordsEveryAttemptInTheSyncLog(t *testing.T) {
+	src := &flakySource{failOn: map[string]bool{"b-league/2025": true}}
+	db, err := sqlite.Open(":memory:")
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer db.Close()
+	store := sqlite.NewStore(db)
+	syncer := sync.New(src, store).WithProviderName("fake")
+
+	syncer.SyncMany(context.Background(),
+		competitions("a-league", "b-league"), []string{"2025"}, nil)
+
+	ok, err := store.LatestSyncRun(context.Background(), "a-league", "a-league:2025")
+	if err != nil {
+		t.Fatalf("LatestSyncRun (success): %v", err)
+	}
+	if !ok.Succeeded() {
+		t.Errorf("successful sync recorded as %q", ok.Status)
+	}
+	if ok.Provider != "fake" {
+		t.Errorf("provider = %q, want the name the syncer was given", ok.Provider)
+	}
+
+	// A failure must be recorded too: "we tried an hour ago and it broke"
+	// is different from "we haven't tried since Tuesday", and a staleness
+	// indicator that hid failures would show the wrong one.
+	failed, err := store.LatestSyncRun(context.Background(), "b-league", "b-league:2025")
+	if err != nil {
+		t.Fatalf("LatestSyncRun (failure): %v", err)
+	}
+	if failed.Succeeded() {
+		t.Error("failed sync recorded as a success")
+	}
+	if failed.Error == "" {
+		t.Error("failed sync recorded without its error message")
+	}
+}
+
+// A logging failure must not turn a successful refresh into an error.
+func TestSyncSucceedsEvenIfTheSyncLogCannotBeWritten(t *testing.T) {
+	src := &flakySource{failOn: map[string]bool{}}
+	db, err := sqlite.Open(":memory:")
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer db.Close()
+	if _, err := db.Exec(`DROP TABLE sync_log`); err != nil {
+		t.Fatalf("drop sync_log: %v", err)
+	}
+
+	syncer := sync.New(src, sqlite.NewStore(db))
+	results := syncer.SyncMany(context.Background(), competitions("a-league"), []string{"2025"}, nil)
+
+	if sync.Summarize(results).Succeeded != 1 {
+		t.Errorf("a broken audit table should not fail the refresh: %+v", results[0].Err)
+	}
+}

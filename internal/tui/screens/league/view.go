@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/lipgloss"
 
@@ -106,9 +107,32 @@ func (m *Model) header() string {
 	}
 
 	if seasonBar := m.seasonBar(); seasonBar != "" {
+		if freshness := m.freshnessNote(); freshness != "" {
+			seasonBar += "   " + freshness
+		}
 		return line + "\n" + seasonBar
 	}
 	return line
+}
+
+// freshnessNote says when this season was last refreshed. A failed attempt
+// is reported as a failure rather than silently showing the older
+// successful time, because "we tried and it broke" is what the user needs
+// to act on.
+func (m *Model) freshnessNote() string {
+	th := m.deps.Theme
+	if m.lastSync == nil {
+		return ""
+	}
+
+	ago := components.Freshness(m.lastSync.FinishedAt, time.Now())
+	if ago == "" {
+		return ""
+	}
+	if !m.lastSync.Succeeded() {
+		return th.Negative.Render("refresh failed " + ago)
+	}
+	return th.Muted.Render("updated " + ago)
 }
 
 // seasonBar renders the season selector. It's shown even with a single

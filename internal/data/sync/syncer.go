@@ -7,6 +7,7 @@ package sync
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/JohnSBarden/footui/internal/data/models"
 	"github.com/JohnSBarden/footui/internal/data/provider"
@@ -22,14 +23,45 @@ type Source interface {
 	provider.LeaguePlayersProvider
 }
 
+// DefaultMaxConsecutiveFailures is how many units may fail back-to-back
+// before a run gives up on the rest.
+//
+// Without this, a full refresh against an unreachable host works through
+// every competition and season in turn, paying the full network timeout
+// for each: sixty units at thirty seconds is half an hour of waiting to
+// learn something the third failure already established. Consecutive
+// failures are the signal, not total failures — a run where every other
+// competition succeeds is working fine and should continue.
+const DefaultMaxConsecutiveFailures = 3
+
 // Syncer runs refreshes against a Source and a storage.Repositories.
 type Syncer struct {
 	source Source
 	repos  storage.Repositories
+	// providerName is recorded in the sync log.
+	providerName string
+	// MaxConsecutiveFailures bounds how many units may fail in a row
+	// before the run gives up. Zero means DefaultMaxConsecutiveFailures;
+	// negative disables the check entirely.
+	MaxConsecutiveFailures int
 }
 
 func New(source Source, repos storage.Repositories) *Syncer {
-	return &Syncer{source: source, repos: repos}
+	return &Syncer{source: source, repos: repos, providerName: "unknown"}
+}
+
+// WithProviderName sets the name recorded as the provenance of sync log
+// entries.
+func (s *Syncer) WithProviderName(name string) *Syncer {
+	s.providerName = name
+	return s
+}
+
+func (s *Syncer) maxConsecutiveFailures() int {
+	if s.MaxConsecutiveFailures == 0 {
+		return DefaultMaxConsecutiveFailures
+	}
+	return s.MaxConsecutiveFailures
 }
 
 // Result summarizes what a SyncCompetitionSeason call did, for CLI output
@@ -45,6 +77,44 @@ type Result struct {
 // for one competition+season: teams, standings (including xG where the
 // source has it), and player rosters with season stats.
 func (s *Syncer) SyncCompetitionSeason(ctx context.Context, comp models.Competition, season models.Season) (Result, error) {
+	startedAt := time.Now().UTC()
+	res, err := s.syncCompetitionSeason(ctx, comp, season)
+	s.recordRun(ctx, comp, season, startedAt, res, err)
+	return res, err
+}
+
+// recordRun writes the attempt to the sync log. Failures are recorded too:
+// a staleness indicator that only saw successes would say "last refreshed
+// Tuesday" when the truth is "tried an hour ago and it failed".
+//
+// A logging failure is deliberately swallowed. The refresh either worked or
+// didn't, and turning a successful sync into an error because the audit row
+// wouldn't write would be the wrong trade.
+func (s *Syncer) recordRun(ctx context.Context, comp models.Competition, season models.Season,
+	startedAt time.Time, res Result, syncErr error) {
+
+	run := models.SyncRun{
+		Provider:      s.providerName,
+		CompetitionID: comp.ID,
+		SeasonID:      season.ID,
+		StartedAt:     startedAt,
+		FinishedAt:    time.Now().UTC(),
+		Status:        models.SyncStatusOK,
+		RowsUpserted:  res.TeamStats + res.PlayerStats,
+	}
+	if syncErr != nil {
+		run.Status = models.SyncStatusFailed
+		run.Error = syncErr.Error()
+	}
+
+	// A cancelled context can't write anything, so don't try.
+	if ctx.Err() != nil {
+		return
+	}
+	_ = s.repos.RecordSyncRun(ctx, run)
+}
+
+func (s *Syncer) syncCompetitionSeason(ctx context.Context, comp models.Competition, season models.Season) (Result, error) {
 	var res Result
 
 	if err := s.repos.UpsertCompetition(ctx, comp); err != nil {
@@ -115,6 +185,11 @@ type UnitResult struct {
 	Season      models.Season
 	Result      Result
 	Err         error
+	// Skipped marks a unit that was never attempted because the run gave
+	// up after repeated failures. It is reported separately from a
+	// failure: nothing is known about a skipped unit, whereas a failed one
+	// was tried and didn't work.
+	Skipped bool
 }
 
 // Failed reports whether this unit errored.
@@ -150,6 +225,10 @@ func (s *Syncer) SyncMany(ctx context.Context, comps []models.Competition, seaso
 		}
 	}
 
+	consecutiveFailures := 0
+	limit := s.maxConsecutiveFailures()
+	gaveUp := false
+
 	for _, comp := range comps {
 		for _, year := range seasonYears {
 			season := NewSeason(comp.ID, year)
@@ -159,8 +238,23 @@ func (s *Syncer) SyncMany(ctx context.Context, comps []models.Competition, seaso
 				return results
 			}
 
+			if gaveUp {
+				record(UnitResult{Competition: comp, Season: season, Skipped: true,
+					Err: fmt.Errorf("skipped after %d consecutive failures", limit)})
+				continue
+			}
+
 			res, err := s.SyncCompetitionSeason(ctx, comp, season)
 			record(UnitResult{Competition: comp, Season: season, Result: res, Err: err})
+
+			if err != nil {
+				consecutiveFailures++
+				if limit > 0 && consecutiveFailures >= limit {
+					gaveUp = true
+				}
+			} else {
+				consecutiveFailures = 0
+			}
 		}
 	}
 
@@ -172,6 +266,7 @@ type Summary struct {
 	Units     int
 	Succeeded int
 	Failed    int
+	Skipped   int
 	Totals    Result
 }
 
@@ -180,6 +275,10 @@ func Summarize(results []UnitResult) Summary {
 	var s Summary
 	s.Units = len(results)
 	for _, r := range results {
+		if r.Skipped {
+			s.Skipped++
+			continue
+		}
 		if r.Failed() {
 			s.Failed++
 			continue
