@@ -149,30 +149,51 @@ func (m *Model) seasonsTable() string {
 			components.Text(strconv.Itoa(s.Minutes)),
 			components.Styled(strconv.Itoa(s.Goals), th.Accent.Bold(true)),
 			components.Text(strconv.Itoa(s.Assists)),
-			components.Text(components.Int(s.Shots)),
-			components.Text(components.Int(s.KeyPasses)),
 			components.Text(components.Float(s.XG, 1)),
 			components.Text(components.Float(s.XA, 1)),
+			components.Text(components.Int(s.Shots)),
+			components.Text(components.Int(s.KeyPasses)),
 		})
 	}
 
+	cols := m.columns()
+	for i := range cells {
+		cells[i] = components.TrimRow(cells[i], len(cols))
+	}
+
 	return components.Table(components.TableOpts{
-		Columns: []components.Column{
-			{Title: "Season", Width: 8},
-			{Title: "Team", Width: m.teamColWidth()},
-			{Title: "Apps", Width: 5, Right: true},
-			{Title: "Mins", Width: 5, Right: true},
-			{Title: "G", Width: 4, Right: true},
-			{Title: "A", Width: 4, Right: true},
-			{Title: "Sh", Width: 4, Right: true},
-			{Title: "KP", Width: 4, Right: true},
-			{Title: "xG", Width: 6, Right: true},
-			{Title: "xA", Width: 6, Right: true},
-		},
+		Columns: cols,
 		Rows:    cells,
 		Cursor:  m.cursor,
 		MaxRows: m.tableHeight(),
 		Theme:   th,
+	})
+}
+
+// wantTeamCol keeps club names distinguishable — "Manchester United" and
+// "Manchester City" must never both render as "Manchester …". It never
+// shrinks; see components.FitColumns.
+const wantTeamCol = 22
+
+func (m *Model) columns() []components.Column {
+	base := []components.Column{
+		{Title: "Season", Width: 8},
+		{Title: "Team", Width: wantTeamCol},
+		{Title: "Apps", Width: 5, Right: true},
+		{Title: "Mins", Width: 5, Right: true},
+		{Title: "G", Width: 4, Right: true},
+		{Title: "A", Width: 4, Right: true},
+	}
+
+	return components.FitColumns(m.width, base, 0, [][]components.Column{
+		{
+			{Title: "xG", Width: 6, Right: true},
+			{Title: "xA", Width: 6, Right: true},
+		},
+		{
+			{Title: "Sh", Width: 4, Right: true},
+			{Title: "KP", Width: 4, Right: true},
+		},
 	})
 }
 
@@ -214,19 +235,6 @@ func plural(n int, noun string) string {
 		return "1 " + noun
 	}
 	return strconv.Itoa(n) + " " + noun + "s"
-}
-
-func (m *Model) teamColWidth() int {
-	// Everything except the team column, plus the nine separators.
-	const fixed = 8 + 5 + 5 + 4 + 4 + 4 + 4 + 6 + 6 + 9
-	w := m.width - fixed - 2
-	if w < 14 {
-		return 14
-	}
-	if w > 28 {
-		return 28
-	}
-	return w
 }
 
 func (m *Model) tableHeight() int {

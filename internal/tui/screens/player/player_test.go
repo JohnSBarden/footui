@@ -203,3 +203,30 @@ func TestCareerWithoutExpectedGoalsOmitsThoseTotals(t *testing.T) {
 		t.Errorf("absent xG rendered as a zero total\n---\n%s", out)
 	}
 }
+
+// A player's history spans clubs, and two clubs sharing a prefix must stay
+// distinguishable at any width.
+func TestNarrowTerminalsKeepClubNamesIntact(t *testing.T) {
+	repos := storagetest.New(t)
+	storagetest.SeedCompetition(t, repos, storagetest.PremierLeague(), "2025", []storagetest.TeamRow{
+		{ID: "eng-manchester-city", Name: "Manchester City", Position: 1, MP: 38, Pts: 88},
+	})
+	storagetest.SeedCompetition(t, repos, storagetest.PremierLeague(), "2024", []storagetest.TeamRow{
+		{ID: "eng-manchester-united", Name: "Manchester United", Position: 2, MP: 38, Pts: 80},
+	})
+	storagetest.SeedRoster(t, repos, "eng-manchester-city", "eng-premier-league", "eng-premier-league:2025",
+		[]storagetest.PlayerRow{{ID: haaland.ID, Name: haaland.Name, Apps: 35, Minutes: 2979, Goals: 27, XG: 28.8}})
+	storagetest.SeedRoster(t, repos, "eng-manchester-united", "eng-premier-league", "eng-premier-league:2024",
+		[]storagetest.PlayerRow{{ID: haaland.ID, Name: haaland.Name, Apps: 30, Minutes: 2500, Goals: 20, XG: 21.4}})
+
+	for _, width := range []int{60, 70, 80, 100, 130} {
+		s := tuitest.Settle(t, player.New(newDeps(repos), haaland, ""))
+		out := tuitest.Resize(t, s, width, 34).View()
+
+		for _, club := range []string{"Manchester City", "Manchester United"} {
+			if !strings.Contains(out, club) {
+				t.Errorf("width %d truncated %q\n---\n%s", width, club, out)
+			}
+		}
+	}
+}

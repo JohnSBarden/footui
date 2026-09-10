@@ -474,3 +474,31 @@ func TestLongHonoursListsAreSummarized(t *testing.T) {
 		t.Errorf("a 21-season list should be summarized rather than wrapping the terminal\n---\n%s", out)
 	}
 }
+
+// Same rule as the League table: a narrow terminal gives up detail, never
+// identity. Two squad members with similar names must stay distinguishable.
+func TestNarrowTerminalsKeepPlayerNamesIntact(t *testing.T) {
+	repos := seedTwoCompetitions(t)
+	storagetest.SeedRoster(t, repos, arsenal.ID, "eng-premier-league", "eng-premier-league:2025",
+		[]storagetest.PlayerRow{
+			{ID: "p-zub", Name: "Martín Zubimendi", Position: "D M S", Apps: 38, Minutes: 3040, Goals: 5, XG: 2.9},
+			{ID: "p-zin", Name: "Martín Zubizarreta", Position: "D M S", Apps: 20, Minutes: 1500, Goals: 1, XG: 0.8},
+		})
+
+	for _, width := range []int{60, 70, 80, 100, 130} {
+		s := tuitest.Settle(t, team.New(newDeps(repos), arsenal, "eng-premier-league", "eng-premier-league:2025"))
+		out := tuitest.Resize(t, s, width, 44).View()
+
+		for _, name := range []string{"Martín Zubimendi", "Martín Zubizarreta"} {
+			if !strings.Contains(out, name) {
+				t.Errorf("width %d truncated %q\n---\n%s", width, name, out)
+			}
+		}
+		// The columns the table exists for are never sacrificed.
+		for _, col := range []string{"Apps", "Mins", "G", "A"} {
+			if !strings.Contains(out, col) {
+				t.Errorf("width %d dropped the core column %q\n---\n%s", width, col, out)
+			}
+		}
+	}
+}
