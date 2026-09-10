@@ -10,10 +10,12 @@
 package team
 
 import (
+	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/JohnSBarden/footui/internal/data/models"
 	"github.com/JohnSBarden/footui/internal/tui/core"
+	"github.com/JohnSBarden/footui/internal/tui/keys"
 	"github.com/JohnSBarden/footui/internal/tui/styles"
 )
 
@@ -104,6 +106,18 @@ func New(deps core.Deps, team models.Team, competitionID, seasonID string) *Mode
 
 // Title implements core.Screen.
 func (m *Model) Title() string { return m.team.Name }
+
+// Keys implements core.Screen.
+func (m *Model) Keys() core.KeyMap {
+	return core.KeyMap{
+		Short: []key.Binding{keys.Up, keys.Down, keys.Competition, keys.Pane, keys.Open},
+		Full: [][]key.Binding{
+			{keys.Up, keys.Down, keys.PageUp, keys.PageDown},
+			{keys.Home, keys.End, keys.Competition},
+			{keys.Pane, keys.Open},
+		},
+	}
+}
 
 // Init implements core.Screen.
 func (m *Model) Init() tea.Cmd {

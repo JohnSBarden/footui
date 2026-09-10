@@ -13,6 +13,7 @@ package core
 import (
 	"context"
 
+	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/JohnSBarden/footui/internal/data/models"
@@ -54,6 +55,32 @@ type Screen interface {
 	View() string
 	// Title is shown in the app's breadcrumb bar.
 	Title() string
+	// Keys are the bindings this screen responds to. The root app renders
+	// the footer from them, so a screen never writes its own help text and
+	// the documented keys cannot drift from the handled ones.
+	Keys() KeyMap
+}
+
+// KeyMap is a screen's bindings, split into the few worth a permanent
+// footer and the full set behind "?".
+type KeyMap struct {
+	// Short is the always-visible footer line. Keep it to the handful a
+	// user needs to get around.
+	Short []key.Binding
+	// Full is the expanded help, grouped into columns. When empty, Short
+	// is used for both.
+	Full [][]key.Binding
+}
+
+// ShortHelp implements help.KeyMap.
+func (k KeyMap) ShortHelp() []key.Binding { return k.Short }
+
+// FullHelp implements help.KeyMap.
+func (k KeyMap) FullHelp() [][]key.Binding {
+	if len(k.Full) == 0 {
+		return [][]key.Binding{k.Short}
+	}
+	return k.Full
 }
 
 // PushMsg asks the root model to push a new screen onto the stack. A screen

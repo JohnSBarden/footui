@@ -34,8 +34,6 @@ func (m *Model) View() string {
 		b.WriteString(m.careerLine())
 	}
 
-	b.WriteString("\n\n")
-	b.WriteString(m.footer())
 	return b.String()
 }
 
@@ -257,15 +255,4 @@ func (m *Model) emptyState() string {
 		th.Muted.Render("Run  ") +
 		th.Accent.Render("footy refresh") +
 		th.Muted.Render("  for a competition this player appeared in.")
-}
-
-func (m *Model) footer() string {
-	keys := []string{
-		"↑/↓ season",
-		"←/→ competition",
-		"enter open club",
-		"esc back",
-		"q quit",
-	}
-	return m.deps.Theme.Help.Render(strings.Join(keys, "  ·  "))
 }

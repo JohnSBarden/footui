@@ -7,10 +7,12 @@
 package league
 
 import (
+	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/JohnSBarden/footui/internal/data/models"
 	"github.com/JohnSBarden/footui/internal/tui/core"
+	"github.com/JohnSBarden/footui/internal/tui/keys"
 )
 
 // maxSeasons is how many recent seasons the League screen exposes.
@@ -69,6 +71,17 @@ func (m *Model) Title() string {
 		return m.comp.Name
 	}
 	return m.compID
+}
+
+// Keys implements core.Screen.
+func (m *Model) Keys() core.KeyMap {
+	return core.KeyMap{
+		Short: []key.Binding{keys.Up, keys.Down, keys.Season, keys.Open},
+		Full: [][]key.Binding{
+			{keys.Up, keys.Down, keys.PageUp, keys.PageDown},
+			{keys.Home, keys.End, keys.Season, keys.Open},
+		},
+	}
 }
 
 // Init implements core.Screen.

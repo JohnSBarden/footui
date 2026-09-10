@@ -9,10 +9,12 @@
 package player
 
 import (
+	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/JohnSBarden/footui/internal/data/models"
 	"github.com/JohnSBarden/footui/internal/tui/core"
+	"github.com/JohnSBarden/footui/internal/tui/keys"
 )
 
 // SeasonRow is one line of a player's history: their stats for a season,
@@ -61,6 +63,18 @@ func New(deps core.Deps, p models.Player, teamID string) *Model {
 
 // Title implements core.Screen.
 func (m *Model) Title() string { return m.player.Name }
+
+// Keys implements core.Screen.
+func (m *Model) Keys() core.KeyMap {
+	openClub := key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "open club"))
+	return core.KeyMap{
+		Short: []key.Binding{keys.Up, keys.Down, keys.Competition, openClub},
+		Full: [][]key.Binding{
+			{keys.Up, keys.Down, keys.PageUp, keys.PageDown},
+			{keys.Home, keys.End, keys.Competition, openClub},
+		},
+	}
+}
 
 // Init implements core.Screen.
 func (m *Model) Init() tea.Cmd { return m.loadHistory() }

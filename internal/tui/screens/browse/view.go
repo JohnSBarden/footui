@@ -29,8 +29,6 @@ func (m *Model) View() string {
 		b.WriteString(m.resultsTable())
 	}
 
-	b.WriteString("\n\n")
-	b.WriteString(th.Help.Render("↑/↓ move  ·  enter open  ·  esc back  ·  ctrl+c quit"))
 	return b.String()
 }
 

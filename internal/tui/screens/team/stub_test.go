@@ -14,3 +14,5 @@ func (stubScreen) Init() tea.Cmd                           { return nil }
 func (s stubScreen) Update(tea.Msg) (core.Screen, tea.Cmd) { return s, nil }
 func (stubScreen) View() string                            { return "stub" }
 func (stubScreen) Title() string                           { return "stub" }
+
+func (stubScreen) Keys() core.KeyMap { return core.KeyMap{} }

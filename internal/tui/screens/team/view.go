@@ -21,18 +21,12 @@ func (m *Model) View() string {
 	switch {
 	case m.err != nil:
 		b.WriteString(th.Error.Render("Could not load this team: " + m.err.Error()))
-		b.WriteString("\n\n")
-		b.WriteString(m.footer())
 		return b.String()
 	case m.loading:
 		b.WriteString(th.Muted.Render("Loading…"))
-		b.WriteString("\n\n")
-		b.WriteString(m.footer())
 		return b.String()
 	case len(m.competitions) == 0:
 		b.WriteString(m.emptyState())
-		b.WriteString("\n\n")
-		b.WriteString(m.footer())
 		return b.String()
 	}
 
@@ -48,8 +42,6 @@ func (m *Model) View() string {
 		b.WriteString("\n\n")
 		b.WriteString(panel)
 	}
-	b.WriteString("\n\n")
-	b.WriteString(m.footer())
 
 	return b.String()
 }
@@ -348,16 +340,4 @@ func (m *Model) emptyState() string {
 		th.Muted.Render("Run  ") +
 		th.Accent.Render("footy refresh") +
 		th.Muted.Render("  for a competition this team plays in.")
-}
-
-func (m *Model) footer() string {
-	keys := []string{
-		"↑/↓ row",
-		"←/→ competition",
-		"tab seasons/squad",
-		"enter open",
-		"esc back",
-		"q quit",
-	}
-	return m.theme.Help.Render(strings.Join(keys, "  ·  "))
 }

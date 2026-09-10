@@ -76,8 +76,6 @@ func (m *Model) View() string {
 		b.WriteString(m.table())
 	}
 
-	b.WriteString("\n\n")
-	b.WriteString(m.footer())
 	return b.String()
 }
 
@@ -231,16 +229,4 @@ func (m *Model) emptyState(reason string) string {
 		th.Muted.Render("Run  ") +
 		th.Accent.Render("footy refresh --competition "+m.compID) +
 		th.Muted.Render("  to populate it.")
-}
-
-func (m *Model) footer() string {
-	th := m.deps.Theme
-	keys := []string{
-		"↑/↓ team",
-		"←/→ season",
-		"enter open",
-		"esc back",
-		"q quit",
-	}
-	return th.Help.Render(strings.Join(keys, "  ·  "))
 }

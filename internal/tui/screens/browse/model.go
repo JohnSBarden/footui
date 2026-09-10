@@ -8,11 +8,13 @@
 package browse
 
 import (
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/JohnSBarden/footui/internal/data/models"
 	"github.com/JohnSBarden/footui/internal/tui/core"
+	"github.com/JohnSBarden/footui/internal/tui/keys"
 )
 
 // Kind is what a search result points at.
@@ -85,6 +87,14 @@ func New(deps core.Deps, query string) *Model {
 
 // Title implements core.Screen.
 func (m *Model) Title() string { return "Browse" }
+
+// Keys implements core.Screen. The search box owns most keystrokes, so
+// only the bindings that survive text entry are advertised.
+func (m *Model) Keys() core.KeyMap {
+	return core.KeyMap{
+		Short: []key.Binding{keys.Search, keys.Up, keys.Down, keys.Open},
+	}
+}
 
 // Init implements core.Screen.
 func (m *Model) Init() tea.Cmd {

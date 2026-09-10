@@ -12,11 +12,14 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/help"
+	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/JohnSBarden/footui/internal/data/models"
 	"github.com/JohnSBarden/footui/internal/storage"
 	"github.com/JohnSBarden/footui/internal/tui/core"
+	"github.com/JohnSBarden/footui/internal/tui/keys"
 	"github.com/JohnSBarden/footui/internal/tui/screens/browse"
 	"github.com/JohnSBarden/footui/internal/tui/screens/league"
 	"github.com/JohnSBarden/footui/internal/tui/screens/player"
@@ -34,6 +37,9 @@ type App struct {
 
 	status string
 	err    error
+
+	help     help.Model
+	showFull bool
 }
 
 var _ tea.Model = (*App)(nil)
@@ -41,11 +47,14 @@ var _ tea.Model = (*App)(nil)
 // NewApp constructs the root model with initial as the bottom of the
 // navigation stack.
 func NewApp(deps core.Deps, initial core.Screen) *App {
+	h := help.New()
+	h.ShowAll = false
 	return &App{
 		deps:   deps,
 		stack:  []core.Screen{initial},
 		width:  100,
 		height: 30,
+		help:   h,
 	}
 }
 
@@ -175,6 +184,13 @@ func (a *App) handleGlobalKey(key tea.KeyMsg) (bool, tea.Model, tea.Cmd) {
 			return false, a, nil
 		}
 		return true, a, tea.Quit
+	case "?":
+		if entry, ok := a.current().(core.TextEntry); ok && entry.CapturingText() {
+			return false, a, nil
+		}
+		a.showFull = !a.showFull
+		a.help.ShowAll = a.showFull
+		return true, a, nil
 	}
 	return false, a, nil
 }
@@ -196,9 +212,9 @@ func (a *App) screenSize() tea.WindowSizeMsg {
 	return tea.WindowSizeMsg{Width: a.width, Height: a.height - chromeHeight}
 }
 
-// chromeHeight is the number of lines App reserves for the breadcrumb and
-// status line.
-const chromeHeight = 3
+// chromeHeight is the number of lines App reserves for the breadcrumb,
+// footer, and status line.
+const chromeHeight = 5
 
 // View implements tea.Model.
 func (a *App) View() string {
@@ -210,6 +226,9 @@ func (a *App) View() string {
 	}
 
 	b.WriteString(a.current().View())
+
+	b.WriteString("\n\n")
+	b.WriteString(a.footer())
 
 	if line := a.statusLine(); line != "" {
 		b.WriteString("\n")
@@ -228,6 +247,30 @@ func (a *App) breadcrumb() string {
 		titles = append(titles, s.Title())
 	}
 	return a.deps.Theme.Breadcrumb.Render(strings.Join(titles, " › "))
+}
+
+// footer renders the current screen's key bindings. Screens declare
+// bindings rather than help strings, so what the footer promises is always
+// what the screen actually handles.
+func (a *App) footer() string {
+	// The global bindings are the app's, not the screen's, so they're
+	// appended here rather than repeated in every screen's KeyMap — and
+	// to both views, or the expanded help would omit how to get out of it.
+	globals := []key.Binding{keys.Help, keys.Back, keys.Quit}
+
+	km := a.current().Keys()
+	km.Full = append(append([][]key.Binding{}, km.FullHelp()...), globals)
+	km.Short = append(append([]key.Binding{}, km.Short...), globals...)
+
+	a.help.Width = a.width
+	a.help.Styles.ShortKey = a.deps.Theme.Accent
+	a.help.Styles.ShortDesc = a.deps.Theme.Help
+	a.help.Styles.ShortSeparator = a.deps.Theme.Help
+	a.help.Styles.FullKey = a.deps.Theme.Accent
+	a.help.Styles.FullDesc = a.deps.Theme.Help
+	a.help.Styles.FullSeparator = a.deps.Theme.Help
+
+	return a.help.View(km)
 }
 
 func (a *App) statusLine() string {

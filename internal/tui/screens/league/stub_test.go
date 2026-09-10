@@ -16,3 +16,5 @@ func (stubScreen) View() string                            { return "stub" }
 func (stubScreen) Title() string                           { return "stub" }
 
 func enterKey() tea.KeyMsg { return tea.KeyMsg{Type: tea.KeyEnter} }
+
+func (stubScreen) Keys() core.KeyMap { return core.KeyMap{} }

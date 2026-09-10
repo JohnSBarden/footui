@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/JohnSBarden/footui/internal/tui/core"
@@ -18,6 +19,7 @@ type fakeScreen struct {
 	keys        *[]string
 	width       *int
 	capturing   bool
+	keyMap      core.KeyMap
 }
 
 func newFake(name string) fakeScreen {
@@ -61,7 +63,7 @@ func isQuit(cmd tea.Cmd) bool {
 	return ok
 }
 
-func key(name string) tea.KeyMsg {
+func keyPress(name string) tea.KeyMsg {
 	switch name {
 	case "esc":
 		return tea.KeyMsg{Type: tea.KeyEsc}
@@ -93,7 +95,7 @@ func TestEscPopsBackToThePreviousScreen(t *testing.T) {
 	updated, _ := app.Update(core.PushMsg{Screen: newFake("League")})
 	app = updated.(*App)
 
-	updated, cmd := app.Update(key("esc"))
+	updated, cmd := app.Update(keyPress("esc"))
 	app = updated.(*App)
 
 	if isQuit(cmd) {
@@ -107,7 +109,7 @@ func TestEscPopsBackToThePreviousScreen(t *testing.T) {
 func TestEscOnTheLastScreenQuits(t *testing.T) {
 	app := newApp(newFake("Browse"))
 
-	_, cmd := app.Update(key("esc"))
+	_, cmd := app.Update(keyPress("esc"))
 	if !isQuit(cmd) {
 		t.Error("esc with nothing to pop back to should quit")
 	}
@@ -116,7 +118,7 @@ func TestEscOnTheLastScreenQuits(t *testing.T) {
 func TestQQuitsFromAnOrdinaryScreen(t *testing.T) {
 	app := newApp(newFake("League"))
 
-	_, cmd := app.Update(key("q"))
+	_, cmd := app.Update(keyPress("q"))
 	if !isQuit(cmd) {
 		t.Error("q should quit")
 	}
@@ -129,7 +131,7 @@ func TestQReachesAScreenThatIsCapturingText(t *testing.T) {
 	screen.capturing = true
 	app := newApp(screen)
 
-	_, cmd := app.Update(key("q"))
+	_, cmd := app.Update(keyPress("q"))
 	if isQuit(cmd) {
 		t.Fatal("q must not quit while a screen is capturing text")
 	}
@@ -144,7 +146,7 @@ func TestCtrlCAlwaysQuits(t *testing.T) {
 	screen.capturing = true
 	app := newApp(screen)
 
-	_, cmd := app.Update(key("ctrl+c"))
+	_, cmd := app.Update(keyPress("ctrl+c"))
 	if !isQuit(cmd) {
 		t.Error("ctrl+c must quit even while a screen captures text")
 	}
@@ -193,7 +195,7 @@ func TestStatusMessageIsShownThenClearedOnNextKeypress(t *testing.T) {
 		t.Error("status message not shown")
 	}
 
-	updated, _ = app.Update(key("j"))
+	updated, _ = app.Update(keyPress("j"))
 	app = updated.(*App)
 	if strings.Contains(app.View(), "nothing to open") {
 		t.Error("a stale status message should clear once the user acts")
@@ -226,3 +228,85 @@ func TestPushOfANilScreenIsIgnored(t *testing.T) {
 type errFake struct{}
 
 func (errFake) Error() string { return "boom" }
+
+func (f fakeScreen) Keys() core.KeyMap { return f.keyMap }
+
+// Screens declare bindings, not help text, and the app renders the footer
+// from them — so what the footer promises is always what the screen
+// actually handles.
+func TestFooterIsRenderedFromTheScreensBindings(t *testing.T) {
+	screen := newFake("League")
+	screen.keyMap = core.KeyMap{Short: []key.Binding{
+		key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "open club")),
+	}}
+	app := newApp(screen)
+	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+
+	out := app.View()
+	if !strings.Contains(out, "open club") {
+		t.Errorf("footer should show the screen's own binding\n---\n%s", out)
+	}
+	// The global bindings belong to the app, not to each screen.
+	for _, want := range []string{"quit", "back", "keys"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("footer missing the global %q binding\n---\n%s", want, out)
+		}
+	}
+}
+
+func TestQuestionMarkTogglesExpandedHelp(t *testing.T) {
+	screen := newFake("Team")
+	screen.keyMap = core.KeyMap{
+		Short: []key.Binding{key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "open"))},
+		Full: [][]key.Binding{
+			{key.NewBinding(key.WithKeys("pgdown"), key.WithHelp("pgdn", "page down"))},
+		},
+	}
+	app := newApp(screen)
+	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+
+	if strings.Contains(app.View(), "page down") {
+		t.Fatal("the expanded-only binding should be hidden by default")
+	}
+
+	updated, _ := app.Update(keyPress("?"))
+	app = updated.(*App)
+	if !strings.Contains(app.View(), "page down") {
+		t.Error("? should expand the help")
+	}
+
+	updated, _ = app.Update(keyPress("?"))
+	app = updated.(*App)
+	if strings.Contains(app.View(), "page down") {
+		t.Error("? should collapse the help again")
+	}
+}
+
+// Expanded help must still say how to leave it.
+func TestExpandedHelpIncludesTheGlobalBindings(t *testing.T) {
+	screen := newFake("Team")
+	screen.keyMap = core.KeyMap{
+		Short: []key.Binding{key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "open"))},
+		Full:  [][]key.Binding{{key.NewBinding(key.WithKeys("g"), key.WithHelp("g", "first"))}},
+	}
+	app := newApp(screen)
+	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	updated, _ := app.Update(keyPress("?"))
+
+	if out := updated.(*App).View(); !strings.Contains(out, "quit") {
+		t.Errorf("expanded help must still show how to get out\n---\n%s", out)
+	}
+}
+
+// A search box must receive a literal "?" rather than having the app
+// swallow it as a help toggle.
+func TestQuestionMarkReachesAScreenCapturingText(t *testing.T) {
+	screen := newFake("Browse")
+	screen.capturing = true
+	app := newApp(screen)
+
+	app.Update(keyPress("?"))
+	if len(*screen.keys) != 1 || (*screen.keys)[0] != "?" {
+		t.Errorf("screen received %v, want the literal ?", *screen.keys)
+	}
+}
