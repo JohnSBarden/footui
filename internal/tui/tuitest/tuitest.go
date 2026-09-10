@@ -6,6 +6,7 @@ package tuitest
 
 import (
 	"testing"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -33,20 +34,60 @@ func Settle(t *testing.T, s core.Screen) core.Screen {
 }
 
 // Drive feeds cmd's message back into s, repeating until the screen stops
-// issuing commands.
+// issuing commands. tea.Batch results are expanded and each command run,
+// mirroring what the real Bubble Tea runtime does — a screen whose Init
+// batches a blink with a data load must still end up loaded.
 func Drive(t *testing.T, s core.Screen, cmd tea.Cmd) core.Screen {
 	t.Helper()
-	for i := 0; cmd != nil; i++ {
-		if i >= maxSteps {
+
+	queue := []tea.Cmd{cmd}
+	for steps := 0; len(queue) > 0; steps++ {
+		if steps >= maxSteps {
 			t.Fatalf("tuitest: screen still issuing commands after %d steps", maxSteps)
 		}
-		msg := cmd()
-		if msg == nil {
-			break
+
+		next := queue[0]
+		queue = queue[1:]
+		if next == nil {
+			continue
 		}
-		s, cmd = s.Update(msg)
+
+		msg, ok := runCmd(next)
+		if !ok || msg == nil {
+			// A command that doesn't produce a message promptly is a
+			// timer (the text cursor's blink), not a data load. Waiting
+			// on those would add half a second per test and tell us
+			// nothing about the screen's behaviour.
+			continue
+		}
+		if batch, ok := msg.(tea.BatchMsg); ok {
+			queue = append(queue, batch...)
+			continue
+		}
+
+		updated, cmd := s.Update(msg)
+		s = updated
+		queue = append(queue, cmd)
 	}
 	return s
+}
+
+// cmdTimeout is how long a command gets to produce its message before
+// Drive treats it as a timer and moves on. Repository queries against an
+// in-memory database return far inside this.
+const cmdTimeout = 50 * time.Millisecond
+
+// runCmd runs a command, reporting false if it didn't return in time.
+func runCmd(cmd tea.Cmd) (tea.Msg, bool) {
+	done := make(chan tea.Msg, 1)
+	go func() { done <- cmd() }()
+
+	select {
+	case msg := <-done:
+		return msg, true
+	case <-time.After(cmdTimeout):
+		return nil, false
+	}
 }
 
 // Key sends a keystroke to a screen and settles any command it returns.

@@ -116,3 +116,59 @@ func SampleStandings() []TeamRow {
 		{ID: "eng-luton-town", Name: "Luton Town", Position: 4, MP: 38, W: 6, D: 8, L: 24, GF: 39, GA: 85, Pts: 26, NoXG: true},
 	}
 }
+
+// PlayerRow is one player's line in a seeded squad.
+type PlayerRow struct {
+	ID       string
+	Name     string
+	Position string
+	Apps     int
+	Minutes  int
+	Goals    int
+	Assists  int
+	XG, XA   float64
+}
+
+// SeedRoster upserts players and their season stats for one
+// team-competition-season.
+func SeedRoster(t *testing.T, repos storage.Repositories, teamID, competitionID, seasonID string, players []PlayerRow) {
+	t.Helper()
+	ctx := context.Background()
+
+	for _, p := range players {
+		if err := repos.UpsertPlayer(ctx, models.Player{
+			ID: p.ID, Name: p.Name, Position: p.Position, Gender: "men",
+		}); err != nil {
+			t.Fatalf("storagetest: upsert player %s: %v", p.ID, err)
+		}
+		xg, xa := p.XG, p.XA
+		if err := repos.UpsertPlayerSeasonStats(ctx, models.PlayerSeasonStats{
+			PlayerID: p.ID, TeamID: teamID, CompetitionID: competitionID, SeasonID: seasonID,
+			Appearances: p.Apps, Minutes: p.Minutes, Goals: p.Goals, Assists: p.Assists,
+			XG: &xg, XA: &xa, Source: "test", UpdatedAt: Fixed,
+		}); err != nil {
+			t.Fatalf("storagetest: upsert player stats %s: %v", p.ID, err)
+		}
+	}
+}
+
+// ChampionsLeague is a second, non-league competition used to prove that a
+// team's stats stay sliceable per competition instead of being blended.
+// Tier is 0 because "tier" describes a position in a domestic league
+// pyramid and means nothing for a continental cup; screens order unknown
+// tiers after real ones, so a club's own league leads the tab bar.
+func ChampionsLeague() models.Competition {
+	return models.Competition{
+		ID: "uefa-champions-league", Name: "Champions League",
+		Country: "Europe", Tier: 0, Gender: "men", Format: "cup",
+	}
+}
+
+// SampleSquad is a small deterministic squad.
+func SampleSquad() []PlayerRow {
+	return []PlayerRow{
+		{ID: "p-saka", Name: "Bukayo Saka", Position: "F M S", Apps: 31, Minutes: 2239, Goals: 7, Assists: 5, XG: 8.7, XA: 8.6},
+		{ID: "p-rice", Name: "Declan Rice", Position: "D M S", Apps: 36, Minutes: 3111, Goals: 4, Assists: 5, XG: 3.7, XA: 8.2},
+		{ID: "p-raya", Name: "David Raya", Position: "GK", Apps: 37, Minutes: 3330, Goals: 0, Assists: 0, XG: 0.0, XA: 0.1},
+	}
+}

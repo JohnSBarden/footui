@@ -30,6 +30,8 @@ type CompetitionsRepo interface {
 	// FindCompetitionsByName returns competitions whose name contains
 	// query (case-insensitive), for resolving `footy league <name>`.
 	FindCompetitionsByName(ctx context.Context, query string) ([]models.Competition, error)
+	// GetCompetitions resolves many competition IDs at once, keyed by ID.
+	GetCompetitions(ctx context.Context, ids []string) (map[string]models.Competition, error)
 }
 
 // SeasonsRepo persists and queries Season rows.
@@ -39,6 +41,10 @@ type SeasonsRepo interface {
 	// first, so a caller can take the N most recent without knowing how
 	// season labels are formatted.
 	ListSeasons(ctx context.Context, competitionID string) ([]models.Season, error)
+	// GetSeasons resolves many season IDs at once, keyed by ID. A team's
+	// history spans several competitions' seasons, so it can't be served
+	// by ListSeasons.
+	GetSeasons(ctx context.Context, ids []string) (map[string]models.Season, error)
 }
 
 // TeamsRepo persists and queries Team rows.
@@ -60,18 +66,31 @@ type TeamStatsRepo interface {
 	LinkTeamCompetitionSeason(ctx context.Context, teamID, competitionID, seasonID string) error
 	UpsertTeamSeasonStats(ctx context.Context, s models.TeamSeasonStats) error
 	Standings(ctx context.Context, competitionID, seasonID string) ([]models.TeamSeasonStats, error)
+	// TeamHistory returns every cached season for a team, across every
+	// competition, most recent first. Rows stay one-per-(competition,
+	// season): callers group them, they are never pre-blended.
 	TeamHistory(ctx context.Context, teamID string) ([]models.TeamSeasonStats, error)
 }
 
 // PlayersRepo persists and queries Player rows.
 type PlayersRepo interface {
 	UpsertPlayer(ctx context.Context, p models.Player) error
+	// GetPlayer returns one player by ID, or ErrNotFound.
+	GetPlayer(ctx context.Context, id string) (models.Player, error)
+	// GetPlayers resolves many player IDs at once, keyed by ID, so a
+	// roster table labels its rows in one query.
+	GetPlayers(ctx context.Context, ids []string) (map[string]models.Player, error)
+	// FindPlayersByName backs free-text player search.
+	FindPlayersByName(ctx context.Context, query string) ([]models.Player, error)
 }
 
 // PlayerStatsRepo persists and queries PlayerSeasonStats rows.
 type PlayerStatsRepo interface {
 	UpsertPlayerSeasonStats(ctx context.Context, s models.PlayerSeasonStats) error
 	RosterForTeamSeason(ctx context.Context, teamID, competitionID, seasonID string) ([]models.PlayerSeasonStats, error)
+	// PlayerHistory returns a player's season lines across every team and
+	// competition, most recent first.
+	PlayerHistory(ctx context.Context, playerID string) ([]models.PlayerSeasonStats, error)
 }
 
 // Repositories bundles every repo interface — the shape the sync layer and

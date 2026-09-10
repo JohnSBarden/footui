@@ -14,9 +14,12 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/JohnSBarden/footui/internal/data/models"
 	"github.com/JohnSBarden/footui/internal/storage"
 	"github.com/JohnSBarden/footui/internal/tui/core"
+	"github.com/JohnSBarden/footui/internal/tui/screens/browse"
 	"github.com/JohnSBarden/footui/internal/tui/screens/league"
+	"github.com/JohnSBarden/footui/internal/tui/screens/team"
 	"github.com/JohnSBarden/footui/internal/tui/styles"
 )
 
@@ -61,6 +64,12 @@ func navigator() core.Navigator {
 		League: func(deps core.Deps, competitionID string) core.Screen {
 			return league.New(deps, competitionID)
 		},
+		Team: func(deps core.Deps, t models.Team, competitionID, seasonID string) core.Screen {
+			return team.New(deps, t, competitionID, seasonID)
+		},
+		Browse: func(deps core.Deps, query string) core.Screen {
+			return browse.New(deps, query)
+		},
 	}
 }
 
@@ -68,6 +77,18 @@ func navigator() core.Navigator {
 // want to start the app on a specific competition.
 func NewLeagueScreen(deps core.Deps, competitionID string) core.Screen {
 	return league.New(deps, competitionID)
+}
+
+// NewTeamScreen constructs the Team screen, for `footy team <name>`.
+func NewTeamScreen(deps core.Deps, t models.Team) core.Screen {
+	return team.New(deps, t, "", "")
+}
+
+// NewBrowseScreen constructs the Browse screen, optionally pre-filled with
+// a search query. It is what bare `footy` opens, and where an ambiguous
+// `footy team <name>` lands.
+func NewBrowseScreen(deps core.Deps, query string) core.Screen {
+	return browse.New(deps, query)
 }
 
 // Init implements tea.Model.

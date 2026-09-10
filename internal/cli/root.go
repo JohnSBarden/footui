@@ -6,6 +6,9 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+
+	"github.com/JohnSBarden/footui/internal/tui"
+	"github.com/JohnSBarden/footui/internal/tui/core"
 )
 
 // Version is set via -ldflags at build time; defaults to "dev" for local builds.
@@ -20,10 +23,14 @@ func NewRootCmd() *cobra.Command {
 		Short: "Interactive terminal dashboard for football/soccer statistics",
 		Long: "footy is a terminal tool for drilling into football/soccer stats: " +
 			"leagues, teams, and players across multiple competitions and seasons.",
+		Args:         cobra.NoArgs,
+		SilenceUsage: true,
+		// Bare `footy` opens the Browse screen over whatever is cached.
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// No-arg invocation launches the Browse screen; wired in a later phase.
-			fmt.Fprintln(cmd.OutOrStdout(), "footy: interactive browse screen not implemented yet")
-			return nil
+			ctx := cmdContext(cmd)
+			return g.launchTUI(ctx, func(deps core.Deps) (core.Screen, error) {
+				return tui.NewBrowseScreen(deps, ""), nil
+			})
 		},
 	}
 
@@ -36,6 +43,7 @@ func NewRootCmd() *cobra.Command {
 	root.AddCommand(newRefreshCmd(g))
 	root.AddCommand(newCompetitionsCmd())
 	root.AddCommand(newLeagueCmd(g))
+	root.AddCommand(newTeamCmd(g))
 
 	return root
 }

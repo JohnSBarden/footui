@@ -68,6 +68,17 @@ func timePtrToNullString(t *time.Time) sql.NullString {
 	return sql.NullString{String: t.Format("2006-01-02"), Valid: true}
 }
 
+// inClause builds the placeholder list and argument slice for an
+// `IN (...)` filter. Callers must guard against an empty id list before
+// calling: `IN ()` is not valid SQL.
+func inClause(ids []string) (string, []any) {
+	args := make([]any, len(ids))
+	for i, id := range ids {
+		args[i] = id
+	}
+	return strings.TrimSuffix(strings.Repeat("?,", len(ids)), ","), args
+}
+
 // The sqlite driver stores time.Time as TEXT but doesn't scan TEXT back
 // into *time.Time on read, so timestamps are formatted/parsed explicitly
 // as RFC3339 on the way in and out rather than passed as time.Time values.
@@ -166,6 +177,31 @@ func (s *Store) FindCompetitionsByName(ctx context.Context, query string) ([]mod
 	return out, rows.Err()
 }
 
+func (s *Store) GetCompetitions(ctx context.Context, ids []string) (map[string]models.Competition, error) {
+	out := make(map[string]models.Competition, len(ids))
+	if len(ids) == 0 {
+		return out, nil
+	}
+
+	placeholders, args := inClause(ids)
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id, name, country, tier, gender, format
+		FROM competition WHERE id IN (`+placeholders+`)`, args...)
+	if err != nil {
+		return nil, fmt.Errorf("sqlite: get competitions: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var c models.Competition
+		if err := rows.Scan(&c.ID, &c.Name, &c.Country, &c.Tier, &c.Gender, &c.Format); err != nil {
+			return nil, fmt.Errorf("sqlite: scan competition: %w", err)
+		}
+		out[c.ID] = c
+	}
+	return out, rows.Err()
+}
+
 // --- SeasonsRepo ---
 
 func (s *Store) UpsertSeason(ctx context.Context, se models.Season) error {
@@ -204,6 +240,34 @@ func (s *Store) ListSeasons(ctx context.Context, competitionID string) ([]models
 		se.StartDate = parseDatePtr(start)
 		se.EndDate = parseDatePtr(end)
 		out = append(out, se)
+	}
+	return out, rows.Err()
+}
+
+func (s *Store) GetSeasons(ctx context.Context, ids []string) (map[string]models.Season, error) {
+	out := make(map[string]models.Season, len(ids))
+	if len(ids) == 0 {
+		return out, nil
+	}
+
+	placeholders, args := inClause(ids)
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id, competition_id, label, start_date, end_date
+		FROM season WHERE id IN (`+placeholders+`)`, args...)
+	if err != nil {
+		return nil, fmt.Errorf("sqlite: get seasons: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var se models.Season
+		var start, end sql.NullString
+		if err := rows.Scan(&se.ID, &se.CompetitionID, &se.Label, &start, &end); err != nil {
+			return nil, fmt.Errorf("sqlite: scan season: %w", err)
+		}
+		se.StartDate = parseDatePtr(start)
+		se.EndDate = parseDatePtr(end)
+		out[se.ID] = se
 	}
 	return out, rows.Err()
 }
@@ -278,12 +342,7 @@ func (s *Store) GetTeams(ctx context.Context, ids []string) (map[string]models.T
 		return out, nil
 	}
 
-	placeholders := strings.TrimSuffix(strings.Repeat("?,", len(ids)), ",")
-	args := make([]any, len(ids))
-	for i, id := range ids {
-		args[i] = id
-	}
-
+	placeholders, args := inClause(ids)
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT id, name, short_name, country, gender, founded_year, venue
 		FROM team WHERE id IN (`+placeholders+`)`, args...)
@@ -438,6 +497,74 @@ func (s *Store) UpsertPlayer(ctx context.Context, p models.Player) error {
 	return nil
 }
 
+const playerColumns = `id, name, date_of_birth, nationality, position, gender`
+
+func scanPlayer(sc interface{ Scan(...any) error }) (models.Player, error) {
+	var p models.Player
+	var dob sql.NullString
+	if err := sc.Scan(&p.ID, &p.Name, &dob, &p.Nationality, &p.Position, &p.Gender); err != nil {
+		return p, err
+	}
+	p.DateOfBirth = parseDatePtr(dob)
+	return p, nil
+}
+
+func (s *Store) GetPlayer(ctx context.Context, id string) (models.Player, error) {
+	p, err := scanPlayer(s.db.QueryRowContext(ctx,
+		`SELECT `+playerColumns+` FROM player WHERE id = ?`, id))
+	if errors.Is(err, sql.ErrNoRows) {
+		return p, fmt.Errorf("sqlite: player %s: %w", id, storage.ErrNotFound)
+	}
+	if err != nil {
+		return p, fmt.Errorf("sqlite: get player %s: %w", id, err)
+	}
+	return p, nil
+}
+
+func (s *Store) GetPlayers(ctx context.Context, ids []string) (map[string]models.Player, error) {
+	out := make(map[string]models.Player, len(ids))
+	if len(ids) == 0 {
+		return out, nil
+	}
+
+	placeholders, args := inClause(ids)
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT `+playerColumns+` FROM player WHERE id IN (`+placeholders+`)`, args...)
+	if err != nil {
+		return nil, fmt.Errorf("sqlite: get players: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		p, err := scanPlayer(rows)
+		if err != nil {
+			return nil, fmt.Errorf("sqlite: scan player: %w", err)
+		}
+		out[p.ID] = p
+	}
+	return out, rows.Err()
+}
+
+func (s *Store) FindPlayersByName(ctx context.Context, query string) ([]models.Player, error) {
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT `+playerColumns+` FROM player
+		 WHERE name LIKE '%' || ? || '%' COLLATE NOCASE ORDER BY name LIMIT 200`, query)
+	if err != nil {
+		return nil, fmt.Errorf("sqlite: find players by name %q: %w", query, err)
+	}
+	defer rows.Close()
+
+	var out []models.Player
+	for rows.Next() {
+		p, err := scanPlayer(rows)
+		if err != nil {
+			return nil, fmt.Errorf("sqlite: scan player: %w", err)
+		}
+		out = append(out, p)
+	}
+	return out, rows.Err()
+}
+
 // --- PlayerStatsRepo ---
 
 func (s *Store) UpsertPlayerSeasonStats(ctx context.Context, st models.PlayerSeasonStats) error {
@@ -460,10 +587,12 @@ func (s *Store) UpsertPlayerSeasonStats(ctx context.Context, st models.PlayerSea
 	return nil
 }
 
+const playerStatsColumns = `player_id, team_id, competition_id, season_id, appearances, minutes,
+	goals, assists, xg, xa, yellow_cards, red_cards, source, updated_at`
+
 func (s *Store) RosterForTeamSeason(ctx context.Context, teamID, competitionID, seasonID string) ([]models.PlayerSeasonStats, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT player_id, team_id, competition_id, season_id, appearances, minutes, goals, assists,
-			xg, xa, yellow_cards, red_cards, source, updated_at
+		SELECT `+playerStatsColumns+`
 		FROM player_season_stats
 		WHERE team_id = ? AND competition_id = ? AND season_id = ?
 		ORDER BY minutes DESC`, teamID, competitionID, seasonID)
@@ -471,7 +600,26 @@ func (s *Store) RosterForTeamSeason(ctx context.Context, teamID, competitionID, 
 		return nil, fmt.Errorf("sqlite: roster %s/%s/%s: %w", teamID, competitionID, seasonID, err)
 	}
 	defer rows.Close()
+	return scanPlayerSeasonStats(rows)
+}
 
+// PlayerHistory returns every season line for a player. Ordering by season
+// then competition keeps a player who appeared in two competitions in the
+// same season adjacent rather than interleaved with other seasons.
+func (s *Store) PlayerHistory(ctx context.Context, playerID string) ([]models.PlayerSeasonStats, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT `+playerStatsColumns+`
+		FROM player_season_stats
+		WHERE player_id = ?
+		ORDER BY season_id DESC, competition_id`, playerID)
+	if err != nil {
+		return nil, fmt.Errorf("sqlite: player history %s: %w", playerID, err)
+	}
+	defer rows.Close()
+	return scanPlayerSeasonStats(rows)
+}
+
+func scanPlayerSeasonStats(rows *sql.Rows) ([]models.PlayerSeasonStats, error) {
 	var out []models.PlayerSeasonStats
 	for rows.Next() {
 		var st models.PlayerSeasonStats
