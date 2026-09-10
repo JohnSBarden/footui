@@ -399,6 +399,52 @@ func (s *Store) ListTeams(ctx context.Context) ([]models.Team, error) {
 	return out, rows.Err()
 }
 
+// --- TrophiesRepo ---
+
+func (s *Store) InsertTrophy(ctx context.Context, t models.Trophy) error {
+	_, err := s.db.ExecContext(ctx, `
+		INSERT INTO trophy (team_id, competition_id, title, season_label, trophy_type, source)
+		VALUES (?, ?, ?, ?, ?, ?)`,
+		t.TeamID, nullString(t.CompetitionID), t.Title, nullString(t.SeasonLabel), t.TrophyType, t.Source)
+	if err != nil {
+		return fmt.Errorf("sqlite: insert trophy %s/%s: %w", t.TeamID, t.Title, err)
+	}
+	return nil
+}
+
+func (s *Store) DeleteTrophiesBySource(ctx context.Context, teamID, source string) error {
+	_, err := s.db.ExecContext(ctx,
+		`DELETE FROM trophy WHERE team_id = ? AND source = ?`, teamID, source)
+	if err != nil {
+		return fmt.Errorf("sqlite: delete trophies %s/%s: %w", teamID, source, err)
+	}
+	return nil
+}
+
+func (s *Store) TeamTrophies(ctx context.Context, teamID string) ([]models.Trophy, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id, team_id, competition_id, title, season_label, trophy_type, source
+		FROM trophy WHERE team_id = ?
+		ORDER BY season_label DESC, title`, teamID)
+	if err != nil {
+		return nil, fmt.Errorf("sqlite: team trophies %s: %w", teamID, err)
+	}
+	defer rows.Close()
+
+	var out []models.Trophy
+	for rows.Next() {
+		var t models.Trophy
+		var comp, season sql.NullString
+		if err := rows.Scan(&t.ID, &t.TeamID, &comp, &t.Title, &season, &t.TrophyType, &t.Source); err != nil {
+			return nil, fmt.Errorf("sqlite: scan trophy: %w", err)
+		}
+		t.CompetitionID = comp.String
+		t.SeasonLabel = season.String
+		out = append(out, t)
+	}
+	return out, rows.Err()
+}
+
 // --- TeamColorsRepo ---
 
 func (s *Store) UpsertTeamColors(ctx context.Context, c models.TeamColors) error {

@@ -1,0 +1,289 @@
+# Hand-curated club honours.
+#
+# Like club colors, trophies have no scrapeable structured source, so this
+# is a manual dataset — the design doc named it as a known chore and
+# deferred full automation explicitly. It is deliberately partial, and the
+# Team screen shows a plain empty state for clubs it doesn't cover rather
+# than implying they have never won anything.
+#
+# Scope of this file, stated so it is not mistaken for a complete honours
+# list:
+#
+#   * European Cup / Champions League wins: complete, for clubs in the
+#     competitions footy covers. These are finite and well documented.
+#   * Domestic league titles: from the 2000-01 season onward only. An older
+#     title is not absent because the club didn't win it — it is outside
+#     what this file claims to cover. The Team screen labels the panel with
+#     that cutoff so the number on screen is never read as an all-time
+#     count.
+#   * Domestic cups: not covered yet.
+#
+# `id` and `aliases` work exactly as in the club colors seed
+# (internal/colors/seed/teamcolors.yaml): an entry applies only when it
+# matches a team actually in the cache, so an entry for an uncached club,
+# or one whose ID guesses the provider's spelling wrongly, is inert.
+#
+# Seasons are free text and displayed as written; use the "2003-04" form.
+
+# --- England ---
+- id: eng-arsenal
+  honours:
+    - title: Premier League
+      type: league_title
+      competition: eng-premier-league
+      seasons: ["2001-02", "2003-04", "2025-26"]
+
+- id: eng-manchester-united
+  honours:
+    - title: Premier League
+      type: league_title
+      competition: eng-premier-league
+      seasons: ["2000-01", "2002-03", "2006-07", "2007-08", "2008-09", "2010-11", "2012-13"]
+    - title: European Cup / Champions League
+      type: continental_cup
+      seasons: ["1967-68", "1998-99", "2007-08"]
+
+- id: eng-manchester-city
+  honours:
+    - title: Premier League
+      type: league_title
+      competition: eng-premier-league
+      seasons: ["2011-12", "2013-14", "2017-18", "2018-19", "2020-21", "2021-22", "2022-23", "2023-24"]
+    - title: European Cup / Champions League
+      type: continental_cup
+      seasons: ["2022-23"]
+
+- id: eng-chelsea
+  honours:
+    - title: Premier League
+      type: league_title
+      competition: eng-premier-league
+      seasons: ["2004-05", "2005-06", "2009-10", "2014-15", "2016-17"]
+    - title: European Cup / Champions League
+      type: continental_cup
+      seasons: ["2011-12", "2020-21"]
+
+- id: eng-liverpool
+  honours:
+    - title: Premier League
+      type: league_title
+      competition: eng-premier-league
+      seasons: ["2019-20", "2024-25"]
+    - title: European Cup / Champions League
+      type: continental_cup
+      seasons: ["1976-77", "1977-78", "1980-81", "1983-84", "2004-05", "2018-19"]
+
+- id: eng-nottingham-forest
+  honours:
+    - title: European Cup / Champions League
+      type: continental_cup
+      seasons: ["1978-79", "1979-80"]
+
+- id: eng-aston-villa
+  honours:
+    - title: European Cup / Champions League
+      type: continental_cup
+      seasons: ["1981-82"]
+
+# --- Spain ---
+- id: esp-real-madrid
+  honours:
+    - title: La Liga
+      type: league_title
+      competition: esp-la-liga
+      seasons: ["2000-01", "2002-03", "2006-07", "2007-08", "2011-12", "2016-17", "2019-20", "2021-22", "2023-24"]
+    - title: European Cup / Champions League
+      type: continental_cup
+      seasons: ["1955-56", "1956-57", "1957-58", "1958-59", "1959-60", "1965-66",
+                "1997-98", "1999-00", "2001-02", "2013-14", "2015-16", "2016-17",
+                "2017-18", "2021-22", "2023-24"]
+
+- id: esp-barcelona
+  honours:
+    - title: La Liga
+      type: league_title
+      competition: esp-la-liga
+      seasons: ["2004-05", "2005-06", "2008-09", "2009-10", "2010-11", "2012-13",
+                "2014-15", "2015-16", "2017-18", "2018-19", "2022-23", "2024-25"]
+    - title: European Cup / Champions League
+      type: continental_cup
+      seasons: ["1991-92", "2005-06", "2008-09", "2010-11", "2014-15"]
+
+- id: esp-atletico-madrid
+  aliases: [esp-atl-tico-madrid]
+  honours:
+    - title: La Liga
+      type: league_title
+      competition: esp-la-liga
+      seasons: ["2013-14", "2020-21"]
+
+- id: esp-valencia
+  honours:
+    - title: La Liga
+      type: league_title
+      competition: esp-la-liga
+      seasons: ["2001-02", "2003-04"]
+
+# --- Germany ---
+- id: ger-bayern-munich
+  aliases: [ger-bayern-m-nchen, ger-fc-bayern-munich]
+  honours:
+    - title: Bundesliga
+      type: league_title
+      competition: ger-bundesliga
+      seasons: ["2000-01", "2002-03", "2004-05", "2005-06", "2007-08", "2009-10",
+                "2012-13", "2013-14", "2014-15", "2015-16", "2016-17", "2017-18",
+                "2018-19", "2019-20", "2020-21", "2021-22", "2022-23", "2024-25"]
+    - title: European Cup / Champions League
+      type: continental_cup
+      seasons: ["1973-74", "1974-75", "1975-76", "2000-01", "2012-13", "2019-20"]
+
+- id: ger-borussia-dortmund
+  aliases: [ger-dortmund]
+  honours:
+    - title: Bundesliga
+      type: league_title
+      competition: ger-bundesliga
+      seasons: ["2001-02", "2010-11", "2011-12"]
+    - title: European Cup / Champions League
+      type: continental_cup
+      seasons: ["1996-97"]
+
+- id: ger-bayer-leverkusen
+  aliases: [ger-leverkusen]
+  honours:
+    - title: Bundesliga
+      type: league_title
+      competition: ger-bundesliga
+      seasons: ["2023-24"]
+
+- id: ger-werder-bremen
+  aliases: [ger-bremen]
+  honours:
+    - title: Bundesliga
+      type: league_title
+      competition: ger-bundesliga
+      seasons: ["2003-04"]
+
+- id: ger-stuttgart
+  aliases: [ger-vfb-stuttgart]
+  honours:
+    - title: Bundesliga
+      type: league_title
+      competition: ger-bundesliga
+      seasons: ["2006-07"]
+
+- id: ger-wolfsburg
+  aliases: [ger-vfl-wolfsburg]
+  honours:
+    - title: Bundesliga
+      type: league_title
+      competition: ger-bundesliga
+      seasons: ["2008-09"]
+
+# --- Italy ---
+- id: ita-juventus
+  honours:
+    - title: Serie A
+      type: league_title
+      competition: ita-serie-a
+      seasons: ["2001-02", "2002-03", "2011-12", "2012-13", "2013-14", "2014-15",
+                "2015-16", "2016-17", "2017-18", "2018-19", "2019-20"]
+    - title: European Cup / Champions League
+      type: continental_cup
+      seasons: ["1984-85", "1995-96"]
+
+- id: ita-inter
+  aliases: [ita-internazionale]
+  honours:
+    - title: Serie A
+      type: league_title
+      competition: ita-serie-a
+      seasons: ["2005-06", "2006-07", "2007-08", "2008-09", "2009-10", "2020-21", "2023-24"]
+    - title: European Cup / Champions League
+      type: continental_cup
+      seasons: ["1963-64", "1964-65", "2009-10"]
+
+- id: ita-ac-milan
+  aliases: [ita-milan]
+  honours:
+    - title: Serie A
+      type: league_title
+      competition: ita-serie-a
+      seasons: ["2003-04", "2010-11", "2021-22"]
+    - title: European Cup / Champions League
+      type: continental_cup
+      seasons: ["1962-63", "1968-69", "1988-89", "1989-90", "1993-94", "2002-03", "2006-07"]
+
+- id: ita-napoli
+  honours:
+    - title: Serie A
+      type: league_title
+      competition: ita-serie-a
+      seasons: ["2022-23", "2024-25"]
+
+- id: ita-roma
+  aliases: [ita-as-roma]
+  honours:
+    - title: Serie A
+      type: league_title
+      competition: ita-serie-a
+      seasons: ["2000-01"]
+
+# --- France ---
+- id: fra-paris-saint-germain
+  aliases: [fra-psg, fra-paris-sg]
+  honours:
+    - title: Ligue 1
+      type: league_title
+      competition: fra-ligue-1
+      seasons: ["2012-13", "2013-14", "2014-15", "2015-16", "2017-18", "2018-19",
+                "2019-20", "2021-22", "2022-23", "2023-24", "2024-25"]
+    - title: European Cup / Champions League
+      type: continental_cup
+      seasons: ["2024-25"]
+
+- id: fra-lyon
+  aliases: [fra-olympique-lyonnais]
+  honours:
+    - title: Ligue 1
+      type: league_title
+      competition: fra-ligue-1
+      seasons: ["2001-02", "2002-03", "2003-04", "2004-05", "2005-06", "2006-07", "2007-08"]
+
+- id: fra-marseille
+  aliases: [fra-olympique-marseille]
+  honours:
+    - title: Ligue 1
+      type: league_title
+      competition: fra-ligue-1
+      seasons: ["2009-10"]
+    - title: European Cup / Champions League
+      type: continental_cup
+      seasons: ["1992-93"]
+
+- id: fra-lille
+  aliases: [fra-losc-lille]
+  honours:
+    - title: Ligue 1
+      type: league_title
+      competition: fra-ligue-1
+      seasons: ["2010-11", "2020-21"]
+
+- id: fra-monaco
+  aliases: [fra-as-monaco]
+  honours:
+    - title: Ligue 1
+      type: league_title
+      competition: fra-ligue-1
+      seasons: ["2016-17"]
+
+# --- Russia ---
+- id: rus-zenit
+  aliases: [rus-zenit-st-petersburg]
+  honours:
+    - title: Russian Premier League
+      type: league_title
+      competition: rus-premier-league
+      seasons: ["2007", "2010", "2011-12", "2014-15", "2018-19", "2019-20",
+                "2020-21", "2021-22", "2022-23", "2023-24"]

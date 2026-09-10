@@ -37,6 +37,10 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 		m.rosterLoading = false
 		return m, nil
 
+	case honoursLoadedMsg:
+		m.honours = msg.honours
+		return m, nil
+
 	case colorsLoadedMsg:
 		// A club's brand colors are chosen for shirts, not terminals, so
 		// they're passed through styles.TeamTheme rather than used raw.

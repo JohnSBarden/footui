@@ -69,6 +69,18 @@ func (m *Model) loadColors() tea.Cmd {
 	}
 }
 
+// loadHonours fetches the club's curated honours.
+func (m *Model) loadHonours() tea.Cmd {
+	deps, teamID := m.deps, m.team.ID
+	return func() tea.Msg {
+		honours, err := deps.Repos.TeamTrophies(deps.Ctx, teamID)
+		if err != nil {
+			return core.ErrMsg{Err: err}
+		}
+		return honoursLoadedMsg{honours: honours}
+	}
+}
+
 // loadSeasonDetail fetches the squad and the long-tail team stats for one
 // competition-season.
 func (m *Model) loadSeasonDetail(competitionID, seasonID string) tea.Cmd {

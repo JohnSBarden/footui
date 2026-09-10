@@ -2,6 +2,7 @@ package team_test
 
 import (
 	"context"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/JohnSBarden/footui/internal/data/models"
 	"github.com/JohnSBarden/footui/internal/storage"
 	"github.com/JohnSBarden/footui/internal/storage/storagetest"
+	"github.com/JohnSBarden/footui/internal/trophies"
 	"github.com/JohnSBarden/footui/internal/tui/core"
 	"github.com/JohnSBarden/footui/internal/tui/screens/team"
 	"github.com/JohnSBarden/footui/internal/tui/styles"
@@ -365,5 +367,110 @@ func TestClubBrandingDoesNotLeakIntoPushedScreens(t *testing.T) {
 
 	if childTheme.Palette.Accent != styles.DefaultPalette().Accent {
 		t.Error("a pushed screen should inherit the neutral theme, not the club's colors")
+	}
+}
+
+func seedHonours(t *testing.T, repos storage.Repositories, teamID string, rows ...models.Trophy) {
+	t.Helper()
+	ctx := context.Background()
+	for _, tr := range rows {
+		tr.TeamID = teamID
+		if err := repos.InsertTrophy(ctx, tr); err != nil {
+			t.Fatalf("InsertTrophy: %v", err)
+		}
+	}
+}
+
+func TestHonoursPanelAggregatesRepeatedTitles(t *testing.T) {
+	repos := seedTwoCompetitions(t)
+	seedHonours(t, repos, arsenal.ID,
+		models.Trophy{Title: "Premier League", SeasonLabel: "2001-02", TrophyType: "league_title", Source: "test"},
+		models.Trophy{Title: "Premier League", SeasonLabel: "2003-04", TrophyType: "league_title", Source: "test"},
+		models.Trophy{Title: "Premier League", SeasonLabel: "2025-26", TrophyType: "league_title", Source: "test"},
+	)
+
+	out := settled(t, newDeps(repos), "eng-premier-league", "eng-premier-league:2025").View()
+
+	if !strings.Contains(out, "Honours") {
+		t.Fatalf("expected an honours panel\n---\n%s", out)
+	}
+	// Three stored rows read as one line with a count, not three lines.
+	if !strings.Contains(out, "Premier League ×3") {
+		t.Errorf("expected repeated titles aggregated with a count\n---\n%s", out)
+	}
+	if !strings.Contains(out, "2025-26, 2003-04, 2001-02") {
+		t.Errorf("expected seasons listed most recent first\n---\n%s", out)
+	}
+}
+
+// The curated league-title lists start at a fixed season, so a count on
+// screen must never be readable as an all-time total.
+func TestHonoursPanelStatesItsCoverageLimit(t *testing.T) {
+	repos := seedTwoCompetitions(t)
+	seedHonours(t, repos, arsenal.ID,
+		models.Trophy{Title: "Premier League", SeasonLabel: "2003-04", TrophyType: "league_title", Source: "test"})
+
+	out := settled(t, newDeps(repos), "eng-premier-league", "eng-premier-league:2025").View()
+	if !strings.Contains(out, "league titles from "+trophies.LeagueTitlesFrom) {
+		t.Errorf("honours panel must state the dataset's cutoff\n---\n%s", out)
+	}
+}
+
+func TestContinentalHonoursAreListedFirst(t *testing.T) {
+	repos := seedTwoCompetitions(t)
+	seedHonours(t, repos, arsenal.ID,
+		models.Trophy{Title: "Premier League", SeasonLabel: "2003-04", TrophyType: "league_title", Source: "test"},
+		models.Trophy{Title: "European Cup", SeasonLabel: "1993-94", TrophyType: "continental_cup", Source: "test"},
+	)
+
+	out := settled(t, newDeps(repos), "eng-premier-league", "eng-premier-league:2025").View()
+	panel := honoursPanel(t, out)
+
+	european := strings.Index(panel, "European Cup")
+	league := strings.Index(panel, "Premier League")
+	if european < 0 || league < 0 || european > league {
+		t.Errorf("continental honours should lead the panel\n---\n%s", panel)
+	}
+}
+
+// honoursPanel isolates the honours section, since competition names also
+// appear in the tab bar higher up the view.
+func honoursPanel(t *testing.T, view string) string {
+	t.Helper()
+	i := strings.Index(view, "Honours")
+	if i < 0 {
+		t.Fatalf("no honours panel in view\n---\n%s", view)
+	}
+	return view[i:]
+}
+
+// An empty panel would imply the club has won nothing, which is a
+// different and probably false claim from "not in the curated dataset".
+func TestUncuratedClubShowsNoHonoursPanelAtAll(t *testing.T) {
+	out := settled(t, newDeps(seedTwoCompetitions(t)), "eng-premier-league", "eng-premier-league:2025").View()
+
+	if strings.Contains(out, "Honours") {
+		t.Errorf("a club with no curated honours should show no panel\n---\n%s", out)
+	}
+}
+
+func TestLongHonoursListsAreSummarized(t *testing.T) {
+	repos := seedTwoCompetitions(t)
+	var rows []models.Trophy
+	for year := 2005; year <= 2025; year++ {
+		rows = append(rows, models.Trophy{
+			Title:       "Premier League",
+			SeasonLabel: strconv.Itoa(year) + "-" + strconv.Itoa((year+1)%100),
+			TrophyType:  "league_title", Source: "test",
+		})
+	}
+	seedHonours(t, repos, arsenal.ID, rows...)
+
+	out := settled(t, newDeps(repos), "eng-premier-league", "eng-premier-league:2025").View()
+	if !strings.Contains(out, "×21") {
+		t.Errorf("expected the full count\n---\n%s", out)
+	}
+	if !strings.Contains(out, "more") {
+		t.Errorf("a 21-season list should be summarized rather than wrapping the terminal\n---\n%s", out)
 	}
 }

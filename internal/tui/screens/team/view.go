@@ -44,6 +44,10 @@ func (m *Model) View() string {
 	b.WriteString(m.seasonsTable())
 	b.WriteString("\n\n")
 	b.WriteString(m.squadTable())
+	if panel := m.honoursPanel(); panel != "" {
+		b.WriteString("\n\n")
+		b.WriteString(panel)
+	}
 	b.WriteString("\n\n")
 	b.WriteString(m.footer())
 

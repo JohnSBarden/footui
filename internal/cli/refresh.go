@@ -12,6 +12,7 @@ import (
 	"github.com/JohnSBarden/footui/internal/data/models"
 	"github.com/JohnSBarden/footui/internal/data/provider/understat"
 	"github.com/JohnSBarden/footui/internal/data/sync"
+	"github.com/JohnSBarden/footui/internal/trophies"
 )
 
 type refreshFlags struct {
@@ -68,15 +69,22 @@ func newRefreshCmd(g *globalFlags) *cobra.Command {
 				printUnit(out, u)
 			})
 
-			// Colors are re-seeded after every refresh so a newly cached
-			// competition picks up its clubs' branding with no extra
-			// step. A failure here must not fail the refresh: the stats
-			// are the point, the colors are decoration.
+			// Curated colors and honours are re-seeded after every refresh
+			// so a newly cached competition picks up its clubs' branding
+			// and trophies with no extra step. Neither may fail the
+			// refresh: the stats are the point, these are decoration.
 			if colorReport, err := colors.Seed(cmdContext(cmd), store); err != nil {
 				fmt.Fprintf(out, "\n  note: could not apply club colors: %v\n", err)
 			} else if colorReport.Applied > 0 {
 				fmt.Fprintf(out, "\n  colors applied to %d of %d cached teams\n",
 					colorReport.Applied, colorReport.Applied+len(colorReport.Uncolored))
+			}
+
+			if trophyReport, err := trophies.Seed(cmdContext(cmd), store); err != nil {
+				fmt.Fprintf(out, "  note: could not apply club honours: %v\n", err)
+			} else if trophyReport.Teams > 0 {
+				fmt.Fprintf(out, "  honours applied to %d teams (%d trophies)\n",
+					trophyReport.Teams, trophyReport.Trophies)
 			}
 
 			return report(out, results, g.dbPathOrDefault())

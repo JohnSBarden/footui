@@ -63,6 +63,17 @@ type TeamsRepo interface {
 	ListTeams(ctx context.Context) ([]models.Team, error)
 }
 
+// TrophiesRepo persists and queries a club's honours.
+type TrophiesRepo interface {
+	InsertTrophy(ctx context.Context, t models.Trophy) error
+	// DeleteTrophiesBySource removes a team's trophies from one source, so
+	// re-seeding corrected data replaces the old rows instead of
+	// duplicating them.
+	DeleteTrophiesBySource(ctx context.Context, teamID, source string) error
+	// TeamTrophies returns a team's honours, most recent season first.
+	TeamTrophies(ctx context.Context, teamID string) ([]models.Trophy, error)
+}
+
 // TeamColorsRepo persists and queries a club's brand colors.
 type TeamColorsRepo interface {
 	UpsertTeamColors(ctx context.Context, c models.TeamColors) error
@@ -122,4 +133,5 @@ type Repositories interface {
 	PlayersRepo
 	PlayerStatsRepo
 	TeamColorsRepo
+	TrophiesRepo
 }

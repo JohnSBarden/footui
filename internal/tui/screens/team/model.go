@@ -55,6 +55,7 @@ type Model struct {
 	compIdx      int
 	seasonIdx    int
 
+	honours       []models.Trophy
 	roster        []RosterRow
 	extras        map[string]float64
 	rosterSeason  string
@@ -106,7 +107,7 @@ func (m *Model) Title() string { return m.team.Name }
 
 // Init implements core.Screen.
 func (m *Model) Init() tea.Cmd {
-	return tea.Batch(m.loadHistory(), m.loadColors())
+	return tea.Batch(m.loadHistory(), m.loadColors(), m.loadHonours())
 }
 
 // --- messages ---
@@ -114,6 +115,12 @@ func (m *Model) Init() tea.Cmd {
 type historyLoadedMsg struct {
 	competitions []models.Competition
 	history      map[string][]SeasonRow
+}
+
+// honoursLoadedMsg carries a club's curated honours. An empty list is a
+// normal state — the dataset covers only part of every league.
+type honoursLoadedMsg struct {
+	honours []models.Trophy
 }
 
 // colorsLoadedMsg carries a club's brand colors. Absent colors are a
@@ -128,6 +135,7 @@ type colorsLoadedMsg struct {
 type seasonDetailLoadedMsg struct {
 	seasonID      string
 	competitionID string
+	honours       []models.Trophy
 	roster        []RosterRow
 	extras        map[string]float64
 }
