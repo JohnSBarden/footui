@@ -310,3 +310,63 @@ func TestQuestionMarkReachesAScreenCapturingText(t *testing.T) {
 		t.Errorf("screen received %v, want the literal ?", *screen.keys)
 	}
 }
+
+// A screen with a focused text box swallows "q" and "?", so the footer
+// must not advertise them — a user would discover the lie by typing a
+// search and finding nothing happens.
+func TestFooterOffersCtrlCWhileAScreenCapturesText(t *testing.T) {
+	screen := newFake("Browse")
+	screen.capturing = true
+	app := newApp(screen)
+	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+
+	out := app.View()
+	if !strings.Contains(out, "ctrl+c") {
+		t.Errorf("footer should offer ctrl+c to quit a text-entry screen\n---\n%s", out)
+	}
+	if strings.Contains(out, "q quit") {
+		t.Errorf("footer must not advertise q as quit while a text box has it\n---\n%s", out)
+	}
+	if strings.Contains(out, "? keys") {
+		t.Errorf("footer must not advertise ? while a text box has it\n---\n%s", out)
+	}
+}
+
+func TestFooterOffersQOnOrdinaryScreens(t *testing.T) {
+	app := newApp(newFake("League"))
+	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+
+	if out := app.View(); !strings.Contains(out, "q") || !strings.Contains(out, "quit") {
+		t.Errorf("an ordinary screen should offer q to quit\n---\n%s", out)
+	}
+}
+
+// A pty with no winsize set, and some CI runners, report 0x0. Taking that
+// literally collapses every table column to its minimum and truncates club
+// names to nothing, so it must be ignored rather than believed.
+func TestZeroSizedTerminalReportIsIgnored(t *testing.T) {
+	screen := newFake("League")
+	app := newApp(screen)
+
+	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	if *screen.width != 120 {
+		t.Fatalf("setup: width = %d", *screen.width)
+	}
+
+	app.Update(tea.WindowSizeMsg{Width: 0, Height: 0})
+	if *screen.width != 120 {
+		t.Errorf("a 0x0 report overwrote a known width with %d", *screen.width)
+	}
+}
+
+func TestUnsizedTerminalKeepsAUsableDefault(t *testing.T) {
+	screen := newFake("League")
+	app := newApp(screen)
+
+	// The very first message, before any real size is known.
+	app.Update(tea.WindowSizeMsg{Width: 0, Height: 0})
+
+	if a := app.width; a < 80 {
+		t.Errorf("app width fell to %d; an unsized terminal should keep a usable default", a)
+	}
+}

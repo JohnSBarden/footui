@@ -15,28 +15,59 @@ import (
 // between columns. The team column absorbs whatever width is left over, so
 // the table fills a wide terminal without overflowing a narrow one.
 const (
-	posWidth    = 3
-	smallWidth  = 3 // MP, W, D, L
-	goalWidth   = 4 // GF, GA, GD, Pts
-	xgWidth     = 6 // xG, xGA, xGD
-	minTeamCol  = 12
+	posWidth   = 3
+	smallWidth = 3 // MP, W, D, L
+	goalWidth  = 4 // GF, GA, GD, Pts
+	xgWidth    = 6 // xG, xGA, xGD
+	minTeamCol = 12
+	// wantTeamCol is wide enough for the longest club names footy covers
+	// ("Wolverhampton Wanderers", "Borussia Mönchengladbach") to stay
+	// distinguishable from each other.
+	wantTeamCol = 24
 	teamColSlop = 4 // leading indent + breathing room at the right edge
 )
 
+// xgColumns reports how many of the three expected-goals columns (xG,
+// xGA, xGD) fit at the current width.
+//
+// A narrow terminal has to give up something, and the choice matters:
+// squeezing the team column instead turns "Manchester United" and
+// "Manchester City" into two identical "Manchester …" rows, which makes
+// the table actively wrong rather than merely less detailed. So the
+// derived columns go first, least informative first — xGD is computable
+// from the other two by eye, xGA and xG are not recoverable at all.
+func (m *Model) xgColumns() int {
+	base := posWidth + smallWidth*4 + goalWidth*4 + 11 + teamColSlop + wantTeamCol
+
+	switch {
+	case m.width >= base+xgWidth*3+2:
+		return 3
+	case m.width >= base+xgWidth*2+1:
+		// xG and xGA are a pair: attacking output means little without
+		// what the team conceded. Dropping to xG alone would be a column
+		// nobody can read a season from, so the step below two is zero.
+		return 2
+	default:
+		return 0
+	}
+}
+
 func (m *Model) columns() []components.Column {
-	fixed := posWidth + smallWidth*4 + goalWidth*4 + xgWidth*3
-	// 12 single-space separators between 13 columns.
-	fixed += 12 + teamColSlop
+	xgCount := m.xgColumns()
+
+	// Every column except Team, plus one separator per gap.
+	fixed := posWidth + smallWidth*4 + goalWidth*4 + xgWidth*xgCount
+	fixed += 9 + xgCount + teamColSlop
 
 	teamWidth := m.width - fixed
 	if teamWidth < minTeamCol {
 		teamWidth = minTeamCol
 	}
-	if teamWidth > 28 {
-		teamWidth = 28
+	if teamWidth > wantTeamCol {
+		teamWidth = wantTeamCol
 	}
 
-	return []components.Column{
+	cols := []components.Column{
 		{Title: "#", Width: posWidth, Right: true},
 		{Title: "Team", Width: teamWidth},
 		{Title: "MP", Width: smallWidth, Right: true},
@@ -47,10 +78,17 @@ func (m *Model) columns() []components.Column {
 		{Title: "GA", Width: goalWidth, Right: true},
 		{Title: "GD", Width: goalWidth, Right: true},
 		{Title: "Pts", Width: goalWidth, Right: true},
+	}
+
+	for _, extra := range []components.Column{
 		{Title: "xG", Width: xgWidth, Right: true},
 		{Title: "xGA", Width: xgWidth, Right: true},
 		{Title: "xGD", Width: xgWidth, Right: true},
+	}[:xgCount] {
+		cols = append(cols, extra)
 	}
+
+	return cols
 }
 
 // View implements core.Screen.
@@ -188,8 +226,15 @@ func (m *Model) table() string {
 		})
 	}
 
+	cols := m.columns()
+	for i := range rows {
+		if len(rows[i]) > len(cols) {
+			rows[i] = rows[i][:len(cols)]
+		}
+	}
+
 	return components.Table(components.TableOpts{
-		Columns: m.columns(),
+		Columns: cols,
 		Rows:    rows,
 		Cursor:  m.cursor,
 		MaxRows: m.tableHeight(),

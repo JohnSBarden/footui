@@ -117,6 +117,13 @@ func (a *App) current() core.Screen {
 func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
+		// A terminal that can't report its size sends zeroes (a pty with
+		// no winsize set, some CI runners). Taking those literally
+		// collapses every column to its minimum and truncates club names
+		// to nothing, so the sensible default is kept instead.
+		if msg.Width <= 0 || msg.Height <= 0 {
+			return a, nil
+		}
 		a.width, a.height = msg.Width, msg.Height
 		// Every screen in the stack is resized, not just the visible one,
 		// so a screen the user pops back to isn't laid out for the old
@@ -257,6 +264,11 @@ func (a *App) footer() string {
 	// appended here rather than repeated in every screen's KeyMap — and
 	// to both views, or the expanded help would omit how to get out of it.
 	globals := []key.Binding{keys.Help, keys.Back, keys.Quit}
+	if entry, ok := a.current().(core.TextEntry); ok && entry.CapturingText() {
+		// "?" is also swallowed by the text box, so neither it nor "q" is
+		// offered here.
+		globals = []key.Binding{keys.Back, keys.QuitFromTextEntry}
+	}
 
 	km := a.current().Keys()
 	km.Full = append(append([][]key.Binding{}, km.FullHelp()...), globals)

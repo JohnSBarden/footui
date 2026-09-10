@@ -282,3 +282,62 @@ func TestNoSyncHistoryShowsNoFreshnessNote(t *testing.T) {
 		t.Errorf("expected no freshness note without a sync log entry\n---\n%s", out)
 	}
 }
+
+// A narrow terminal has to give something up. Squeezing the team column
+// would turn "Manchester United" and "Manchester City" into two identical
+// truncated rows, making the table actively wrong rather than merely less
+// detailed — so the derived columns go instead.
+func TestNarrowTerminalsDropStatColumnsNotTeamNames(t *testing.T) {
+	repos := storagetest.New(t)
+	storagetest.SeedCompetition(t, repos, storagetest.PremierLeague(), "2025", []storagetest.TeamRow{
+		{ID: "eng-manchester-united", Name: "Manchester United", Position: 1, MP: 38, Pts: 85, GF: 71, GA: 27, XG: 77.5, XGA: 33.1},
+		{ID: "eng-manchester-city", Name: "Manchester City", Position: 2, MP: 38, Pts: 78, GF: 77, GA: 35, XG: 79.4, XGA: 46.5},
+		{ID: "eng-wolves", Name: "Wolverhampton Wanderers", Position: 3, MP: 38, Pts: 20, GF: 27, GA: 68, XG: 38.4, XGA: 68.3},
+	})
+
+	for _, width := range []int{70, 80, 95, 120} {
+		s := tuitest.Resize(t, tuitest.Settle(t, league.New(newDeps(repos), "eng-premier-league")), width, 24)
+		out := s.View()
+
+		for _, name := range []string{"Manchester United", "Manchester City", "Wolverhampton Wanderers"} {
+			if !strings.Contains(out, name) {
+				t.Errorf("width %d truncated %q — the two Manchester clubs must stay distinguishable\n---\n%s",
+					width, name, out)
+			}
+		}
+		// The core table is never sacrificed.
+		for _, col := range []string{"MP", "GD", "Pts"} {
+			if !strings.Contains(out, col) {
+				t.Errorf("width %d dropped the core column %q\n---\n%s", width, col, out)
+			}
+		}
+	}
+}
+
+func TestWideTerminalsShowTheExpectedGoalsColumns(t *testing.T) {
+	repos := storagetest.New(t)
+	storagetest.SeedCompetition(t, repos, storagetest.PremierLeague(), "2025", storagetest.SampleStandings())
+
+	out := tuitest.Resize(t, tuitest.Settle(t, league.New(newDeps(repos), "eng-premier-league")), 120, 24).View()
+	for _, col := range []string{"xG", "xGA", "xGD"} {
+		if !strings.Contains(out, col) {
+			t.Errorf("a wide terminal should show %q\n---\n%s", col, out)
+		}
+	}
+}
+
+// xG and xGA are a pair: attacking output means little without what the
+// team conceded, so the step below both is neither.
+func TestExpectedGoalsColumnsAreDroppedAsAPair(t *testing.T) {
+	repos := storagetest.New(t)
+	storagetest.SeedCompetition(t, repos, storagetest.PremierLeague(), "2025", storagetest.SampleStandings())
+
+	for _, width := range []int{60, 70, 78, 84, 90, 100, 120} {
+		out := tuitest.Resize(t, tuitest.Settle(t, league.New(newDeps(repos), "eng-premier-league")), width, 24).View()
+		hasXG := strings.Contains(out, " xG ") || strings.Contains(out, "  xG")
+		hasXGA := strings.Contains(out, "xGA")
+		if hasXG && !hasXGA {
+			t.Errorf("width %d shows xG without xGA\n---\n%s", width, out)
+		}
+	}
+}

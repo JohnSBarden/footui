@@ -19,6 +19,14 @@ var (
 		key.WithKeys("q", "ctrl+c"),
 		key.WithHelp("q", "quit"),
 	)
+	// QuitFromTextEntry is what the footer advertises while a screen has a
+	// focused text box. There, "q" is a literal character the box needs,
+	// so offering it as the quit key would be a lie the user discovers by
+	// typing their search and finding nothing happens.
+	QuitFromTextEntry = key.NewBinding(
+		key.WithKeys("ctrl+c"),
+		key.WithHelp("ctrl+c", "quit"),
+	)
 	Help = key.NewBinding(
 		key.WithKeys("?"),
 		key.WithHelp("?", "keys"),
