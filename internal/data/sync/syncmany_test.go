@@ -320,3 +320,73 @@ func TestSyncSucceedsEvenIfTheSyncLogCannotBeWritten(t *testing.T) {
 		t.Errorf("a broken audit table should not fail the refresh: %+v", results[0].Err)
 	}
 }
+
+// A failed refresh must leave nothing behind. Writing the competition and
+// season before fetching would create a season that exists with no data in
+// it, which `footy status` and the League screen would then report as
+// cached.
+func TestAFailedSyncWritesNothing(t *testing.T) {
+	src := &flakySource{failOn: map[string]bool{"a-league/2025": true}}
+	db, err := sqlite.Open(":memory:")
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer db.Close()
+	store := sqlite.NewStore(db)
+	syncer := sync.New(src, store)
+
+	results := syncer.SyncMany(context.Background(), competitions("a-league"), []string{"2025"}, nil)
+	if !results[0].Failed() {
+		t.Fatal("expected the unit to fail")
+	}
+
+	summary, err := store.CacheSummary(context.Background())
+	if err != nil {
+		t.Fatalf("CacheSummary: %v", err)
+	}
+	if len(summary) != 0 {
+		t.Errorf("a failed sync left %d competition(s) behind: %+v", len(summary), summary)
+	}
+
+	// The attempt itself is still recorded — that's the whole point of
+	// the sync log.
+	if _, err := store.LatestSyncRun(context.Background(), "a-league", "a-league:2025"); err != nil {
+		t.Errorf("the failed attempt should still be logged: %v", err)
+	}
+}
+
+func TestASuccessfulSyncIsVisibleInTheCacheSummary(t *testing.T) {
+	src := &flakySource{failOn: map[string]bool{}}
+	db, err := sqlite.Open(":memory:")
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer db.Close()
+	store := sqlite.NewStore(db)
+	syncer := sync.New(src, store)
+
+	syncer.SyncMany(context.Background(), competitions("a-league"), []string{"2025", "2024"}, nil)
+
+	summary, err := store.CacheSummary(context.Background())
+	if err != nil {
+		t.Fatalf("CacheSummary: %v", err)
+	}
+	if len(summary) != 1 {
+		t.Fatalf("got %d competitions", len(summary))
+	}
+	got := summary[0]
+	if got.Seasons != 2 {
+		t.Errorf("seasons = %d, want 2", got.Seasons)
+	}
+	// Counts must not multiply against each other: one team across two
+	// seasons is one team, not two.
+	if got.Teams != 1 {
+		t.Errorf("teams = %d, want 1 distinct team", got.Teams)
+	}
+	if got.EarliestSeason != "2024" || got.LatestSeason != "2025" {
+		t.Errorf("season range = %s..%s", got.EarliestSeason, got.LatestSeason)
+	}
+	if got.LastSync == nil || !got.LastSync.Succeeded() {
+		t.Errorf("expected a successful last sync, got %+v", got.LastSync)
+	}
+}

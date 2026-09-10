@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/JohnSBarden/footui/internal/data/models"
 	"github.com/JohnSBarden/footui/internal/storage/sqlite"
@@ -170,5 +171,93 @@ func TestCompletionsAreAvailableForTheUsualShells(t *testing.T) {
 		if len(out) < 100 {
 			t.Errorf("completion %s produced %d bytes, expected a real script", shell, len(out))
 		}
+	}
+}
+
+func TestStatusOnAnEmptyCacheSaysHowToPopulateIt(t *testing.T) {
+	out, err := run(t, "status", "--db", tempDB(t))
+	if err != nil {
+		t.Fatalf("status: %v", err)
+	}
+	if !strings.Contains(out, "Nothing cached yet") {
+		t.Errorf("expected an empty-cache message\n---\n%s", out)
+	}
+	if !strings.Contains(out, "footy refresh") {
+		t.Errorf("the message should name the command that fixes it\n---\n%s", out)
+	}
+}
+
+func TestStatusReportsWhatIsCachedAndItsFreshness(t *testing.T) {
+	db := tempDB(t)
+	conn, err := sqlite.Open(db)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	store := sqlite.NewStore(conn)
+	ctx := context.Background()
+
+	comp := models.Competition{ID: "eng-premier-league", Name: "Premier League",
+		Country: "England", Tier: 1, Gender: "men", Format: "league"}
+	if err := store.UpsertCompetition(ctx, comp); err != nil {
+		t.Fatalf("UpsertCompetition: %v", err)
+	}
+	if err := store.UpsertSeason(ctx, models.Season{
+		ID: "eng-premier-league:2025", CompetitionID: comp.ID, Label: "2025"}); err != nil {
+		t.Fatalf("UpsertSeason: %v", err)
+	}
+	if err := store.RecordSyncRun(ctx, models.SyncRun{
+		Provider: "understat", CompetitionID: comp.ID, SeasonID: "eng-premier-league:2025",
+		StartedAt: time.Now().Add(-2 * time.Hour), FinishedAt: time.Now().Add(-2 * time.Hour),
+		Status: models.SyncStatusOK,
+	}); err != nil {
+		t.Fatalf("RecordSyncRun: %v", err)
+	}
+	conn.Close()
+
+	out, err := run(t, "status", "--db", db)
+	if err != nil {
+		t.Fatalf("status: %v", err)
+	}
+	for _, want := range []string{"eng-premier-league", "2025-26", "2 hours ago"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("status output missing %q\n---\n%s", want, out)
+		}
+	}
+}
+
+// A failed refresh must be reported as a failure, not as data that is
+// merely a bit old.
+func TestStatusFlagsCompetitionsWhoseLastRefreshFailed(t *testing.T) {
+	db := tempDB(t)
+	conn, err := sqlite.Open(db)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	store := sqlite.NewStore(conn)
+	ctx := context.Background()
+
+	comp := models.Competition{ID: "esp-la-liga", Name: "La Liga",
+		Country: "Spain", Tier: 1, Gender: "men", Format: "league"}
+	if err := store.UpsertCompetition(ctx, comp); err != nil {
+		t.Fatalf("UpsertCompetition: %v", err)
+	}
+	if err := store.RecordSyncRun(ctx, models.SyncRun{
+		Provider: "understat", CompetitionID: comp.ID, SeasonID: "esp-la-liga:2025",
+		StartedAt: time.Now().Add(-time.Hour), FinishedAt: time.Now().Add(-time.Hour),
+		Status: models.SyncStatusFailed, Error: "unreachable",
+	}); err != nil {
+		t.Fatalf("RecordSyncRun: %v", err)
+	}
+	conn.Close()
+
+	out, err := run(t, "status", "--db", db)
+	if err != nil {
+		t.Fatalf("status: %v", err)
+	}
+	if !strings.Contains(out, "FAILED") {
+		t.Errorf("expected the failure flagged\n---\n%s", out)
+	}
+	if !strings.Contains(out, "last failed to refresh") {
+		t.Errorf("expected a summary line about the failure\n---\n%s", out)
 	}
 }

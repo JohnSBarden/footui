@@ -179,6 +179,26 @@ const (
 // Succeeded reports whether the run completed without error.
 func (r SyncRun) Succeeded() bool { return r.Status == SyncStatusOK }
 
+// CompetitionCache summarizes what is cached for one competition: how much
+// data is held and how fresh it is. It exists because a tool built around
+// a local cache has to be able to answer "what do I actually have?"
+// without making the user open the interface and look.
+type CompetitionCache struct {
+	Competition Competition
+	Seasons     int
+	// EarliestSeason and LatestSeason are season labels, empty when
+	// nothing is cached.
+	EarliestSeason string
+	LatestSeason   string
+	Teams          int
+	// PlayerSeasons counts player-season rows, not distinct players: it is
+	// a measure of how much was fetched, not of squad size.
+	PlayerSeasons int
+	// LastSync is the most recent refresh attempt across any of this
+	// competition's seasons, or nil if it has never been attempted.
+	LastSync *SyncRun
+}
+
 // TeamColors are the brand colors used to theme a Team's dashboard.
 type TeamColors struct {
 	TeamID       string

@@ -48,6 +48,12 @@ footy refresh --all --years 5        # ...and the four seasons before it
 footy refresh --all --years 5 --dry-run   # show what that would fetch, and stop
 ```
 
+Check what you have at any point:
+
+```sh
+footy status
+```
+
 Then explore:
 
 ```sh
@@ -109,6 +115,7 @@ easiest way to improve coverage.
 | `footy team <name>` | Open a club's dashboard |
 | `footy player <name>` | Open a player's career dashboard |
 | `footy refresh` | Fetch data (`--all`, `--years N`, `--season YYYY`, `--dry-run`) |
+| `footy status` | Show what's cached and how fresh it is |
 | `footy competitions` | List what can be refreshed |
 | `footy colors` | Apply curated club colors and report coverage |
 | `footy completion <shell>` | Shell completions for bash, zsh, fish, powershell |

@@ -117,6 +117,36 @@ func (s *Syncer) recordRun(ctx context.Context, comp models.Competition, season 
 func (s *Syncer) syncCompetitionSeason(ctx context.Context, comp models.Competition, season models.Season) (Result, error) {
 	var res Result
 
+	compRef := provider.CompetitionRef{CompetitionID: comp.ID, Name: comp.Name}
+	seasonRef := provider.SeasonRef{SeasonID: season.ID, Label: season.Label}
+
+	// Everything is fetched before anything is written. The source caches
+	// per league/season in process, so these four calls are one round
+	// trip — and doing them first means a failed refresh leaves no trace
+	// in the database. Writing the competition and season up front would
+	// leave phantom rows behind: a season that exists with nothing in it,
+	// which `footy status` and the League screen would then report as
+	// cached.
+	teams, err := s.source.Teams(ctx, compRef, seasonRef)
+	if err != nil {
+		return res, fmt.Errorf("sync: fetch teams: %w", err)
+	}
+
+	standings, err := s.source.Standings(ctx, compRef, seasonRef)
+	if err != nil {
+		return res, fmt.Errorf("sync: fetch standings: %w", err)
+	}
+
+	players, err := s.source.Players(ctx, compRef, seasonRef)
+	if err != nil {
+		return res, fmt.Errorf("sync: fetch players: %w", err)
+	}
+
+	playerStats, err := s.source.AllRosterStats(ctx, compRef, seasonRef)
+	if err != nil {
+		return res, fmt.Errorf("sync: fetch roster stats: %w", err)
+	}
+
 	if err := s.repos.UpsertCompetition(ctx, comp); err != nil {
 		return res, err
 	}
@@ -124,13 +154,6 @@ func (s *Syncer) syncCompetitionSeason(ctx context.Context, comp models.Competit
 		return res, err
 	}
 
-	compRef := provider.CompetitionRef{CompetitionID: comp.ID, Name: comp.Name}
-	seasonRef := provider.SeasonRef{SeasonID: season.ID, Label: season.Label}
-
-	teams, err := s.source.Teams(ctx, compRef, seasonRef)
-	if err != nil {
-		return res, fmt.Errorf("sync: fetch teams: %w", err)
-	}
 	for _, t := range teams {
 		if err := s.repos.UpsertTeam(ctx, t); err != nil {
 			return res, fmt.Errorf("sync: upsert team %s: %w", t.ID, err)
@@ -141,10 +164,6 @@ func (s *Syncer) syncCompetitionSeason(ctx context.Context, comp models.Competit
 		res.Teams++
 	}
 
-	standings, err := s.source.Standings(ctx, compRef, seasonRef)
-	if err != nil {
-		return res, fmt.Errorf("sync: fetch standings: %w", err)
-	}
 	for _, st := range standings {
 		if err := s.repos.UpsertTeamSeasonStats(ctx, st); err != nil {
 			return res, fmt.Errorf("sync: upsert team_season_stats %s: %w", st.TeamID, err)
@@ -152,10 +171,6 @@ func (s *Syncer) syncCompetitionSeason(ctx context.Context, comp models.Competit
 		res.TeamStats++
 	}
 
-	players, err := s.source.Players(ctx, compRef, seasonRef)
-	if err != nil {
-		return res, fmt.Errorf("sync: fetch players: %w", err)
-	}
 	for _, p := range players {
 		if err := s.repos.UpsertPlayer(ctx, p); err != nil {
 			return res, fmt.Errorf("sync: upsert player %s: %w", p.ID, err)
@@ -163,10 +178,6 @@ func (s *Syncer) syncCompetitionSeason(ctx context.Context, comp models.Competit
 		res.Players++
 	}
 
-	playerStats, err := s.source.AllRosterStats(ctx, compRef, seasonRef)
-	if err != nil {
-		return res, fmt.Errorf("sync: fetch roster stats: %w", err)
-	}
 	for _, ps := range playerStats {
 		if err := s.repos.UpsertPlayerSeasonStats(ctx, ps); err != nil {
 			return res, fmt.Errorf("sync: upsert player_season_stats %s: %w", ps.PlayerID, err)

@@ -63,6 +63,14 @@ type TeamsRepo interface {
 	ListTeams(ctx context.Context) ([]models.Team, error)
 }
 
+// CacheRepo answers questions about the cache as a whole rather than about
+// one entity.
+type CacheRepo interface {
+	// CacheSummary reports what is cached per competition, ordered by
+	// country and tier.
+	CacheSummary(ctx context.Context) ([]models.CompetitionCache, error)
+}
+
 // SyncLogRepo records refresh attempts and answers staleness questions.
 type SyncLogRepo interface {
 	RecordSyncRun(ctx context.Context, r models.SyncRun) error
@@ -143,4 +151,5 @@ type Repositories interface {
 	TeamColorsRepo
 	TrophiesRepo
 	SyncLogRepo
+	CacheRepo
 }
