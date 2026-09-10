@@ -3,7 +3,9 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/JohnSBarden/footui/internal/data/models"
@@ -77,6 +79,21 @@ func parseTime(s string) (time.Time, error) {
 	return time.Parse(time.RFC3339, s)
 }
 
+// parseDatePtr converts a nullable DATE column back to *time.Time,
+// mirroring timePtrToNullString on the write side. An unparseable value is
+// treated as absent: season start/end dates are cosmetic, and a malformed
+// one shouldn't fail an otherwise good query.
+func parseDatePtr(v sql.NullString) *time.Time {
+	if !v.Valid {
+		return nil
+	}
+	t, err := time.Parse("2006-01-02", v.String)
+	if err != nil {
+		return nil
+	}
+	return &t
+}
+
 // --- CompetitionsRepo ---
 
 func (s *Store) UpsertCompetition(ctx context.Context, c models.Competition) error {
@@ -114,6 +131,41 @@ func (s *Store) ListCompetitions(ctx context.Context) ([]models.Competition, err
 	return out, rows.Err()
 }
 
+func (s *Store) GetCompetition(ctx context.Context, id string) (models.Competition, error) {
+	var c models.Competition
+	err := s.db.QueryRowContext(ctx, `
+		SELECT id, name, country, tier, gender, format FROM competition WHERE id = ?`, id).
+		Scan(&c.ID, &c.Name, &c.Country, &c.Tier, &c.Gender, &c.Format)
+	if errors.Is(err, sql.ErrNoRows) {
+		return c, fmt.Errorf("sqlite: competition %s: %w", id, storage.ErrNotFound)
+	}
+	if err != nil {
+		return c, fmt.Errorf("sqlite: get competition %s: %w", id, err)
+	}
+	return c, nil
+}
+
+func (s *Store) FindCompetitionsByName(ctx context.Context, query string) ([]models.Competition, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id, name, country, tier, gender, format FROM competition
+		WHERE name LIKE '%' || ? || '%' COLLATE NOCASE OR id LIKE '%' || ? || '%' COLLATE NOCASE
+		ORDER BY country, tier`, query, query)
+	if err != nil {
+		return nil, fmt.Errorf("sqlite: find competitions by name %q: %w", query, err)
+	}
+	defer rows.Close()
+
+	var out []models.Competition
+	for rows.Next() {
+		var c models.Competition
+		if err := rows.Scan(&c.ID, &c.Name, &c.Country, &c.Tier, &c.Gender, &c.Format); err != nil {
+			return nil, fmt.Errorf("sqlite: scan competition: %w", err)
+		}
+		out = append(out, c)
+	}
+	return out, rows.Err()
+}
+
 // --- SeasonsRepo ---
 
 func (s *Store) UpsertSeason(ctx context.Context, se models.Season) error {
@@ -127,6 +179,33 @@ func (s *Store) UpsertSeason(ctx context.Context, se models.Season) error {
 		return fmt.Errorf("sqlite: upsert season %s: %w", se.ID, err)
 	}
 	return nil
+}
+
+// ListSeasons returns a competition's seasons most recent first. Season
+// labels are understat.com-style start years ("2025"), which sort
+// correctly as text, so ordering by label descending is the same as
+// ordering by recency.
+func (s *Store) ListSeasons(ctx context.Context, competitionID string) ([]models.Season, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id, competition_id, label, start_date, end_date
+		FROM season WHERE competition_id = ? ORDER BY label DESC`, competitionID)
+	if err != nil {
+		return nil, fmt.Errorf("sqlite: list seasons %s: %w", competitionID, err)
+	}
+	defer rows.Close()
+
+	var out []models.Season
+	for rows.Next() {
+		var se models.Season
+		var start, end sql.NullString
+		if err := rows.Scan(&se.ID, &se.CompetitionID, &se.Label, &start, &end); err != nil {
+			return nil, fmt.Errorf("sqlite: scan season: %w", err)
+		}
+		se.StartDate = parseDatePtr(start)
+		se.EndDate = parseDatePtr(end)
+		out = append(out, se)
+	}
+	return out, rows.Err()
 }
 
 // --- TeamsRepo ---
@@ -165,6 +244,64 @@ func (s *Store) FindTeamsByName(ctx context.Context, query string) ([]models.Tea
 			t.FoundedYear = int(founded.Int64)
 		}
 		out = append(out, t)
+	}
+	return out, rows.Err()
+}
+
+func (s *Store) GetTeam(ctx context.Context, id string) (models.Team, error) {
+	var t models.Team
+	var founded sql.NullInt64
+	err := s.db.QueryRowContext(ctx, `
+		SELECT id, name, short_name, country, gender, founded_year, venue
+		FROM team WHERE id = ?`, id).
+		Scan(&t.ID, &t.Name, &t.ShortName, &t.Country, &t.Gender, &founded, &t.Venue)
+	if errors.Is(err, sql.ErrNoRows) {
+		return t, fmt.Errorf("sqlite: team %s: %w", id, storage.ErrNotFound)
+	}
+	if err != nil {
+		return t, fmt.Errorf("sqlite: get team %s: %w", id, err)
+	}
+	if founded.Valid {
+		t.FoundedYear = int(founded.Int64)
+	}
+	return t, nil
+}
+
+// GetTeams resolves a batch of team IDs in one query. IDs with no cached
+// team row are simply absent from the returned map rather than an error —
+// a stats row can outlive the team row it references only if the database
+// was hand-edited, and a screen should render "unknown team" instead of
+// failing the whole view.
+func (s *Store) GetTeams(ctx context.Context, ids []string) (map[string]models.Team, error) {
+	out := make(map[string]models.Team, len(ids))
+	if len(ids) == 0 {
+		return out, nil
+	}
+
+	placeholders := strings.TrimSuffix(strings.Repeat("?,", len(ids)), ",")
+	args := make([]any, len(ids))
+	for i, id := range ids {
+		args[i] = id
+	}
+
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id, name, short_name, country, gender, founded_year, venue
+		FROM team WHERE id IN (`+placeholders+`)`, args...)
+	if err != nil {
+		return nil, fmt.Errorf("sqlite: get teams: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var t models.Team
+		var founded sql.NullInt64
+		if err := rows.Scan(&t.ID, &t.Name, &t.ShortName, &t.Country, &t.Gender, &founded, &t.Venue); err != nil {
+			return nil, fmt.Errorf("sqlite: scan team: %w", err)
+		}
+		if founded.Valid {
+			t.FoundedYear = int(founded.Int64)
+		}
+		out[t.ID] = t
 	}
 	return out, rows.Err()
 }

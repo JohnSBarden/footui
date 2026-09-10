@@ -13,6 +13,8 @@ var Version = "dev"
 
 // NewRootCmd constructs the root `footy` command and wires its subcommands.
 func NewRootCmd() *cobra.Command {
+	g := &globalFlags{}
+
 	root := &cobra.Command{
 		Use:   "footy",
 		Short: "Interactive terminal dashboard for football/soccer statistics",
@@ -25,9 +27,15 @@ func NewRootCmd() *cobra.Command {
 		},
 	}
 
+	root.PersistentFlags().StringVar(&g.dbPath, "db", "",
+		"override the SQLite database path (default: $XDG_DATA_HOME/footui/footy.db)")
+	root.PersistentFlags().BoolVar(&g.noColor, "no-color", false,
+		"disable color output (also honours the NO_COLOR environment variable)")
+
 	root.AddCommand(newVersionCmd())
-	root.AddCommand(newRefreshCmd())
+	root.AddCommand(newRefreshCmd(g))
 	root.AddCommand(newCompetitionsCmd())
+	root.AddCommand(newLeagueCmd(g))
 
 	return root
 }

@@ -1,0 +1,103 @@
+package cli
+
+import (
+	"context"
+	"database/sql"
+	"fmt"
+	"strings"
+
+	"github.com/spf13/cobra"
+
+	"github.com/JohnSBarden/footui/internal/config"
+	"github.com/JohnSBarden/footui/internal/data/models"
+	"github.com/JohnSBarden/footui/internal/storage"
+	"github.com/JohnSBarden/footui/internal/storage/sqlite"
+	"github.com/JohnSBarden/footui/internal/tui"
+	"github.com/JohnSBarden/footui/internal/tui/core"
+	"github.com/JohnSBarden/footui/internal/tui/styles"
+)
+
+// globalFlags are the flags every command shares, registered as persistent
+// flags on the root command.
+type globalFlags struct {
+	dbPath  string
+	noColor bool
+}
+
+// openStore opens (creating and migrating if needed) the local database and
+// returns it alongside the repositories the TUI and sync layer use. The
+// caller closes the returned *sql.DB.
+func (g *globalFlags) openStore() (*sql.DB, storage.Repositories, error) {
+	path := g.dbPath
+	if path == "" {
+		path = config.DefaultDBPath()
+	}
+	db, err := sqlite.Open(path)
+	if err != nil {
+		return nil, nil, err
+	}
+	return db, sqlite.NewStore(db), nil
+}
+
+// dbPathOrDefault reports the database path a command will use, for
+// user-facing messages.
+func (g *globalFlags) dbPathOrDefault() string {
+	if g.dbPath != "" {
+		return g.dbPath
+	}
+	return config.DefaultDBPath()
+}
+
+// launchTUI opens the store, builds screen dependencies, and runs the app
+// with the screen build returns. Every TUI-launching command funnels
+// through here so database lifetime and theme resolution live in one place.
+func (g *globalFlags) launchTUI(ctx context.Context, build func(core.Deps) (core.Screen, error)) error {
+	db, repos, err := g.openStore()
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	deps := tui.NewDeps(ctx, repos, styles.Resolve(g.noColor))
+
+	screen, err := build(deps)
+	if err != nil {
+		return err
+	}
+	return tui.Run(deps, screen)
+}
+
+// resolveCompetition turns a free-text competition name into exactly one
+// cached competition. Matching is done against the local database rather
+// than the in-code Scope list so the message can distinguish "that league
+// isn't supported" from "it's supported but you haven't refreshed it yet".
+func resolveCompetition(ctx context.Context, repos storage.Repositories, query string) (models.Competition, error) {
+	matches, err := repos.FindCompetitionsByName(ctx, query)
+	if err != nil {
+		return models.Competition{}, err
+	}
+
+	switch len(matches) {
+	case 1:
+		return matches[0], nil
+	case 0:
+		return models.Competition{}, fmt.Errorf(
+			"no cached competition matches %q — run `footy refresh --competition <id>` first (see `footy competitions`)", query)
+	default:
+		var names []string
+		for _, c := range matches {
+			names = append(names, fmt.Sprintf("%s (%s)", c.Name, c.ID))
+		}
+		return models.Competition{}, fmt.Errorf("%q matches %d competitions: %s",
+			query, len(matches), strings.Join(names, ", "))
+	}
+}
+
+// cmdContext returns the context a command's work runs under, so a future
+// signal handler has one place to hook into.
+func cmdContext(cmd *cobra.Command) context.Context {
+	if ctx := cmd.Context(); ctx != nil {
+		return ctx
+	}
+	return context.Background()
+}

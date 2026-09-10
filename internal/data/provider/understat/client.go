@@ -17,12 +17,28 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"os"
+	"path/filepath"
+	"regexp"
+	"strings"
 	"sync"
 	"time"
 )
 
 const baseURL = "https://understat.com"
+
+// CacheDirEnv names an optional directory for caching raw endpoint
+// responses on disk. When it's set, a league/season payload is read from
+// there if present and written there after a successful fetch.
+//
+// This is deliberately opt-in and off by default: `footy refresh` means
+// "go get the current numbers", and silently serving yesterday's file
+// would make that a lie. It exists so that developing against the data
+// (and running the opt-in live tests) doesn't hammer an undocumented
+// third-party endpoint with identical requests.
+const CacheDirEnv = "FOOTY_HTTP_CACHE"
 
 // Client fetches and caches per-(league,season) payloads from
 // understat.com. A single payload contains everything needed to satisfy
@@ -32,6 +48,9 @@ const baseURL = "https://understat.com"
 type Client struct {
 	httpClient *http.Client
 	minGap     time.Duration
+	// cacheDir, when non-empty, is a directory of raw JSON responses read
+	// before hitting the network and written after a successful fetch.
+	cacheDir string
 
 	mu        sync.Mutex
 	lastFetch time.Time
@@ -42,10 +61,19 @@ type Client struct {
 // between outbound requests (politeness towards an undocumented endpoint).
 func NewClient(minGap time.Duration) *Client {
 	return &Client{
-		httpClient: &http.Client{Timeout: 20 * time.Second},
+		httpClient: &http.Client{Timeout: 30 * time.Second},
 		minGap:     minGap,
+		cacheDir:   os.Getenv(CacheDirEnv),
 		cache:      make(map[string]*leagueData),
 	}
+}
+
+// WithCacheDir returns a copy of the client that reads and writes raw
+// responses under dir, overriding the environment variable.
+func (c *Client) WithCacheDir(dir string) *Client {
+	clone := NewClient(c.minGap)
+	clone.cacheDir = dir
+	return clone
 }
 
 func cacheKey(leagueKey, season string) string {
@@ -63,6 +91,18 @@ func (c *Client) fetchLeagueData(ctx context.Context, leagueKey, season string) 
 		return cached, nil
 	}
 	c.mu.Unlock()
+
+	if body, ok := c.readDiskCache(leagueKey, season); ok {
+		var payload leagueData
+		if err := json.Unmarshal(body, &payload); err == nil {
+			c.mu.Lock()
+			c.cache[key] = &payload
+			c.mu.Unlock()
+			return &payload, nil
+		}
+		// A corrupt cache file is not worth failing over: fall through and
+		// re-fetch, which also overwrites the bad file.
+	}
 
 	if err := c.throttle(ctx); err != nil {
 		return nil, err
@@ -87,16 +127,62 @@ func (c *Client) fetchLeagueData(ctx context.Context, leagueKey, season string) 
 		return nil, fmt.Errorf("understat: fetch %s: unexpected status %d", url, resp.StatusCode)
 	}
 
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("understat: read %s: %w", url, err)
+	}
+
 	var payload leagueData
-	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+	if err := json.Unmarshal(body, &payload); err != nil {
 		return nil, fmt.Errorf("understat: decode %s: %w", url, err)
 	}
+
+	c.writeDiskCache(leagueKey, season, body)
 
 	c.mu.Lock()
 	c.cache[key] = &payload
 	c.mu.Unlock()
 
 	return &payload, nil
+}
+
+var cacheNameUnsafe = regexp.MustCompile(`[^a-zA-Z0-9]+`)
+
+// diskCachePath maps a league/season to a cache filename. League keys
+// contain spaces ("La liga", "Serie A"), so they're normalized rather than
+// used verbatim as path segments.
+func (c *Client) diskCachePath(leagueKey, season string) string {
+	if c.cacheDir == "" {
+		return ""
+	}
+	name := strings.Trim(cacheNameUnsafe.ReplaceAllString(strings.ToLower(leagueKey), "-"), "-")
+	return filepath.Join(c.cacheDir, fmt.Sprintf("%s_%s.json", name, season))
+}
+
+func (c *Client) readDiskCache(leagueKey, season string) ([]byte, bool) {
+	path := c.diskCachePath(leagueKey, season)
+	if path == "" {
+		return nil, false
+	}
+	body, err := os.ReadFile(path)
+	if err != nil {
+		return nil, false
+	}
+	return body, true
+}
+
+// writeDiskCache persists a successful response. Cache write failures are
+// ignored: the caller already has the data, and a read-only or full cache
+// directory shouldn't fail a refresh that otherwise worked.
+func (c *Client) writeDiskCache(leagueKey, season string, body []byte) {
+	path := c.diskCachePath(leagueKey, season)
+	if path == "" {
+		return
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return
+	}
+	_ = os.WriteFile(path, body, 0o644)
 }
 
 func (c *Client) throttle(ctx context.Context) error {
