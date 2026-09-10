@@ -6,6 +6,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/JohnSBarden/footui/internal/data/models"
 	"github.com/JohnSBarden/footui/internal/tui/components"
 )
 
@@ -126,7 +127,58 @@ func (m *Model) statCards() string {
 		stats = append(stats, components.Stat{Label: "Possession", Value: components.Float(s.PossessionAvg, 1) + "%"})
 	}
 
+	stats = append(stats, m.extraCards(s)...)
+
 	return components.StatCards(th, stats, m.width)
+}
+
+// extraCards renders the long-tail stats a provider supplied. Each is
+// conditional: understat.com has these, a future provider might not, and
+// an absent stat should leave no card rather than an empty one.
+func (m *Model) extraCards(s models.TeamSeasonStats) []components.Stat {
+	var out []components.Stat
+
+	if xpts, ok := m.extras[models.StatExpectedPoints]; ok {
+		// Points minus expected points is the clearest single measure of
+		// whether a season flattered a team or robbed it.
+		delta := float64(s.Points) - xpts
+		style := m.deltaStyle(delta)
+		out = append(out, components.Stat{
+			Label: "xPts", Value: strconv.FormatFloat(xpts, 'f', 1, 64),
+			Hint:  components.SignedFloat(delta, 1) + " vs Pts",
+			Style: &style,
+		})
+	}
+
+	if ppda, ok := m.extras[models.StatPPDA]; ok {
+		// PPDA is inverted: fewer opponent passes per defensive action
+		// means a more aggressive press, so the hint says which end is
+		// which rather than leaving the reader to guess.
+		out = append(out, components.Stat{
+			Label: "PPDA", Value: strconv.FormatFloat(ppda, 'f', 1, 64),
+			Hint: "lower = press",
+		})
+	}
+
+	if npxg, ok := m.extras[models.StatNPxG]; ok {
+		out = append(out, components.Stat{
+			Label: "npxG", Value: strconv.FormatFloat(npxg, 'f', 1, 64),
+			Hint: "excl. pens",
+		})
+	}
+
+	if deep, ok := m.extras[models.StatDeep]; ok {
+		hint := ""
+		if allowed, ok := m.extras[models.StatDeepAllowed]; ok {
+			hint = strconv.FormatFloat(allowed, 'f', 0, 64) + " allowed"
+		}
+		out = append(out, components.Stat{
+			Label: "Deep", Value: strconv.FormatFloat(deep, 'f', 0, 64),
+			Hint: hint,
+		})
+	}
+
+	return out
 }
 
 func (m *Model) seasonsTable() string {
@@ -210,6 +262,8 @@ func (m *Model) squadTable() string {
 			components.Text(strconv.Itoa(s.Minutes)),
 			components.Styled(strconv.Itoa(s.Goals), th.Accent.Bold(true)),
 			components.Text(strconv.Itoa(s.Assists)),
+			components.Text(components.Int(s.Shots)),
+			components.Text(components.Int(s.KeyPasses)),
 			components.Text(components.Float(s.XG, 1)),
 			components.Text(components.Float(s.XA, 1)),
 		})
@@ -228,6 +282,8 @@ func (m *Model) squadTable() string {
 			{Title: "Mins", Width: 5, Right: true},
 			{Title: "G", Width: 4, Right: true},
 			{Title: "A", Width: 4, Right: true},
+			{Title: "Sh", Width: 4, Right: true},
+			{Title: "KP", Width: 4, Right: true},
 			{Title: "xG", Width: 6, Right: true},
 			{Title: "xA", Width: 6, Right: true},
 		},
@@ -239,8 +295,8 @@ func (m *Model) squadTable() string {
 }
 
 func (m *Model) playerColWidth() int {
-	// Everything except the player column, plus the seven separators.
-	const fixed = 6 + 5 + 5 + 4 + 4 + 6 + 6 + 7
+	// Everything except the player column, plus the nine separators.
+	const fixed = 6 + 5 + 5 + 4 + 4 + 4 + 4 + 6 + 6 + 9
 	w := m.width - fixed - 4
 	if w < 14 {
 		return 14

@@ -73,8 +73,10 @@ func TestMapPlayerEntitiesExtractsIdentity(t *testing.T) {
 	data := loadFixture(t)
 	players := mapPlayerEntities(data)
 
-	if len(players) != 2 {
-		t.Fatalf("expected 2 players, got %d", len(players))
+	// One identity row per player entry in the payload, whatever the
+	// fixture happens to contain.
+	if len(players) != len(data.Players) {
+		t.Fatalf("expected %d players, got %d", len(data.Players), len(players))
 	}
 	for _, p := range players {
 		if p.Gender != "men" {

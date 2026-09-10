@@ -214,3 +214,71 @@ func TestStatCardsShowExpectedGoalsGap(t *testing.T) {
 		t.Errorf("expected the goals-vs-xG gap on a stat card\n---\n%s", out)
 	}
 }
+
+func TestAdvancedTeamStatsRenderAsCards(t *testing.T) {
+	repos := seedTwoCompetitions(t)
+	ctx := context.Background()
+	// Arsenal took 85 points against 79.9 expected: a season that
+	// outperformed its chances by 5.1.
+	if err := repos.UpsertTeamSeasonStats(ctx, models.TeamSeasonStats{
+		TeamID: arsenal.ID, CompetitionID: "eng-premier-league", SeasonID: "eng-premier-league:2025",
+		MatchesPlayed: 38, Wins: 26, Draws: 7, Losses: 5, GoalsFor: 71, GoalsAgainst: 27,
+		GoalDiff: 44, Points: 85, Source: "test", UpdatedAt: storagetest.Fixed,
+		Extras: map[string]float64{
+			models.StatExpectedPoints: 79.9,
+			models.StatPPDA:           9.6,
+			models.StatNPxG:           74.4,
+			models.StatDeep:           349,
+			models.StatDeepAllowed:    142,
+		},
+	}); err != nil {
+		t.Fatalf("UpsertTeamSeasonStats: %v", err)
+	}
+
+	out := settled(t, newDeps(repos), "eng-premier-league", "eng-premier-league:2025").View()
+
+	for _, want := range []string{"xPts", "79.9", "+5.1 vs Pts", "PPDA", "9.6", "npxG", "Deep", "142 allowed"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("advanced stat cards missing %q\n---\n%s", want, out)
+		}
+	}
+}
+
+// A provider with no long-tail stats must produce no cards at all, rather
+// than a row of cards reading zero.
+func TestNoAdvancedStatsMeansNoAdvancedCards(t *testing.T) {
+	repos := seedTwoCompetitions(t) // seeded without extras
+	out := settled(t, newDeps(repos), "eng-premier-league", "eng-premier-league:2025").View()
+
+	for _, absent := range []string{"xPts", "PPDA", "npxG", "Deep"} {
+		if strings.Contains(out, absent) {
+			t.Errorf("rendered a %q card with no data behind it\n---\n%s", absent, out)
+		}
+	}
+}
+
+func TestSquadShowsShotsAndKeyPasses(t *testing.T) {
+	repos := seedTwoCompetitions(t)
+	ctx := context.Background()
+	if err := repos.UpsertPlayer(ctx, models.Player{ID: "p-saka", Name: "Bukayo Saka", Position: "F M S", Gender: "men"}); err != nil {
+		t.Fatalf("UpsertPlayer: %v", err)
+	}
+	shots, keyPasses := 71, 62
+	if err := repos.UpsertPlayerSeasonStats(ctx, models.PlayerSeasonStats{
+		PlayerID: "p-saka", TeamID: arsenal.ID,
+		CompetitionID: "eng-premier-league", SeasonID: "eng-premier-league:2025",
+		Appearances: 31, Minutes: 2239, Goals: 7, Assists: 5,
+		Shots: &shots, KeyPasses: &keyPasses,
+		Source: "test", UpdatedAt: storagetest.Fixed,
+	}); err != nil {
+		t.Fatalf("UpsertPlayerSeasonStats: %v", err)
+	}
+
+	out := settled(t, newDeps(repos), "eng-premier-league", "eng-premier-league:2025").View()
+	if !strings.Contains(out, "Sh") || !strings.Contains(out, "KP") {
+		t.Errorf("squad table missing shots/key-passes columns\n---\n%s", out)
+	}
+	if !strings.Contains(out, "71") || !strings.Contains(out, "62") {
+		t.Errorf("squad table missing the values\n---\n%s", out)
+	}
+}

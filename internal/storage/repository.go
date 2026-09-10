@@ -70,6 +70,12 @@ type TeamStatsRepo interface {
 	// competition, most recent first. Rows stay one-per-(competition,
 	// season): callers group them, they are never pre-blended.
 	TeamHistory(ctx context.Context, teamID string) ([]models.TeamSeasonStats, error)
+	// TeamSeasonStatExtras returns the long-tail key/value stats for one
+	// team-competition-season, or an empty map when none were supplied.
+	// Extras are kept out of Standings and TeamHistory because a standings
+	// table needs 20 rows of core columns, not 20 rows plus seven
+	// key/value lookups each.
+	TeamSeasonStatExtras(ctx context.Context, teamID, competitionID, seasonID string) (map[string]float64, error)
 }
 
 // PlayersRepo persists and queries Player rows.

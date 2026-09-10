@@ -64,9 +64,41 @@ type TeamSeasonStats struct {
 	Corners        *int
 	XG             *float64 // nullable: only populated once an XGProvider pass has run
 	XGA            *float64
-	Source         string // provenance, e.g. "understat"
-	UpdatedAt      time.Time
+	// Extras carries source-specific long-tail stats that don't warrant a
+	// column of their own — pressing intensity, expected points, deep
+	// completions. Keys are stable snake_case identifiers (see
+	// models.Stat* constants); a provider that has none leaves this nil,
+	// and screens render whichever keys are actually present.
+	Extras    map[string]float64
+	Source    string // provenance, e.g. "understat"
+	UpdatedAt time.Time
 }
+
+// Long-tail team stat keys used in TeamSeasonStats.Extras. They are
+// declared here rather than in a provider package because the storage
+// layer and TUI both read them: a provider chooses which it can supply,
+// but not what they are called.
+const (
+	// StatNPxG is non-penalty expected goals — expected goals with
+	// penalties excluded, a better measure of open-play attacking quality
+	// than raw xG.
+	StatNPxG = "npxg"
+	// StatNPxGA is non-penalty expected goals against.
+	StatNPxGA = "npxga"
+	// StatPPDA is opponent passes allowed per defensive action: lower
+	// means a more intense press.
+	StatPPDA = "ppda"
+	// StatPPDAAllowed is the same measure applied to the opponent's press.
+	StatPPDAAllowed = "ppda_allowed"
+	// StatDeep counts completed passes within ~20 yards of the opponent's
+	// goal (excluding crosses).
+	StatDeep = "deep"
+	// StatDeepAllowed is the same, conceded.
+	StatDeepAllowed = "deep_allowed"
+	// StatExpectedPoints is points the team would be expected to have
+	// taken given the chances in each match.
+	StatExpectedPoints = "xpts"
+)
 
 // Player is a person who has appeared for at least one in-scope Team.
 type Player struct {
@@ -92,10 +124,16 @@ type PlayerSeasonStats struct {
 	Assists       int
 	XG            *float64
 	XA            *float64
-	YellowCards   int
-	RedCards      int
-	Source        string
-	UpdatedAt     time.Time
+	// Shots, KeyPasses, NonPenaltyGoals, and NPxG are nullable because a
+	// provider may supply the basics without them.
+	Shots           *int
+	KeyPasses       *int
+	NonPenaltyGoals *int
+	NPxG            *float64
+	YellowCards     int
+	RedCards        int
+	Source          string
+	UpdatedAt       time.Time
 }
 
 // Trophy is a single honour in a Team's history. Not tied to a Season row

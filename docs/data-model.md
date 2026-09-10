@@ -88,6 +88,7 @@ competitions" row from the requirements.
 | `FoulsCommitted`, `FoulsSuffered` | `*int` | **No.** Same gap — a real, currently-unfilled requirement from the original design doc. |
 | `YellowCards`, `RedCards`, `Shots`, `ShotsOnTarget`, `Corners` | `*int` | **No.** Not in understat.com's league-data payload. |
 | `XG`, `XGA` | `*float64` | **Yes** — this is understat.com's whole reason for being in the pipeline. Summed from per-match `xG`/`xGA`. |
+| `Extras` | `map[string]float64` | **Yes** — the long-tail stats described below. Persisted to `team_season_stat_extra`, not to columns. |
 | `Source` | string | `"understat"`. |
 | `UpdatedAt` | `time.Time` | Set at sync time; stored as RFC3339 text (see the SQLite-driver caveat below). |
 
@@ -96,7 +97,30 @@ existing.x)` for every nullable stat column — a future provider that only
 supplies possession/fouls can upsert into an existing row without
 clobbering the xG a prior sync already wrote, and vice versa. This is the
 concrete mechanism behind the "provider output is merged, not overwritten"
-rule from the architecture doc.
+rule from the architecture doc. `Extras` merges the same way at key
+granularity: writing a map with two keys updates those two and leaves any
+other keys on that team-season untouched.
+
+### Long-tail stats (`Extras` → `team_season_stat_extra`)
+
+Stats that don't warrant a column of their own live in the key/value
+`team_season_stat_extra` table. Key names are declared as `models.Stat*`
+constants rather than in a provider package, because storage and the TUI
+both read them: a provider chooses which of these it can supply, but not
+what they are called.
+
+| Key | Constant | Meaning | Aggregation |
+|---|---|---|---|
+| `npxg` / `npxga` | `StatNPxG` / `StatNPxGA` | Expected goals (for/against) with penalties excluded — a better read on open-play quality than raw xG. | Summed over matches. |
+| `ppda` | `StatPPDA` | Opponent passes allowed per defensive action. **Lower means a more intense press.** | **Ratio of sums**, not a mean of per-match ratios — `sum(att) / sum(def)`. Averaging the ratios would weight a quiet match as heavily as a frantic one and give a different, wrong number. Regression-tested in `advanced_test.go`. |
+| `ppda_allowed` | `StatPPDAAllowed` | The same measure applied to the opponent's press. | Same ratio-of-sums rule. |
+| `deep` / `deep_allowed` | `StatDeep` / `StatDeepAllowed` | Completed passes within roughly 20 yards of goal, excluding crosses. | Summed. |
+| `xpts` | `StatExpectedPoints` | Points the team would be expected to have taken given each match's chances. | Summed. Displayed against actual points, which is the clearest single measure of whether a season flattered a team or robbed it. |
+
+A team with no matches played gets **no** extras rather than a set of
+zeroes: "played nothing yet" and "pressed nobody" are different claims. For
+the same reason `ppda` is omitted entirely when a team recorded no
+defensive actions, rather than emitting a division by zero.
 
 ## PlayerSeasonStats
 
@@ -109,6 +133,15 @@ Same per-competition-per-season grain as `TeamSeasonStats`, keyed by
 | `TeamID` | string | **Caveat:** understat.com reports a comma-joined `team_title` for a player who changed clubs mid-season (e.g. `"Bournemouth,Manchester City"`). footui attributes the row to the **last-listed (most recent) club only** (`understat.primaryTeamTitle`) — the stat line itself is still the player's full-season aggregate across every club, not split per club. A transferred player's numbers will look inflated for whichever club they're attributed to. Regression-tested in `internal/data/provider/understat/mapper_test.go`. |
 | `Appearances`, `Minutes`, `Goals`, `Assists`, `YellowCards`, `RedCards` | int | From understat.com. |
 | `XG`, `XA` | `*float64` | From understat.com. |
+| `Shots`, `KeyPasses`, `NonPenaltyGoals` | `*int` | From understat.com. Nullable, and nil means "the provider didn't report this" — distinct from a genuine zero, which the TUI renders differently (`—` vs `0`). |
+| `NPxG` | `*float64` | Non-penalty expected goals. Same nullable semantics. |
+
+These four are real columns rather than key/value extras (added in
+`0002_advanced_stats.sql`) because every plausible provider has them: they
+are core advanced stats, not a source-specific long tail. The same
+migration adds an index on `(team_id, competition_id, season_id)`, which
+the roster query needs and the table's `player_id`-first primary key can't
+serve.
 
 ## Player
 

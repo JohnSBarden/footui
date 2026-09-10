@@ -203,3 +203,127 @@ func TestStandingsOrderByPosition(t *testing.T) {
 		t.Errorf("standings not ordered by position: %+v", got)
 	}
 }
+
+func TestTeamSeasonStatExtrasRoundTrip(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	seasonID := seedCompetitionSeason(t, s, "eng-premier-league", "2025", "eng-arsenal", "Arsenal")
+
+	err := s.UpsertTeamSeasonStats(ctx, models.TeamSeasonStats{
+		TeamID: "eng-arsenal", CompetitionID: "eng-premier-league", SeasonID: seasonID,
+		Source: "test", UpdatedAt: time.Now(),
+		Extras: map[string]float64{
+			models.StatPPDA:           10.5,
+			models.StatExpectedPoints: 74.2,
+			models.StatDeep:           320,
+		},
+	})
+	if err != nil {
+		t.Fatalf("UpsertTeamSeasonStats: %v", err)
+	}
+
+	got, err := s.TeamSeasonStatExtras(ctx, "eng-arsenal", "eng-premier-league", seasonID)
+	if err != nil {
+		t.Fatalf("TeamSeasonStatExtras: %v", err)
+	}
+	if len(got) != 3 {
+		t.Fatalf("got %d extras, want 3: %v", len(got), got)
+	}
+	if got[models.StatPPDA] != 10.5 || got[models.StatExpectedPoints] != 74.2 {
+		t.Errorf("extras did not round-trip: %v", got)
+	}
+}
+
+// A second provider supplying only some keys must not wipe the ones
+// another provider already contributed for the same team-season.
+func TestUpsertingSomeExtrasLeavesOthersIntact(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	seasonID := seedCompetitionSeason(t, s, "eng-premier-league", "2025", "eng-arsenal", "Arsenal")
+
+	base := models.TeamSeasonStats{
+		TeamID: "eng-arsenal", CompetitionID: "eng-premier-league", SeasonID: seasonID,
+		Source: "test", UpdatedAt: time.Now(),
+	}
+
+	base.Extras = map[string]float64{models.StatPPDA: 10.5, models.StatDeep: 320}
+	if err := s.UpsertTeamSeasonStats(ctx, base); err != nil {
+		t.Fatalf("first upsert: %v", err)
+	}
+
+	base.Extras = map[string]float64{models.StatPPDA: 9.1}
+	if err := s.UpsertTeamSeasonStats(ctx, base); err != nil {
+		t.Fatalf("second upsert: %v", err)
+	}
+
+	got, err := s.TeamSeasonStatExtras(ctx, "eng-arsenal", "eng-premier-league", seasonID)
+	if err != nil {
+		t.Fatalf("TeamSeasonStatExtras: %v", err)
+	}
+	if got[models.StatPPDA] != 9.1 {
+		t.Errorf("PPDA = %v, want the updated 9.1", got[models.StatPPDA])
+	}
+	if got[models.StatDeep] != 320 {
+		t.Errorf("deep = %v, want the untouched 320 — a partial update must not delete other keys", got[models.StatDeep])
+	}
+}
+
+func TestPlayerAdvancedStatsRoundTrip(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	seasonID := seedCompetitionSeason(t, s, "eng-premier-league", "2025", "eng-arsenal", "Arsenal")
+
+	if err := s.UpsertPlayer(ctx, models.Player{ID: "p1", Name: "Bukayo Saka", Gender: "men"}); err != nil {
+		t.Fatalf("UpsertPlayer: %v", err)
+	}
+	shots, keyPasses, npg := 84, 61, 7
+	npxg := 8.1
+	if err := s.UpsertPlayerSeasonStats(ctx, models.PlayerSeasonStats{
+		PlayerID: "p1", TeamID: "eng-arsenal", CompetitionID: "eng-premier-league", SeasonID: seasonID,
+		Appearances: 31, Minutes: 2239, Goals: 7, Assists: 5,
+		Shots: &shots, KeyPasses: &keyPasses, NonPenaltyGoals: &npg, NPxG: &npxg,
+		Source: "test", UpdatedAt: time.Now(),
+	}); err != nil {
+		t.Fatalf("UpsertPlayerSeasonStats: %v", err)
+	}
+
+	roster, err := s.RosterForTeamSeason(ctx, "eng-arsenal", "eng-premier-league", seasonID)
+	if err != nil {
+		t.Fatalf("RosterForTeamSeason: %v", err)
+	}
+	if len(roster) != 1 {
+		t.Fatalf("got %d roster rows", len(roster))
+	}
+	got := roster[0]
+	if got.Shots == nil || *got.Shots != 84 {
+		t.Errorf("shots = %v", got.Shots)
+	}
+	if got.NPxG == nil || *got.NPxG != 8.1 {
+		t.Errorf("npxG = %v", got.NPxG)
+	}
+}
+
+// A provider without advanced stats must leave them null, not zero.
+func TestPlayerAdvancedStatsStayNullWhenNotSupplied(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	seasonID := seedCompetitionSeason(t, s, "eng-premier-league", "2025", "eng-arsenal", "Arsenal")
+
+	if err := s.UpsertPlayer(ctx, models.Player{ID: "p1", Name: "Basic Player", Gender: "men"}); err != nil {
+		t.Fatalf("UpsertPlayer: %v", err)
+	}
+	if err := s.UpsertPlayerSeasonStats(ctx, models.PlayerSeasonStats{
+		PlayerID: "p1", TeamID: "eng-arsenal", CompetitionID: "eng-premier-league", SeasonID: seasonID,
+		Appearances: 10, Source: "test", UpdatedAt: time.Now(),
+	}); err != nil {
+		t.Fatalf("UpsertPlayerSeasonStats: %v", err)
+	}
+
+	roster, err := s.RosterForTeamSeason(ctx, "eng-arsenal", "eng-premier-league", seasonID)
+	if err != nil {
+		t.Fatalf("RosterForTeamSeason: %v", err)
+	}
+	if roster[0].Shots != nil {
+		t.Errorf("shots = %v, want nil when the provider had none", *roster[0].Shots)
+	}
+}

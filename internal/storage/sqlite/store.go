@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -411,7 +412,63 @@ func (s *Store) UpsertTeamSeasonStats(ctx context.Context, st models.TeamSeasonS
 	if err != nil {
 		return fmt.Errorf("sqlite: upsert team_season_stats %s/%s/%s: %w", st.TeamID, st.CompetitionID, st.SeasonID, err)
 	}
+	return s.upsertTeamSeasonStatExtras(ctx, st)
+}
+
+// upsertTeamSeasonStatExtras persists the long-tail key/value stats. Keys
+// absent from the incoming map are left alone rather than deleted, so a
+// provider that supplies only some of them doesn't wipe another
+// provider's contributions for the same team-season.
+func (s *Store) upsertTeamSeasonStatExtras(ctx context.Context, st models.TeamSeasonStats) error {
+	if len(st.Extras) == 0 {
+		return nil
+	}
+
+	// Iterating a map yields keys in random order; sorting keeps the
+	// statement sequence deterministic, which matters when reading a
+	// query log while debugging.
+	keys := make([]string, 0, len(st.Extras))
+	for k := range st.Extras {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	for _, key := range keys {
+		_, err := s.db.ExecContext(ctx, `
+			INSERT INTO team_season_stat_extra (team_id, competition_id, season_id, stat_key, stat_value)
+			VALUES (?, ?, ?, ?, ?)
+			ON CONFLICT(team_id, competition_id, season_id, stat_key)
+			DO UPDATE SET stat_value = excluded.stat_value`,
+			st.TeamID, st.CompetitionID, st.SeasonID, key, st.Extras[key])
+		if err != nil {
+			return fmt.Errorf("sqlite: upsert team_season_stat_extra %s/%s: %w", st.TeamID, key, err)
+		}
+	}
 	return nil
+}
+
+func (s *Store) TeamSeasonStatExtras(ctx context.Context, teamID, competitionID, seasonID string) (map[string]float64, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT stat_key, stat_value FROM team_season_stat_extra
+		WHERE team_id = ? AND competition_id = ? AND season_id = ?`,
+		teamID, competitionID, seasonID)
+	if err != nil {
+		return nil, fmt.Errorf("sqlite: team_season_stat_extra %s/%s/%s: %w", teamID, competitionID, seasonID, err)
+	}
+	defer rows.Close()
+
+	out := map[string]float64{}
+	for rows.Next() {
+		var key string
+		var value sql.NullFloat64
+		if err := rows.Scan(&key, &value); err != nil {
+			return nil, fmt.Errorf("sqlite: scan team_season_stat_extra: %w", err)
+		}
+		if value.Valid {
+			out[key] = value.Float64
+		}
+	}
+	return out, rows.Err()
 }
 
 func (s *Store) Standings(ctx context.Context, competitionID, seasonID string) ([]models.TeamSeasonStats, error) {
@@ -571,16 +628,22 @@ func (s *Store) UpsertPlayerSeasonStats(ctx context.Context, st models.PlayerSea
 	_, err := s.db.ExecContext(ctx, `
 		INSERT INTO player_season_stats (
 			player_id, team_id, competition_id, season_id, appearances, minutes, goals, assists,
-			xg, xa, yellow_cards, red_cards, source, updated_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			xg, xa, shots, key_passes, non_penalty_goals, npxg,
+			yellow_cards, red_cards, source, updated_at
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(player_id, team_id, competition_id, season_id) DO UPDATE SET
 			appearances = excluded.appearances, minutes = excluded.minutes, goals = excluded.goals,
 			assists = excluded.assists, xg = excluded.xg, xa = excluded.xa,
+			shots = COALESCE(excluded.shots, player_season_stats.shots),
+			key_passes = COALESCE(excluded.key_passes, player_season_stats.key_passes),
+			non_penalty_goals = COALESCE(excluded.non_penalty_goals, player_season_stats.non_penalty_goals),
+			npxg = COALESCE(excluded.npxg, player_season_stats.npxg),
 			yellow_cards = excluded.yellow_cards, red_cards = excluded.red_cards,
 			source = excluded.source, updated_at = excluded.updated_at`,
 		st.PlayerID, st.TeamID, st.CompetitionID, st.SeasonID, st.Appearances, st.Minutes,
-		st.Goals, st.Assists, nullFloat(st.XG), nullFloat(st.XA), st.YellowCards, st.RedCards,
-		st.Source, formatTime(st.UpdatedAt))
+		st.Goals, st.Assists, nullFloat(st.XG), nullFloat(st.XA),
+		nullInt(st.Shots), nullInt(st.KeyPasses), nullInt(st.NonPenaltyGoals), nullFloat(st.NPxG),
+		st.YellowCards, st.RedCards, st.Source, formatTime(st.UpdatedAt))
 	if err != nil {
 		return fmt.Errorf("sqlite: upsert player_season_stats %s/%s: %w", st.PlayerID, st.TeamID, err)
 	}
@@ -588,7 +651,8 @@ func (s *Store) UpsertPlayerSeasonStats(ctx context.Context, st models.PlayerSea
 }
 
 const playerStatsColumns = `player_id, team_id, competition_id, season_id, appearances, minutes,
-	goals, assists, xg, xa, yellow_cards, red_cards, source, updated_at`
+	goals, assists, xg, xa, shots, key_passes, non_penalty_goals, npxg,
+	yellow_cards, red_cards, source, updated_at`
 
 func (s *Store) RosterForTeamSeason(ctx context.Context, teamID, competitionID, seasonID string) ([]models.PlayerSeasonStats, error) {
 	rows, err := s.db.QueryContext(ctx, `
@@ -623,11 +687,12 @@ func scanPlayerSeasonStats(rows *sql.Rows) ([]models.PlayerSeasonStats, error) {
 	var out []models.PlayerSeasonStats
 	for rows.Next() {
 		var st models.PlayerSeasonStats
-		var xg, xa sql.NullFloat64
+		var xg, xa, npxg sql.NullFloat64
+		var shots, keyPasses, npg sql.NullInt64
 		var updatedAt string
 		if err := rows.Scan(&st.PlayerID, &st.TeamID, &st.CompetitionID, &st.SeasonID, &st.Appearances,
-			&st.Minutes, &st.Goals, &st.Assists, &xg, &xa, &st.YellowCards, &st.RedCards,
-			&st.Source, &updatedAt); err != nil {
+			&st.Minutes, &st.Goals, &st.Assists, &xg, &xa, &shots, &keyPasses, &npg, &npxg,
+			&st.YellowCards, &st.RedCards, &st.Source, &updatedAt); err != nil {
 			return nil, fmt.Errorf("sqlite: scan player_season_stats: %w", err)
 		}
 		parsed, err := parseTime(updatedAt)
@@ -637,6 +702,10 @@ func scanPlayerSeasonStats(rows *sql.Rows) ([]models.PlayerSeasonStats, error) {
 		st.UpdatedAt = parsed
 		scanNullFloat(&st.XG, xg)
 		scanNullFloat(&st.XA, xa)
+		scanNullFloat(&st.NPxG, npxg)
+		scanNullInt(&st.Shots, shots)
+		scanNullInt(&st.KeyPasses, keyPasses)
+		scanNullInt(&st.NonPenaltyGoals, npg)
 		out = append(out, st)
 	}
 	return out, rows.Err()

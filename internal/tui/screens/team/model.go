@@ -55,6 +55,7 @@ type Model struct {
 	seasonIdx    int
 
 	roster        []RosterRow
+	extras        map[string]float64
 	rosterSeason  string
 	rosterLoading bool
 	cursorSquad   int
@@ -99,10 +100,14 @@ type historyLoadedMsg struct {
 	history      map[string][]SeasonRow
 }
 
-type rosterLoadedMsg struct {
+// seasonDetailLoadedMsg carries everything scoped to the selected
+// (competition, season): the squad and the long-tail team stats. They load
+// together because the same selection change invalidates both.
+type seasonDetailLoadedMsg struct {
 	seasonID      string
 	competitionID string
-	rows          []RosterRow
+	roster        []RosterRow
+	extras        map[string]float64
 }
 
 // --- accessors used by the view and by tests ---

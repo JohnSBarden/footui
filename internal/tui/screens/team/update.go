@@ -24,13 +24,14 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 		m.selectInitial()
 		return m, m.refreshRoster()
 
-	case rosterLoadedMsg:
-		// Ignore a roster that arrived for a selection the user has
-		// already moved off.
+	case seasonDetailLoadedMsg:
+		// Ignore detail that arrived for a selection the user has already
+		// moved off.
 		if msg.seasonID != m.rosterSeason {
 			return m, nil
 		}
-		m.roster = msg.rows
+		m.roster = msg.roster
+		m.extras = msg.extras
 		m.cursorSquad = 0
 		m.rosterLoading = false
 		return m, nil
@@ -148,15 +149,17 @@ func (m *Model) refreshRoster() tea.Cmd {
 	row, hasRow := m.CurrentSeasonRow()
 	if !hasComp || !hasRow {
 		m.roster = nil
+		m.extras = nil
 		m.rosterSeason = ""
 		return nil
 	}
 
 	m.roster = nil
+	m.extras = nil
 	m.cursorSquad = 0
 	m.rosterSeason = row.Season.ID
 	m.rosterLoading = true
-	return m.loadRoster(comp.ID, row.Season.ID)
+	return m.loadSeasonDetail(comp.ID, row.Season.ID)
 }
 
 // drillDown opens the Player screen from the squad table, or the League

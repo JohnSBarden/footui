@@ -61,15 +61,30 @@ type teamEntry struct {
 }
 
 type matchEntry struct {
-	XG     float64 `json:"xG"`
-	XGA    float64 `json:"xGA"`
-	Scored int     `json:"scored"`
-	Missed int     `json:"missed"`
-	Wins   int     `json:"wins"`
-	Draws  int     `json:"draws"`
-	Loses  int     `json:"loses"`
-	Pts    int     `json:"pts"`
-	Date   string  `json:"date"`
+	XG          float64   `json:"xG"`
+	XGA         float64   `json:"xGA"`
+	NPxG        float64   `json:"npxG"`
+	NPxGA       float64   `json:"npxGA"`
+	PPDA        ppdaEntry `json:"ppda"`
+	PPDAAllowed ppdaEntry `json:"ppda_allowed"`
+	Deep        int       `json:"deep"`
+	DeepAllowed int       `json:"deep_allowed"`
+	XPts        float64   `json:"xpts"`
+	Scored      int       `json:"scored"`
+	Missed      int       `json:"missed"`
+	Wins        int       `json:"wins"`
+	Draws       int       `json:"draws"`
+	Loses       int       `json:"loses"`
+	Pts         int       `json:"pts"`
+	Date        string    `json:"date"`
+}
+
+// ppdaEntry is understat.com's per-match pressing figure: Att is the
+// opponent's passes in their own build-up area, Def is our defensive
+// actions there. The published PPDA statistic is Att/Def.
+type ppdaEntry struct {
+	Att int `json:"att"`
+	Def int `json:"def"`
 }
 
 // playerEntry's numeric fields arrive as JSON strings from understat.com,
@@ -83,10 +98,41 @@ type playerEntry struct {
 	XG          string `json:"xG"`
 	Assists     string `json:"assists"`
 	XA          string `json:"xA"`
+	Shots       string `json:"shots"`
+	KeyPasses   string `json:"key_passes"`
+	NPG         string `json:"npg"`
+	NPxG        string `json:"npxG"`
 	YellowCards string `json:"yellow_cards"`
 	RedCards    string `json:"red_cards"`
 	Position    string `json:"position"`
 	TeamTitle   string `json:"team_title"`
+}
+
+// optionalInt parses one of understat.com's string-encoded numbers,
+// returning nil when the field is absent or unparseable. Nil is the right
+// answer rather than zero: "this provider didn't tell us" and "the player
+// took zero shots" are different facts, and screens render them
+// differently.
+func optionalInt(raw string) *int {
+	if raw == "" {
+		return nil
+	}
+	v, err := strconv.Atoi(raw)
+	if err != nil {
+		return nil
+	}
+	return &v
+}
+
+func optionalFloat(raw string) *float64 {
+	if raw == "" {
+		return nil
+	}
+	v, err := strconv.ParseFloat(raw, 64)
+	if err != nil {
+		return nil
+	}
+	return &v
 }
 
 var slugNonAlnum = regexp.MustCompile(`[^a-z0-9]+`)
@@ -154,7 +200,10 @@ func mapStandings(data *leagueData, compID, seasonID string) []models.TeamSeason
 			UpdatedAt:     now,
 		}
 
-		var xg, xga float64
+		var xg, xga, npxg, npxga, xpts float64
+		var deep, deepAllowed int
+		var ppdaAtt, ppdaDef, allowedAtt, allowedDef int
+
 		for _, m := range t.History {
 			s.Wins += m.Wins
 			s.Draws += m.Draws
@@ -164,10 +213,41 @@ func mapStandings(data *leagueData, compID, seasonID string) []models.TeamSeason
 			s.Points += m.Pts
 			xg += m.XG
 			xga += m.XGA
+			npxg += m.NPxG
+			npxga += m.NPxGA
+			xpts += m.XPts
+			deep += m.Deep
+			deepAllowed += m.DeepAllowed
+			// PPDA is a ratio, so a season figure is the ratio of the
+			// summed numerators and denominators — averaging the
+			// per-match ratios would weight a quiet match as heavily as a
+			// frantic one and give a different, wrong answer.
+			ppdaAtt += m.PPDA.Att
+			ppdaDef += m.PPDA.Def
+			allowedAtt += m.PPDAAllowed.Att
+			allowedDef += m.PPDAAllowed.Def
 		}
+
 		s.GoalDiff = s.GoalsFor - s.GoalsAgainst
 		s.XG = &xg
 		s.XGA = &xga
+
+		if len(t.History) > 0 {
+			extras := map[string]float64{
+				models.StatNPxG:           npxg,
+				models.StatNPxGA:          npxga,
+				models.StatExpectedPoints: xpts,
+				models.StatDeep:           float64(deep),
+				models.StatDeepAllowed:    float64(deepAllowed),
+			}
+			if ppdaDef > 0 {
+				extras[models.StatPPDA] = float64(ppdaAtt) / float64(ppdaDef)
+			}
+			if allowedDef > 0 {
+				extras[models.StatPPDAAllowed] = float64(allowedAtt) / float64(allowedDef)
+			}
+			s.Extras = extras
+		}
 
 		stats = append(stats, s)
 	}
@@ -220,20 +300,24 @@ func mapPlayers(data *leagueData, compID, seasonID string) []models.PlayerSeason
 		xa, _ := strconv.ParseFloat(p.XA, 64)
 
 		out = append(out, models.PlayerSeasonStats{
-			PlayerID:      "understat-" + p.ID,
-			TeamID:        teamID(compID, primaryTeamTitle(p.TeamTitle)),
-			CompetitionID: compID,
-			SeasonID:      seasonID,
-			Appearances:   games,
-			Minutes:       minutes,
-			Goals:         goals,
-			Assists:       assists,
-			XG:            &xg,
-			XA:            &xa,
-			YellowCards:   yellow,
-			RedCards:      red,
-			Source:        "understat",
-			UpdatedAt:     now,
+			PlayerID:        "understat-" + p.ID,
+			TeamID:          teamID(compID, primaryTeamTitle(p.TeamTitle)),
+			CompetitionID:   compID,
+			SeasonID:        seasonID,
+			Appearances:     games,
+			Minutes:         minutes,
+			Goals:           goals,
+			Assists:         assists,
+			XG:              &xg,
+			XA:              &xa,
+			Shots:           optionalInt(p.Shots),
+			KeyPasses:       optionalInt(p.KeyPasses),
+			NonPenaltyGoals: optionalInt(p.NPG),
+			NPxG:            optionalFloat(p.NPxG),
+			YellowCards:     yellow,
+			RedCards:        red,
+			Source:          "understat",
+			UpdatedAt:       now,
 		})
 	}
 

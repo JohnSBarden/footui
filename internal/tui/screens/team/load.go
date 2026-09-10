@@ -54,8 +54,9 @@ func (m *Model) loadHistory() tea.Cmd {
 	}
 }
 
-// loadRoster fetches the squad for one competition-season.
-func (m *Model) loadRoster(competitionID, seasonID string) tea.Cmd {
+// loadSeasonDetail fetches the squad and the long-tail team stats for one
+// competition-season.
+func (m *Model) loadSeasonDetail(competitionID, seasonID string) tea.Cmd {
 	deps, teamID := m.deps, m.team.ID
 	return func() tea.Msg {
 		stats, err := deps.Repos.RosterForTeamSeason(deps.Ctx, teamID, competitionID, seasonID)
@@ -80,7 +81,16 @@ func (m *Model) loadRoster(competitionID, seasonID string) tea.Cmd {
 			}
 			rows = append(rows, RosterRow{Stats: s, Player: player})
 		}
-		return rosterLoadedMsg{seasonID: seasonID, competitionID: competitionID, rows: rows}
+
+		extras, err := deps.Repos.TeamSeasonStatExtras(deps.Ctx, teamID, competitionID, seasonID)
+		if err != nil {
+			return core.ErrMsg{Err: err}
+		}
+
+		return seasonDetailLoadedMsg{
+			seasonID: seasonID, competitionID: competitionID,
+			roster: rows, extras: extras,
+		}
 	}
 }
 

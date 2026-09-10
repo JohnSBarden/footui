@@ -4,16 +4,16 @@
       "id": "1",
       "title": "Arsenal",
       "history": [
-        {"xG": 2.1, "xGA": 0.5, "scored": 2, "missed": 0, "wins": 1, "draws": 0, "loses": 0, "pts": 3, "date": "2025-08-16"},
-        {"xG": 1.0, "xGA": 1.2, "scored": 1, "missed": 1, "wins": 0, "draws": 1, "loses": 0, "pts": 1, "date": "2025-08-23"}
+        {"xG": 2.1, "xGA": 0.5, "npxG": 1.9, "npxGA": 0.5, "scored": 2, "missed": 0, "wins": 1, "draws": 0, "loses": 0, "pts": 3, "xpts": 2.4, "deep": 12, "deep_allowed": 3, "ppda": {"att": 200, "def": 10}, "ppda_allowed": {"att": 90, "def": 30}, "date": "2025-08-16"},
+        {"xG": 1.0, "xGA": 1.2, "npxG": 1.0, "npxGA": 1.2, "scored": 1, "missed": 1, "wins": 0, "draws": 1, "loses": 0, "pts": 1, "xpts": 1.1, "deep": 8, "deep_allowed": 7, "ppda": {"att": 100, "def": 20}, "ppda_allowed": {"att": 110, "def": 20}, "date": "2025-08-23"}
       ]
     },
     "2": {
       "id": "2",
       "title": "Chelsea",
       "history": [
-        {"xG": 0.8, "xGA": 1.5, "scored": 0, "missed": 2, "wins": 0, "draws": 0, "loses": 1, "pts": 0, "date": "2025-08-16"},
-        {"xG": 1.9, "xGA": 0.9, "scored": 2, "missed": 1, "wins": 1, "draws": 0, "loses": 0, "pts": 3, "date": "2025-08-23"}
+        {"xG": 0.8, "xGA": 1.5, "npxG": 0.8, "npxGA": 1.5, "scored": 0, "missed": 2, "wins": 0, "draws": 0, "loses": 1, "pts": 0, "xpts": 0.6, "deep": 4, "deep_allowed": 11, "ppda": {"att": 150, "def": 15}, "ppda_allowed": {"att": 80, "def": 16}, "date": "2025-08-16"},
+        {"xG": 1.9, "xGA": 0.9, "npxG": 1.9, "npxGA": 0.9, "scored": 2, "missed": 1, "wins": 1, "draws": 0, "loses": 0, "pts": 3, "xpts": 2.2, "deep": 9, "deep_allowed": 5, "ppda": {"att": 90, "def": 15}, "ppda_allowed": {"att": 100, "def": 25}, "date": "2025-08-23"}
       ]
     }
   },
@@ -29,6 +29,11 @@
       "xG": "1.8", "assists": "3", "xA": "2.1", "shots": "15", "key_passes": "20",
       "yellow_cards": "1", "red_cards": "0", "position": "M", "team_title": "Chelsea,Arsenal",
       "npg": "2", "npxG": "1.8", "xGChain": "4.0", "xGBuildup": "2.0"
+    },
+    {
+      "id": "102", "player_name": "Test Sparse Player", "games": "1", "time": "20", "goals": "0",
+      "xG": "0.1", "assists": "0", "xA": "0.0",
+      "yellow_cards": "0", "red_cards": "0", "position": "D", "team_title": "Arsenal"
     }
   ]
 }
