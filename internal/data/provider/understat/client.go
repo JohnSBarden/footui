@@ -119,22 +119,22 @@ func (c *Client) fetchLeagueData(ctx context.Context, leagueKey, season string) 
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("understat: fetch %s: %w", url, err)
+		return nil, fmt.Errorf("understat: fetch %s %s: %w", leagueKey, season, err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("understat: fetch %s: unexpected status %d", url, resp.StatusCode)
+		return nil, fmt.Errorf("understat: fetch %s %s: unexpected status %d from %s", leagueKey, season, resp.StatusCode, url)
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("understat: read %s: %w", url, err)
+		return nil, fmt.Errorf("understat: read %s %s: %w", leagueKey, season, err)
 	}
 
 	var payload leagueData
 	if err := json.Unmarshal(body, &payload); err != nil {
-		return nil, fmt.Errorf("understat: decode %s: %w", url, err)
+		return nil, fmt.Errorf("understat: decode %s %s: %w", leagueKey, season, err)
 	}
 
 	c.writeDiskCache(leagueKey, season, body)

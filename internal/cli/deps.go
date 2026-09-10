@@ -13,6 +13,7 @@ import (
 	"github.com/JohnSBarden/footui/internal/storage"
 	"github.com/JohnSBarden/footui/internal/storage/sqlite"
 	"github.com/JohnSBarden/footui/internal/tui"
+	"github.com/JohnSBarden/footui/internal/tui/components"
 	"github.com/JohnSBarden/footui/internal/tui/core"
 	"github.com/JohnSBarden/footui/internal/tui/styles"
 )
@@ -100,4 +101,10 @@ func cmdContext(cmd *cobra.Command) context.Context {
 		return ctx
 	}
 	return context.Background()
+}
+
+// seasonDisplay renders a stored season label ("2025") the way the TUI
+// shows it ("2025-26"), so CLI output and screens agree.
+func seasonDisplay(label string) string {
+	return components.SeasonLabel(label)
 }
