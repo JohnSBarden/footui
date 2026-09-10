@@ -44,6 +44,23 @@ type Syncer struct {
 	// before the run gives up. Zero means DefaultMaxConsecutiveFailures;
 	// negative disables the check entirely.
 	MaxConsecutiveFailures int
+	// MaxAge skips a competition-season whose last successful sync is
+	// newer than this. Zero refreshes everything.
+	//
+	// This is what makes a scheduled `refresh --all --years 10` sane: a
+	// season that finished years ago does not change, and re-fetching
+	// sixty payloads nightly to confirm that is unkind to an undocumented
+	// third-party endpoint and slow for the user.
+	MaxAge time.Duration
+	// Now is the clock, injectable for tests.
+	Now func() time.Time
+}
+
+func (s *Syncer) now() time.Time {
+	if s.Now != nil {
+		return s.Now()
+	}
+	return time.Now()
 }
 
 func New(source Source, repos storage.Repositories) *Syncer {
@@ -201,6 +218,12 @@ type UnitResult struct {
 	// failure: nothing is known about a skipped unit, whereas a failed one
 	// was tried and didn't work.
 	Skipped bool
+	// Fresh marks a unit deliberately left alone because its cached data
+	// is newer than MaxAge. Unlike Skipped this is a good outcome, not a
+	// degraded one, so it is neither an error nor counted as a failure.
+	Fresh bool
+	// CachedAt is when a Fresh unit was last successfully synced.
+	CachedAt time.Time
 }
 
 // Failed reports whether this unit errored.
@@ -255,6 +278,15 @@ func (s *Syncer) SyncMany(ctx context.Context, comps []models.Competition, seaso
 				continue
 			}
 
+			if cachedAt, fresh := s.isFresh(ctx, comp, season); fresh {
+				record(UnitResult{Competition: comp, Season: season,
+					Fresh: true, CachedAt: cachedAt})
+				// A unit left alone breaks a failure streak no more than
+				// it contributes to one: it says nothing about whether
+				// the provider is reachable.
+				continue
+			}
+
 			res, err := s.SyncCompetitionSeason(ctx, comp, season)
 			record(UnitResult{Competition: comp, Season: season, Result: res, Err: err})
 
@@ -272,13 +304,35 @@ func (s *Syncer) SyncMany(ctx context.Context, comps []models.Competition, seaso
 	return results
 }
 
+// isFresh reports whether a competition-season was successfully synced
+// recently enough to leave alone.
+//
+// Only a successful run counts. A failure an hour ago is not a reason to
+// skip: the data it was meant to fetch is still missing.
+func (s *Syncer) isFresh(ctx context.Context, comp models.Competition, season models.Season) (time.Time, bool) {
+	if s.MaxAge <= 0 {
+		return time.Time{}, false
+	}
+
+	run, err := s.repos.LatestSyncRun(ctx, comp.ID, season.ID)
+	if err != nil || !run.Succeeded() {
+		return time.Time{}, false
+	}
+	if s.now().Sub(run.FinishedAt) > s.MaxAge {
+		return time.Time{}, false
+	}
+	return run.FinishedAt, true
+}
+
 // Summary aggregates a SyncMany run for reporting.
 type Summary struct {
 	Units     int
 	Succeeded int
 	Failed    int
 	Skipped   int
-	Totals    Result
+	// Fresh counts units left alone because their data was recent enough.
+	Fresh  int
+	Totals Result
 }
 
 // Summarize totals up a run's results.
@@ -286,6 +340,10 @@ func Summarize(results []UnitResult) Summary {
 	var s Summary
 	s.Units = len(results)
 	for _, r := range results {
+		if r.Fresh {
+			s.Fresh++
+			continue
+		}
 		if r.Skipped {
 			s.Skipped++
 			continue

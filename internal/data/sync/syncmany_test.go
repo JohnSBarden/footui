@@ -390,3 +390,143 @@ func TestASuccessfulSyncIsVisibleInTheCacheSummary(t *testing.T) {
 		t.Errorf("expected a successful last sync, got %+v", got.LastSync)
 	}
 }
+
+// A season that finished years ago does not change. Re-fetching it nightly
+// to confirm that is slow and unkind to the endpoint, which is what
+// MaxAge exists to avoid.
+func TestMaxAgeLeavesRecentlySyncedUnitsAlone(t *testing.T) {
+	src := &flakySource{failOn: map[string]bool{}}
+	db, err := sqlite.Open(":memory:")
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer db.Close()
+	store := sqlite.NewStore(db)
+
+	syncer := sync.New(src, store)
+	syncer.SyncMany(context.Background(), competitions("a-league"), []string{"2025"}, nil)
+	if src.calls != 1 {
+		t.Fatalf("setup made %d calls", src.calls)
+	}
+
+	syncer.MaxAge = time.Hour
+	results := syncer.SyncMany(context.Background(), competitions("a-league"), []string{"2025"}, nil)
+
+	s := sync.Summarize(results)
+	if s.Fresh != 1 {
+		t.Errorf("expected the unit left alone, got %+v", s)
+	}
+	if src.calls != 1 {
+		t.Errorf("made %d upstream calls, want the second run to fetch nothing", src.calls)
+	}
+	// Fresh is a good outcome, not a degraded one.
+	if results[0].Failed() {
+		t.Error("a fresh unit should not carry an error")
+	}
+	if results[0].CachedAt.IsZero() {
+		t.Error("a fresh unit should report when it was cached")
+	}
+}
+
+func TestMaxAgeStillRefreshesDataOlderThanTheThreshold(t *testing.T) {
+	src := &flakySource{failOn: map[string]bool{}}
+	db, err := sqlite.Open(":memory:")
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer db.Close()
+	store := sqlite.NewStore(db)
+
+	syncer := sync.New(src, store)
+	syncer.SyncMany(context.Background(), competitions("a-league"), []string{"2025"}, nil)
+
+	syncer.MaxAge = time.Hour
+	// Two hours later, the cached data is past the threshold.
+	syncer.Now = func() time.Time { return time.Now().Add(2 * time.Hour) }
+
+	results := syncer.SyncMany(context.Background(), competitions("a-league"), []string{"2025"}, nil)
+	if sync.Summarize(results).Succeeded != 1 {
+		t.Errorf("stale data should be refreshed: %+v", sync.Summarize(results))
+	}
+}
+
+// A failure an hour ago is not a reason to skip: the data it was meant to
+// fetch is still missing.
+func TestMaxAgeDoesNotSkipAfterAFailedAttempt(t *testing.T) {
+	src := &flakySource{failOn: map[string]bool{"a-league/2025": true}}
+	db, err := sqlite.Open(":memory:")
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer db.Close()
+	store := sqlite.NewStore(db)
+
+	syncer := sync.New(src, store)
+	syncer.MaxAge = time.Hour
+	syncer.SyncMany(context.Background(), competitions("a-league"), []string{"2025"}, nil)
+
+	// The provider recovers; the next run must actually try again.
+	src.failOn = map[string]bool{}
+	results := syncer.SyncMany(context.Background(), competitions("a-league"), []string{"2025"}, nil)
+
+	if s := sync.Summarize(results); s.Succeeded != 1 {
+		t.Errorf("a recent failure should not count as fresh: %+v", s)
+	}
+}
+
+func TestZeroMaxAgeRefreshesEverything(t *testing.T) {
+	src := &flakySource{failOn: map[string]bool{}}
+	db, err := sqlite.Open(":memory:")
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer db.Close()
+
+	syncer := sync.New(src, sqlite.NewStore(db))
+	syncer.SyncMany(context.Background(), competitions("a-league"), []string{"2025"}, nil)
+	results := syncer.SyncMany(context.Background(), competitions("a-league"), []string{"2025"}, nil)
+
+	if sync.Summarize(results).Fresh != 0 {
+		t.Error("without --max-age nothing should be skipped as fresh")
+	}
+	if src.calls != 2 {
+		t.Errorf("made %d calls, want both runs to fetch", src.calls)
+	}
+}
+
+// A unit left alone says nothing about whether the provider is reachable,
+// so it must neither trip nor reset the give-up counter.
+func TestFreshUnitsDoNotAffectTheFailureStreak(t *testing.T) {
+	src := &flakySource{failOn: map[string]bool{}}
+	db, err := sqlite.Open(":memory:")
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer db.Close()
+	store := sqlite.NewStore(db)
+
+	// Sync b-league so it will be fresh next time round.
+	warm := sync.New(src, store)
+	warm.SyncMany(context.Background(), competitions("b-league"), []string{"2025"}, nil)
+
+	src.failOn = map[string]bool{
+		"a-league/2025": true, "c-league/2025": true, "d-league/2025": true,
+	}
+	syncer := sync.New(src, store)
+	syncer.MaxAge = time.Hour
+	syncer.MaxConsecutiveFailures = 3
+
+	results := syncer.SyncMany(context.Background(),
+		competitions("a-league", "b-league", "c-league", "d-league", "e-league"),
+		[]string{"2025"}, nil)
+
+	s := sync.Summarize(results)
+	if s.Fresh != 1 {
+		t.Errorf("expected b-league left alone, got %+v", s)
+	}
+	// a, c, d fail consecutively across the fresh b — the streak should
+	// not have been reset by it, so e is skipped.
+	if s.Failed != 3 || s.Skipped != 1 {
+		t.Errorf("a fresh unit reset the failure streak: %+v", s)
+	}
+}

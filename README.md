@@ -48,6 +48,14 @@ footy refresh --all --years 5        # ...and the four seasons before it
 footy refresh --all --years 5 --dry-run   # show what that would fetch, and stop
 ```
 
+For a scheduled refresh, `--max-age` skips what's already current. A
+finished season doesn't change, so re-fetching it nightly is slow and
+unkind to someone else's server:
+
+```sh
+footy refresh --all --years 10 --max-age 24h
+```
+
 Check what you have at any point:
 
 ```sh
@@ -114,7 +122,7 @@ easiest way to improve coverage.
 | `footy league <name>` | Open a competition's standings |
 | `footy team <name>` | Open a club's dashboard |
 | `footy player <name>` | Open a player's career dashboard |
-| `footy refresh` | Fetch data (`--all`, `--years N`, `--season YYYY`, `--dry-run`) |
+| `footy refresh` | Fetch data (`--all`, `--years N`, `--season YYYY`, `--max-age D`, `--dry-run`) |
 | `footy status` | Show what's cached and how fresh it is |
 | `footy competitions` | List what can be refreshed |
 | `footy colors` | Apply curated club colors and report coverage |
@@ -131,7 +139,7 @@ cache — re-fetching several seasons of several leagues is slow and leans on
 someone else's server.
 
 There is no background daemon. A scheduled refresh is a cron entry or systemd
-timer running `footy refresh --all`. A refresh isolates failures: one
+timer running `footy refresh --all --max-age 24h`. A refresh isolates failures: one
 competition failing doesn't abort the rest, the summary names exactly what
 failed, and the process only exits non-zero if nothing at all was fetched. If
 the provider looks unreachable, the run gives up rather than working through

@@ -13,6 +13,7 @@ import (
 	"github.com/JohnSBarden/footui/internal/data/provider/understat"
 	"github.com/JohnSBarden/footui/internal/data/sync"
 	"github.com/JohnSBarden/footui/internal/trophies"
+	"github.com/JohnSBarden/footui/internal/tui/components"
 )
 
 type refreshFlags struct {
@@ -21,6 +22,7 @@ type refreshFlags struct {
 	season        string
 	years         int
 	dryRun        bool
+	maxAge        time.Duration
 }
 
 func newRefreshCmd(g *globalFlags) *cobra.Command {
@@ -60,6 +62,7 @@ func newRefreshCmd(g *globalFlags) *cobra.Command {
 			defer db.Close()
 
 			syncer := sync.New(understat.New(), store).WithProviderName("understat")
+			syncer.MaxAge = f.maxAge
 
 			fmt.Fprintf(out, "Refreshing %d competition-season(s)…\n\n", len(comps)*len(seasons))
 			// Print each unit as it lands rather than batching the whole
@@ -101,6 +104,9 @@ func newRefreshCmd(g *globalFlags) *cobra.Command {
 		"how many recent seasons to refresh, counting back from the current one")
 	cmd.Flags().BoolVar(&f.dryRun, "dry-run", false,
 		"print what would be fetched without making any network or database changes")
+	cmd.Flags().DurationVar(&f.maxAge, "max-age", 0,
+		"skip competition-seasons refreshed successfully within this duration, e.g. 24h "+
+			"(default: refresh everything)")
 
 	return cmd
 }
@@ -159,6 +165,9 @@ func displaySeasons(seasons []string) []string {
 func printUnit(out io.Writer, r sync.UnitResult) {
 	label := fmt.Sprintf("%-24s %-8s", r.Competition.ID, seasonDisplay(r.Season.Label))
 	switch {
+	case r.Fresh:
+		fmt.Fprintf(out, "  fresh %s  cached %s\n", label,
+			components.Freshness(r.CachedAt, time.Now()))
 	case r.Skipped:
 		fmt.Fprintf(out, "  skip  %s  %v\n", label, r.Err)
 	case r.Failed():
@@ -170,19 +179,39 @@ func printUnit(out io.Writer, r sync.UnitResult) {
 
 func report(out io.Writer, results []sync.UnitResult, dbPath string) error {
 	s := sync.Summarize(results)
-	fmt.Fprintf(out, "\n%d/%d succeeded — %d teams, %d team-season rows, %d players, %d player-season rows\n",
-		s.Succeeded, s.Units, s.Totals.Teams, s.Totals.TeamStats, s.Totals.Players, s.Totals.PlayerStats)
+
+	// The headline counts every outcome, so a run that fetched nothing
+	// because everything was already fresh doesn't read as "0 succeeded",
+	// which looks like failure when it is the flag working.
+	parts := []string{fmt.Sprintf("%d refreshed", s.Succeeded)}
+	if s.Fresh > 0 {
+		parts = append(parts, fmt.Sprintf("%d already fresh", s.Fresh))
+	}
+	if s.Failed > 0 {
+		parts = append(parts, fmt.Sprintf("%d failed", s.Failed))
+	}
+	if s.Skipped > 0 {
+		parts = append(parts, fmt.Sprintf("%d skipped", s.Skipped))
+	}
+
+	fmt.Fprintf(out, "\n%s of %d\n", strings.Join(parts, ", "), s.Units)
+	if s.Succeeded > 0 {
+		fmt.Fprintf(out, "%d teams, %d team-season rows, %d players, %d player-season rows\n",
+			s.Totals.Teams, s.Totals.TeamStats, s.Totals.Players, s.Totals.PlayerStats)
+	}
 	fmt.Fprintf(out, "Cached at %s\n", dbPath)
 
 	if s.Skipped > 0 {
-		fmt.Fprintf(out, "%d skipped after repeated failures — the provider looks unreachable.\n", s.Skipped)
+		fmt.Fprintf(out, "\nGave up after repeated failures — the provider looks unreachable.\n")
+	}
+	if s.Failed > 0 && s.Succeeded > 0 {
+		fmt.Fprintf(out, "\n%d competition-season(s) failed; the rest were cached.\n", s.Failed)
 	}
 
-	if s.Succeeded == 0 && (s.Failed > 0 || s.Skipped > 0) {
+	// Nothing fetched *and* nothing already fresh means the run achieved
+	// nothing, which a cron job should hear about.
+	if s.Succeeded == 0 && s.Fresh == 0 && (s.Failed > 0 || s.Skipped > 0) {
 		return fmt.Errorf("nothing was refreshed (%d failed, %d skipped of %d)", s.Failed, s.Skipped, s.Units)
-	}
-	if s.Failed > 0 {
-		fmt.Fprintf(out, "\n%d competition-season(s) failed; the rest were cached.\n", s.Failed)
 	}
 	return nil
 }
