@@ -54,6 +54,21 @@ func (m *Model) loadHistory() tea.Cmd {
 	}
 }
 
+// loadColors fetches the club's curated brand colors. A club with none is
+// the common case (the seed set is hand-curated), so a not-found result
+// yields no message at all rather than an error the user would have to
+// dismiss.
+func (m *Model) loadColors() tea.Cmd {
+	deps, teamID := m.deps, m.team.ID
+	return func() tea.Msg {
+		colors, err := deps.Repos.GetTeamColors(deps.Ctx, teamID)
+		if err != nil {
+			return nil
+		}
+		return colorsLoadedMsg{colors: colors}
+	}
+}
+
 // loadSeasonDetail fetches the squad and the long-tail team stats for one
 // competition-season.
 func (m *Model) loadSeasonDetail(competitionID, seasonID string) tea.Cmd {

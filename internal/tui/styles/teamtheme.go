@@ -1,0 +1,185 @@
+package styles
+
+import (
+	"math"
+
+	"github.com/charmbracelet/lipgloss"
+	"github.com/lucasb-eyer/go-colorful"
+)
+
+// A club's brand colors are chosen for shirts and crests, not for text on a
+// terminal. Navy on black and yellow on white are both unreadable, and a
+// terminal's background is not knowable in advance — it may be light, dark,
+// or change while the program is running. So brand colors are never used
+// raw: they are adjusted per terminal background, and the two adjusted
+// variants are handed to Lip Gloss as an AdaptiveColor.
+const (
+	// minContrast is the WCAG AA ratio for normal-size text. Brand colors
+	// are lightened or darkened until they clear it.
+	minContrast = 4.5
+	// minLargeContrast is WCAG AA for large text, applied to the header
+	// bar where the club color is a background behind bold text. Holding
+	// the header to the full 4.5 would wash out nearly every club's
+	// primary into something unrecognizable.
+	minLargeContrast = 3.0
+
+	// The backgrounds adjustment targets. Terminals are rarely pure white
+	// or pure black, so these are the realistic extremes.
+	lightBackground = "#ffffff"
+	darkBackground  = "#0b0b0b"
+)
+
+// TeamPalette derives a readable palette from a club's brand colors.
+// secondary and tertiary may be empty; the primary alone is enough.
+func TeamPalette(primaryHex, secondaryHex string) Palette {
+	base := DefaultPalette()
+
+	primary, ok := parseHex(primaryHex)
+	if !ok {
+		// An unparseable or missing brand color falls back to the neutral
+		// palette rather than rendering a club in an arbitrary color.
+		return base
+	}
+
+	base.Accent = adaptiveForeground(primary, minContrast)
+	base.OnAccent = readableTextOn(primary)
+	base.Highlight = selectionBackground(primary)
+
+	if secondary, ok := parseHex(secondaryHex); ok {
+		// The secondary color is used where a second brand accent helps
+		// (panel borders); it gets the same readability treatment.
+		base.Border = adaptiveForeground(secondary, minLargeContrast)
+	}
+
+	return base
+}
+
+// TeamTheme builds a full Theme from a club's brand colors.
+func TeamTheme(primaryHex, secondaryHex string) Theme {
+	return New(TeamPalette(primaryHex, secondaryHex))
+}
+
+// parseHex parses "#rrggbb" (or "rrggbb"), reporting false for anything
+// malformed.
+func parseHex(hex string) (colorful.Color, bool) {
+	if hex == "" {
+		return colorful.Color{}, false
+	}
+	if hex[0] != '#' {
+		hex = "#" + hex
+	}
+	c, err := colorful.Hex(hex)
+	if err != nil {
+		return colorful.Color{}, false
+	}
+	return c, true
+}
+
+// adaptiveForeground returns the brand color adjusted separately for light
+// and dark terminals, each lightened or darkened only as far as needed to
+// clear the contrast threshold. Adjusting in HSL keeps the hue — the part
+// that makes the color recognizably the club's — while moving only
+// lightness.
+func adaptiveForeground(c colorful.Color, threshold float64) lipgloss.TerminalColor {
+	return lipgloss.AdaptiveColor{
+		Light: adjustForBackground(c, mustHex(lightBackground), threshold).Hex(),
+		Dark:  adjustForBackground(c, mustHex(darkBackground), threshold).Hex(),
+	}
+}
+
+// adjustForBackground walks a color's lightness toward the opposite end
+// from bg until it meets the contrast threshold, giving up at the extreme.
+func adjustForBackground(c, bg colorful.Color, threshold float64) colorful.Color {
+	if contrastRatio(c, bg) >= threshold {
+		return c
+	}
+
+	h, s, l := c.Hsl()
+	// Move away from the background: darken on a light background, lighten
+	// on a dark one.
+	step := 0.02
+	if relativeLuminance(bg) > 0.5 {
+		step = -step
+	}
+
+	best := c
+	for i := 0; i < 50; i++ {
+		l += step
+		if l < 0 || l > 1 {
+			break
+		}
+		candidate := colorful.Hsl(h, s, l)
+		best = candidate
+		if contrastRatio(candidate, bg) >= threshold {
+			return candidate
+		}
+	}
+	// Nothing in this hue cleared the threshold — return the most extreme
+	// version tried, which is still the closest to readable.
+	return best
+}
+
+// readableTextOn picks black or white for text drawn on top of a brand
+// color, whichever contrasts more. This is what keeps the header bar
+// legible for both a near-black club (Newcastle) and a near-white one
+// (Real Madrid).
+func readableTextOn(bg colorful.Color) lipgloss.TerminalColor {
+	black, white := mustHex("#000000"), mustHex("#ffffff")
+	if contrastRatio(white, bg) >= contrastRatio(black, bg) {
+		return lipgloss.Color("#ffffff")
+	}
+	return lipgloss.Color("#000000")
+}
+
+// selectionBackground derives the selected-row background from the brand
+// color: heavily desaturated and pushed toward the terminal background, so
+// it tints the row without competing with the text on it.
+func selectionBackground(c colorful.Color) lipgloss.TerminalColor {
+	h, s, _ := c.Hsl()
+	return lipgloss.AdaptiveColor{
+		Light: colorful.Hsl(h, clamp(s*0.5), 0.86).Hex(),
+		Dark:  colorful.Hsl(h, clamp(s*0.5), 0.22).Hex(),
+	}
+}
+
+func clamp(v float64) float64 {
+	if v < 0 {
+		return 0
+	}
+	if v > 1 {
+		return 1
+	}
+	return v
+}
+
+// relativeLuminance is the WCAG 2.x relative luminance of a color.
+func relativeLuminance(c colorful.Color) float64 {
+	channel := func(v float64) float64 {
+		if v <= 0.03928 {
+			return v / 12.92
+		}
+		// The WCAG gamma expansion.
+		return math.Pow((v+0.055)/1.055, 2.4)
+	}
+	return 0.2126*channel(c.R) + 0.7152*channel(c.G) + 0.0722*channel(c.B)
+}
+
+// contrastRatio is the WCAG contrast ratio between two colors, from 1
+// (identical) to 21 (black against white).
+func contrastRatio(a, b colorful.Color) float64 {
+	la, lb := relativeLuminance(a), relativeLuminance(b)
+	if la < lb {
+		la, lb = lb, la
+	}
+	return (la + 0.05) / (lb + 0.05)
+}
+
+func mustHex(hex string) colorful.Color {
+	c, err := colorful.Hex(hex)
+	if err != nil {
+		// Only ever called with the literals above, so this cannot fire
+		// at runtime; panicking beats silently returning black.
+		panic("styles: bad built-in color " + hex)
+	}
+	return c
+}

@@ -14,6 +14,7 @@ import (
 
 	"github.com/JohnSBarden/footui/internal/data/models"
 	"github.com/JohnSBarden/footui/internal/tui/core"
+	"github.com/JohnSBarden/footui/internal/tui/styles"
 )
 
 // pane is which of the screen's two tables has the cursor.
@@ -65,10 +66,22 @@ type Model struct {
 	width  int
 	height int
 
+	// theme is this screen's own theme, which becomes the club's brand
+	// theme once its colors load. It is deliberately separate from
+	// deps.Theme: deps is what gets handed to screens this one pushes, and
+	// a player who turned out for three clubs should not be rendered in
+	// one club's colors. Branding stays on the screen it belongs to.
+	theme   styles.Theme
+	branded bool
+
 	loading bool
 	loaded  bool
 	err     error
 }
+
+// Themed reports whether this screen is rendering in the club's own brand
+// colors rather than the neutral theme.
+func (m *Model) Themed() bool { return m.branded }
 
 // New constructs the Team screen. competitionID and seasonID say where the
 // user came from; either may be empty (e.g. opened from Browse), in which
@@ -77,6 +90,7 @@ type Model struct {
 func New(deps core.Deps, team models.Team, competitionID, seasonID string) *Model {
 	return &Model{
 		deps:              deps,
+		theme:             deps.Theme,
 		team:              team,
 		fromCompetitionID: competitionID,
 		fromSeasonID:      seasonID,
@@ -91,13 +105,21 @@ func New(deps core.Deps, team models.Team, competitionID, seasonID string) *Mode
 func (m *Model) Title() string { return m.team.Name }
 
 // Init implements core.Screen.
-func (m *Model) Init() tea.Cmd { return m.loadHistory() }
+func (m *Model) Init() tea.Cmd {
+	return tea.Batch(m.loadHistory(), m.loadColors())
+}
 
 // --- messages ---
 
 type historyLoadedMsg struct {
 	competitions []models.Competition
 	history      map[string][]SeasonRow
+}
+
+// colorsLoadedMsg carries a club's brand colors. Absent colors are a
+// normal state, not an error, so the message simply isn't sent.
+type colorsLoadedMsg struct {
+	colors models.TeamColors
 }
 
 // seasonDetailLoadedMsg carries everything scoped to the selected

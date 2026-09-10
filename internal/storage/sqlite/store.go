@@ -55,6 +55,15 @@ func scanNullInt(dst **int, v sql.NullInt64) {
 	}
 }
 
+// nullString maps "" to SQL NULL, keeping "no secondary color recorded"
+// distinct from an empty string in the column.
+func nullString(s string) sql.NullString {
+	if s == "" {
+		return sql.NullString{}
+	}
+	return sql.NullString{String: s, Valid: true}
+}
+
 func nullIntFromZero(i int) sql.NullInt64 {
 	if i == 0 {
 		return sql.NullInt64{}
@@ -364,6 +373,64 @@ func (s *Store) GetTeams(ctx context.Context, ids []string) (map[string]models.T
 		out[t.ID] = t
 	}
 	return out, rows.Err()
+}
+
+func (s *Store) ListTeams(ctx context.Context) ([]models.Team, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id, name, short_name, country, gender, founded_year, venue
+		FROM team ORDER BY id`)
+	if err != nil {
+		return nil, fmt.Errorf("sqlite: list teams: %w", err)
+	}
+	defer rows.Close()
+
+	var out []models.Team
+	for rows.Next() {
+		var t models.Team
+		var founded sql.NullInt64
+		if err := rows.Scan(&t.ID, &t.Name, &t.ShortName, &t.Country, &t.Gender, &founded, &t.Venue); err != nil {
+			return nil, fmt.Errorf("sqlite: scan team: %w", err)
+		}
+		if founded.Valid {
+			t.FoundedYear = int(founded.Int64)
+		}
+		out = append(out, t)
+	}
+	return out, rows.Err()
+}
+
+// --- TeamColorsRepo ---
+
+func (s *Store) UpsertTeamColors(ctx context.Context, c models.TeamColors) error {
+	_, err := s.db.ExecContext(ctx, `
+		INSERT INTO team_colors (team_id, primary_hex, secondary_hex, tertiary_hex, source)
+		VALUES (?, ?, ?, ?, ?)
+		ON CONFLICT(team_id) DO UPDATE SET primary_hex = excluded.primary_hex,
+			secondary_hex = excluded.secondary_hex, tertiary_hex = excluded.tertiary_hex,
+			source = excluded.source`,
+		c.TeamID, c.PrimaryHex, nullString(c.SecondaryHex), nullString(c.TertiaryHex), c.Source)
+	if err != nil {
+		return fmt.Errorf("sqlite: upsert team_colors %s: %w", c.TeamID, err)
+	}
+	return nil
+}
+
+func (s *Store) GetTeamColors(ctx context.Context, teamID string) (models.TeamColors, error) {
+	var c models.TeamColors
+	var secondary, tertiary sql.NullString
+	err := s.db.QueryRowContext(ctx, `
+		SELECT team_id, primary_hex, secondary_hex, tertiary_hex, source
+		FROM team_colors WHERE team_id = ?`, teamID).
+		Scan(&c.TeamID, &c.PrimaryHex, &secondary, &tertiary, &c.Source)
+	if errors.Is(err, sql.ErrNoRows) {
+		return c, fmt.Errorf("sqlite: team_colors %s: %w", teamID, storage.ErrNotFound)
+	}
+	if err != nil {
+		return c, fmt.Errorf("sqlite: get team_colors %s: %w", teamID, err)
+	}
+	c.SecondaryHex = secondary.String
+	c.TertiaryHex = tertiary.String
+	return c, nil
 }
 
 // --- TeamStatsRepo ---

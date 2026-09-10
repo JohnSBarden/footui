@@ -4,6 +4,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/JohnSBarden/footui/internal/tui/core"
+	"github.com/JohnSBarden/footui/internal/tui/styles"
 )
 
 // Update implements core.Screen.
@@ -34,6 +35,17 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 		m.extras = msg.extras
 		m.cursorSquad = 0
 		m.rosterLoading = false
+		return m, nil
+
+	case colorsLoadedMsg:
+		// A club's brand colors are chosen for shirts, not terminals, so
+		// they're passed through styles.TeamTheme rather than used raw.
+		// The plain theme is left alone: NO_COLOR means no color, and a
+		// club's branding is not an exception to that.
+		if !m.theme.NoColor {
+			m.theme = styles.TeamTheme(msg.colors.PrimaryHex, msg.colors.SecondaryHex)
+			m.branded = true
+		}
 		return m, nil
 
 	case core.ErrMsg:

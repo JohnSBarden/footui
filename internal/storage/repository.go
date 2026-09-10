@@ -57,6 +57,18 @@ type TeamsRepo interface {
 	// carry only team IDs, so a screen rendering a standings table needs
 	// this to label its rows without one query per row.
 	GetTeams(ctx context.Context, ids []string) (map[string]models.Team, error)
+	// ListTeams returns every cached team, ordered by ID. Colour seeding
+	// is driven by what's cached rather than by the seed file, so this is
+	// how it enumerates its work.
+	ListTeams(ctx context.Context) ([]models.Team, error)
+}
+
+// TeamColorsRepo persists and queries a club's brand colors.
+type TeamColorsRepo interface {
+	UpsertTeamColors(ctx context.Context, c models.TeamColors) error
+	// GetTeamColors returns a team's colors, or ErrNotFound when none are
+	// seeded — a normal, expected state for a club not yet curated.
+	GetTeamColors(ctx context.Context, teamID string) (models.TeamColors, error)
 }
 
 // TeamStatsRepo persists and queries TeamSeasonStats rows, and the
@@ -109,4 +121,5 @@ type Repositories interface {
 	TeamStatsRepo
 	PlayersRepo
 	PlayerStatsRepo
+	TeamColorsRepo
 }

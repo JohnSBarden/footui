@@ -1,0 +1,419 @@
+# Hand-curated club brand colors.
+#
+# There is no scrapeable structured source for club colors — the design doc
+# named this as a known, unavoidable manual chore, and it remains one. Each
+# entry is a club's primary and secondary shirt/crest colors as hex.
+#
+# `id` is footui's canonical team ID: the country prefix plus a slug of the
+# team name as the data provider spells it (see internal/data/provider/
+# understat/mapper.go). Because that spelling comes from the provider, an
+# entry only takes effect if the ID matches a team actually in the cache.
+#
+# `aliases` exist for exactly that reason. The English entries below were
+# verified against a live understat.com payload; the others are the same
+# scheme applied to that provider's usual spellings, with plausible
+# alternatives listed as aliases. An entry that matches nothing is simply
+# never applied — a wrong guess is inert, not harmful. Run `footy colors`
+# after refreshing a competition to see which cached clubs still lack
+# colors, then add or correct an entry here.
+#
+# Colors are never rendered raw: internal/tui/styles/teamtheme.go adjusts
+# them per terminal background so a near-black or near-white club stays
+# readable. Pick the club's actual colors here, not colors that happen to
+# look good on your terminal.
+
+# --- England (verified against live provider data) ---
+- id: eng-arsenal
+  name: Arsenal
+  primary: "#EF0107"
+  secondary: "#023474"
+- id: eng-aston-villa
+  name: Aston Villa
+  primary: "#95BFE5"
+  secondary: "#670E36"
+- id: eng-bournemouth
+  name: Bournemouth
+  aliases: [eng-afc-bournemouth]
+  primary: "#DA291C"
+  secondary: "#000000"
+- id: eng-brentford
+  name: Brentford
+  primary: "#E30613"
+  secondary: "#FBB800"
+- id: eng-brighton
+  name: Brighton
+  aliases: [eng-brighton-hove-albion]
+  primary: "#0057B8"
+  secondary: "#FFCD00"
+- id: eng-burnley
+  name: Burnley
+  primary: "#6C1D45"
+  secondary: "#99D6EA"
+- id: eng-chelsea
+  name: Chelsea
+  primary: "#034694"
+  secondary: "#DBA111"
+- id: eng-crystal-palace
+  name: Crystal Palace
+  primary: "#1B458F"
+  secondary: "#C4122E"
+- id: eng-everton
+  name: Everton
+  primary: "#003399"
+  secondary: "#FFFFFF"
+- id: eng-fulham
+  name: Fulham
+  primary: "#000000"
+  secondary: "#CC0000"
+- id: eng-leeds
+  name: Leeds
+  aliases: [eng-leeds-united]
+  primary: "#FFCD00"
+  secondary: "#1D428A"
+- id: eng-liverpool
+  name: Liverpool
+  primary: "#C8102E"
+  secondary: "#00B2A9"
+- id: eng-manchester-city
+  name: Manchester City
+  primary: "#6CABDD"
+  secondary: "#1C2C5B"
+- id: eng-manchester-united
+  name: Manchester United
+  primary: "#DA291C"
+  secondary: "#FBE122"
+- id: eng-newcastle-united
+  name: Newcastle United
+  aliases: [eng-newcastle]
+  primary: "#241F20"
+  secondary: "#FFFFFF"
+- id: eng-nottingham-forest
+  name: Nottingham Forest
+  primary: "#DD0000"
+  secondary: "#FFFFFF"
+- id: eng-sunderland
+  name: Sunderland
+  primary: "#EB172B"
+  secondary: "#211E1F"
+- id: eng-tottenham
+  name: Tottenham Hotspur
+  aliases: [eng-tottenham-hotspur, eng-spurs]
+  primary: "#132257"
+  secondary: "#FFFFFF"
+- id: eng-west-ham
+  name: West Ham United
+  aliases: [eng-west-ham-united]
+  primary: "#7A263A"
+  secondary: "#1BB1E7"
+- id: eng-wolverhampton-wanderers
+  name: Wolverhampton Wanderers
+  aliases: [eng-wolves]
+  primary: "#FDB913"
+  secondary: "#231F20"
+
+# --- Spain ---
+- id: esp-barcelona
+  name: Barcelona
+  aliases: [esp-fc-barcelona]
+  primary: "#A50044"
+  secondary: "#004D98"
+- id: esp-real-madrid
+  name: Real Madrid
+  primary: "#FEBE10"
+  secondary: "#00529F"
+- id: esp-atletico-madrid
+  name: Atletico Madrid
+  aliases: [esp-atl-tico-madrid]
+  primary: "#CB3524"
+  secondary: "#262E62"
+- id: esp-sevilla
+  name: Sevilla
+  primary: "#D80027"
+  secondary: "#FFFFFF"
+- id: esp-valencia
+  name: Valencia
+  primary: "#FF7F00"
+  secondary: "#000000"
+- id: esp-villarreal
+  name: Villarreal
+  primary: "#FFE667"
+  secondary: "#005187"
+- id: esp-real-sociedad
+  name: Real Sociedad
+  primary: "#0043A8"
+  secondary: "#FFFFFF"
+- id: esp-athletic-club
+  name: Athletic Club
+  aliases: [esp-athletic-bilbao]
+  primary: "#EE2523"
+  secondary: "#FFFFFF"
+- id: esp-real-betis
+  name: Real Betis
+  aliases: [esp-betis]
+  primary: "#00954C"
+  secondary: "#FFFFFF"
+- id: esp-celta-vigo
+  name: Celta Vigo
+  primary: "#8AC3EE"
+  secondary: "#E5254E"
+- id: esp-espanyol
+  name: Espanyol
+  primary: "#0072CE"
+  secondary: "#FFFFFF"
+- id: esp-getafe
+  name: Getafe
+  primary: "#005999"
+  secondary: "#FFFFFF"
+- id: esp-osasuna
+  name: Osasuna
+  primary: "#D91A21"
+  secondary: "#0A346F"
+- id: esp-rayo-vallecano
+  name: Rayo Vallecano
+  primary: "#E53027"
+  secondary: "#FFFFFF"
+- id: esp-girona
+  name: Girona
+  primary: "#CD2534"
+  secondary: "#FFFFFF"
+- id: esp-mallorca
+  name: Mallorca
+  primary: "#E20613"
+  secondary: "#000000"
+
+# --- Germany ---
+- id: ger-bayern-munich
+  name: Bayern Munich
+  aliases: [ger-bayern-m-nchen, ger-fc-bayern-munich]
+  primary: "#DC052D"
+  secondary: "#0066B2"
+- id: ger-borussia-dortmund
+  name: Borussia Dortmund
+  aliases: [ger-dortmund]
+  primary: "#FDE100"
+  secondary: "#000000"
+- id: ger-rasenballsport-leipzig
+  name: RB Leipzig
+  aliases: [ger-rb-leipzig, ger-leipzig]
+  primary: "#DD0741"
+  secondary: "#001F47"
+- id: ger-bayer-leverkusen
+  name: Bayer Leverkusen
+  aliases: [ger-leverkusen]
+  primary: "#E32221"
+  secondary: "#000000"
+- id: ger-borussia-m-gladbach
+  name: Borussia Mönchengladbach
+  aliases: [ger-borussia-monchengladbach, ger-gladbach]
+  primary: "#000000"
+  secondary: "#00A752"
+- id: ger-eintracht-frankfurt
+  name: Eintracht Frankfurt
+  aliases: [ger-frankfurt]
+  primary: "#E1000F"
+  secondary: "#000000"
+- id: ger-wolfsburg
+  name: VfL Wolfsburg
+  aliases: [ger-vfl-wolfsburg]
+  primary: "#65B32E"
+  secondary: "#FFFFFF"
+- id: ger-werder-bremen
+  name: Werder Bremen
+  aliases: [ger-bremen]
+  primary: "#1D9053"
+  secondary: "#FFFFFF"
+- id: ger-freiburg
+  name: SC Freiburg
+  aliases: [ger-sc-freiburg]
+  primary: "#000000"
+  secondary: "#E2001A"
+- id: ger-union-berlin
+  name: Union Berlin
+  primary: "#EB1923"
+  secondary: "#FFED02"
+- id: ger-stuttgart
+  name: VfB Stuttgart
+  aliases: [ger-vfb-stuttgart]
+  primary: "#E32219"
+  secondary: "#FFFFFF"
+- id: ger-mainz-05
+  name: Mainz 05
+  aliases: [ger-mainz]
+  primary: "#C3141E"
+  secondary: "#FFFFFF"
+- id: ger-hoffenheim
+  name: Hoffenheim
+  aliases: [ger-tsg-hoffenheim]
+  primary: "#1C63B7"
+  secondary: "#FFFFFF"
+- id: ger-augsburg
+  name: Augsburg
+  primary: "#BA3733"
+  secondary: "#46714D"
+- id: ger-fc-koln
+  name: FC Köln
+  aliases: [ger-fc-k-ln, ger-koln, ger-cologne]
+  primary: "#ED1C24"
+  secondary: "#FFFFFF"
+- id: ger-st-pauli
+  name: St. Pauli
+  primary: "#5D3A29"
+  secondary: "#FFFFFF"
+
+# --- Italy ---
+- id: ita-juventus
+  name: Juventus
+  primary: "#000000"
+  secondary: "#FFFFFF"
+- id: ita-inter
+  name: Inter
+  aliases: [ita-internazionale, ita-inter-milan]
+  primary: "#0068A8"
+  secondary: "#000000"
+- id: ita-ac-milan
+  name: AC Milan
+  aliases: [ita-milan]
+  primary: "#FB090B"
+  secondary: "#000000"
+- id: ita-napoli
+  name: Napoli
+  primary: "#12A0D7"
+  secondary: "#FFFFFF"
+- id: ita-roma
+  name: Roma
+  aliases: [ita-as-roma]
+  primary: "#8E1F2F"
+  secondary: "#F0BC42"
+- id: ita-lazio
+  name: Lazio
+  primary: "#87D8F7"
+  secondary: "#FFFFFF"
+- id: ita-atalanta
+  name: Atalanta
+  primary: "#1D51A2"
+  secondary: "#000000"
+- id: ita-fiorentina
+  name: Fiorentina
+  primary: "#582C83"
+  secondary: "#FFFFFF"
+- id: ita-torino
+  name: Torino
+  primary: "#881600"
+  secondary: "#FFFFFF"
+- id: ita-bologna
+  name: Bologna
+  primary: "#1A2F48"
+  secondary: "#A21C25"
+- id: ita-udinese
+  name: Udinese
+  primary: "#000000"
+  secondary: "#FFFFFF"
+- id: ita-genoa
+  name: Genoa
+  primary: "#A21C25"
+  secondary: "#003366"
+- id: ita-cagliari
+  name: Cagliari
+  primary: "#A50033"
+  secondary: "#00234B"
+- id: ita-verona
+  name: Hellas Verona
+  aliases: [ita-hellas-verona]
+  primary: "#122A50"
+  secondary: "#FFE500"
+- id: ita-parma
+  name: Parma
+  primary: "#FFE500"
+  secondary: "#003C7D"
+- id: ita-lecce
+  name: Lecce
+  primary: "#FFE500"
+  secondary: "#D00023"
+
+# --- France ---
+- id: fra-paris-saint-germain
+  name: Paris Saint-Germain
+  aliases: [fra-psg, fra-paris-sg]
+  primary: "#004170"
+  secondary: "#DA291C"
+- id: fra-marseille
+  name: Marseille
+  aliases: [fra-olympique-marseille]
+  primary: "#2FAEE0"
+  secondary: "#FFFFFF"
+- id: fra-lyon
+  name: Lyon
+  aliases: [fra-olympique-lyonnais]
+  primary: "#DA291C"
+  secondary: "#00529F"
+- id: fra-monaco
+  name: Monaco
+  aliases: [fra-as-monaco]
+  primary: "#E63946"
+  secondary: "#FFFFFF"
+- id: fra-lille
+  name: Lille
+  aliases: [fra-losc-lille]
+  primary: "#E01E13"
+  secondary: "#00285E"
+- id: fra-rennes
+  name: Rennes
+  aliases: [fra-stade-rennais]
+  primary: "#E23B2E"
+  secondary: "#000000"
+- id: fra-nice
+  name: Nice
+  aliases: [fra-ogc-nice]
+  primary: "#C8102E"
+  secondary: "#000000"
+- id: fra-lens
+  name: Lens
+  aliases: [fra-rc-lens]
+  primary: "#FFE500"
+  secondary: "#D00023"
+- id: fra-nantes
+  name: Nantes
+  aliases: [fra-fc-nantes]
+  primary: "#FCD303"
+  secondary: "#008D36"
+- id: fra-strasbourg
+  name: Strasbourg
+  primary: "#0079C2"
+  secondary: "#FFFFFF"
+- id: fra-toulouse
+  name: Toulouse
+  primary: "#5F259F"
+  secondary: "#FFFFFF"
+- id: fra-brest
+  name: Brest
+  aliases: [fra-stade-brestois]
+  primary: "#E2001A"
+  secondary: "#FFFFFF"
+
+# --- Russia ---
+- id: rus-zenit
+  name: Zenit
+  aliases: [rus-zenit-st-petersburg]
+  primary: "#0B4EA2"
+  secondary: "#75AADB"
+- id: rus-spartak-moscow
+  name: Spartak Moscow
+  primary: "#C8102E"
+  secondary: "#FFFFFF"
+- id: rus-cska-moscow
+  name: CSKA Moscow
+  primary: "#B3181E"
+  secondary: "#003D7C"
+- id: rus-lokomotiv-moscow
+  name: Lokomotiv Moscow
+  primary: "#008542"
+  secondary: "#D3131A"
+- id: rus-dinamo-moscow
+  name: Dinamo Moscow
+  aliases: [rus-dynamo-moscow]
+  primary: "#004C97"
+  secondary: "#FFFFFF"
+- id: rus-krasnodar
+  name: Krasnodar
+  primary: "#00A650"
+  secondary: "#000000"

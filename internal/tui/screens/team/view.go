@@ -12,7 +12,7 @@ import (
 
 // View implements core.Screen.
 func (m *Model) View() string {
-	th := m.deps.Theme
+	th := m.theme
 	var b strings.Builder
 
 	b.WriteString(m.header())
@@ -51,7 +51,7 @@ func (m *Model) View() string {
 }
 
 func (m *Model) header() string {
-	th := m.deps.Theme
+	th := m.theme
 
 	var meta []string
 	if m.team.Country != "" {
@@ -92,7 +92,7 @@ func (m *Model) statCards() string {
 		return ""
 	}
 	s := row.Stats
-	th := m.deps.Theme
+	th := m.theme
 
 	gdStyle := m.deltaStyle(float64(s.GoalDiff))
 	stats := []components.Stat{
@@ -182,7 +182,7 @@ func (m *Model) extraCards(s models.TeamSeasonStats) []components.Stat {
 }
 
 func (m *Model) seasonsTable() string {
-	th := m.deps.Theme
+	th := m.theme
 	rows := m.CurrentRows()
 	if len(rows) == 0 {
 		return th.Empty.Render("No seasons cached for this competition.")
@@ -236,7 +236,7 @@ func (m *Model) seasonsTable() string {
 }
 
 func (m *Model) squadTable() string {
-	th := m.deps.Theme
+	th := m.theme
 
 	row, hasSeason := m.CurrentSeasonRow()
 	label := ""
@@ -310,7 +310,7 @@ func (m *Model) playerColWidth() int {
 // paneTitle marks which table the cursor is in. The arrow marker means the
 // focused pane is still identifiable without color.
 func (m *Model) paneTitle(label string, focused bool) string {
-	th := m.deps.Theme
+	th := m.theme
 	if focused {
 		return th.PanelTitle.Render("▸ " + label)
 	}
@@ -330,16 +330,16 @@ func (m *Model) paneHeight() int {
 func (m *Model) deltaStyle(v float64) lipgloss.Style {
 	switch {
 	case v > 0:
-		return m.deps.Theme.Positive
+		return m.theme.Positive
 	case v < 0:
-		return m.deps.Theme.Negative
+		return m.theme.Negative
 	default:
-		return m.deps.Theme.Muted
+		return m.theme.Muted
 	}
 }
 
 func (m *Model) emptyState() string {
-	th := m.deps.Theme
+	th := m.theme
 	return th.Empty.Render("No cached seasons for "+m.team.Name+".") + "\n\n" +
 		th.Muted.Render("Run  ") +
 		th.Accent.Render("footy refresh") +
@@ -355,5 +355,5 @@ func (m *Model) footer() string {
 		"esc back",
 		"q quit",
 	}
-	return m.deps.Theme.Help.Render(strings.Join(keys, "  ·  "))
+	return m.theme.Help.Render(strings.Join(keys, "  ·  "))
 }

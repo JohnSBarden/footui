@@ -282,3 +282,88 @@ func TestSquadShowsShotsAndKeyPasses(t *testing.T) {
 		t.Errorf("squad table missing the values\n---\n%s", out)
 	}
 }
+
+func TestClubColorsThemeTheScreen(t *testing.T) {
+	repos := seedTwoCompetitions(t)
+	ctx := context.Background()
+	if err := repos.UpsertTeamColors(ctx, models.TeamColors{
+		TeamID: arsenal.ID, PrimaryHex: "#EF0107", SecondaryHex: "#023474", Source: "test",
+	}); err != nil {
+		t.Fatalf("UpsertTeamColors: %v", err)
+	}
+
+	deps := newDeps(repos)
+	deps.Theme = styles.Default() // a color-capable theme
+	s := tuitest.Settle(t, team.New(deps, arsenal, "eng-premier-league", "eng-premier-league:2025"))
+
+	if !s.(*team.Model).Themed() {
+		t.Error("a club with seeded colors should render in its own theme")
+	}
+}
+
+// Uncurated clubs are the common case and must render normally.
+func TestClubWithoutColorsStaysOnTheNeutralTheme(t *testing.T) {
+	deps := newDeps(seedTwoCompetitions(t))
+	deps.Theme = styles.Default()
+
+	s := tuitest.Settle(t, team.New(deps, arsenal, "eng-premier-league", "eng-premier-league:2025"))
+	if s.(*team.Model).Themed() {
+		t.Error("a club with no seeded colors should not claim to be branded")
+	}
+	if s.View() == "" {
+		t.Error("an uncurated club must still render")
+	}
+}
+
+// NO_COLOR means no color; a club's branding is not an exception.
+func TestNoColorSuppressesClubBranding(t *testing.T) {
+	repos := seedTwoCompetitions(t)
+	if err := repos.UpsertTeamColors(context.Background(), models.TeamColors{
+		TeamID: arsenal.ID, PrimaryHex: "#EF0107", Source: "test",
+	}); err != nil {
+		t.Fatalf("UpsertTeamColors: %v", err)
+	}
+
+	deps := newDeps(repos) // styles.Plain()
+	s := tuitest.Settle(t, team.New(deps, arsenal, "eng-premier-league", "eng-premier-league:2025"))
+
+	if s.(*team.Model).Themed() {
+		t.Error("club colors must not override the plain theme")
+	}
+}
+
+// Branding belongs to the screen it's on: a player who turned out for
+// three clubs should not be rendered in one club's colors.
+func TestClubBrandingDoesNotLeakIntoPushedScreens(t *testing.T) {
+	repos := seedTwoCompetitions(t)
+	ctx := context.Background()
+	if err := repos.UpsertTeamColors(ctx, models.TeamColors{
+		TeamID: arsenal.ID, PrimaryHex: "#EF0107", Source: "test",
+	}); err != nil {
+		t.Fatalf("UpsertTeamColors: %v", err)
+	}
+	storagetest.SeedRoster(t, repos, arsenal.ID, "eng-premier-league", "eng-premier-league:2025", storagetest.SampleSquad())
+
+	var childTheme styles.Theme
+	deps := newDeps(repos)
+	deps.Theme = styles.Default()
+	deps.Nav.Player = func(d core.Deps, _ models.Player, _ string) core.Screen {
+		childTheme = d.Theme
+		return stubScreen{}
+	}
+
+	s := tuitest.Resize(t, tuitest.Settle(t, team.New(deps, arsenal, "eng-premier-league", "eng-premier-league:2025")), 110, 44)
+	if !s.(*team.Model).Themed() {
+		t.Fatal("expected the team screen to be branded")
+	}
+
+	s = tuitest.Key(t, s, "tab")
+	s.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if _, cmd := s.Update(tea.KeyMsg{Type: tea.KeyEnter}); cmd != nil {
+		tuitest.CapturedCmd(cmd)
+	}
+
+	if childTheme.Palette.Accent != styles.DefaultPalette().Accent {
+		t.Error("a pushed screen should inherit the neutral theme, not the club's colors")
+	}
+}
