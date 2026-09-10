@@ -174,3 +174,28 @@ func TestNoMatchEmptyStateIsDistinctFromFirstRun(t *testing.T) {
 		t.Errorf("a failed search must not claim the cache is empty\n---\n%s", out)
 	}
 }
+
+// Searching from an ASCII keyboard must find accented names — the common
+// case for a tool full of them.
+func TestBrowseFindsAccentedNamesFromASCIIQueries(t *testing.T) {
+	repos := storagetest.New(t)
+	storagetest.SeedCompetition(t, repos, storagetest.PremierLeague(), "2025", []storagetest.TeamRow{
+		{ID: "eng-arsenal", Name: "Arsenal", Position: 1, MP: 38, Pts: 85},
+	})
+	storagetest.SeedRoster(t, repos, "eng-arsenal", "eng-premier-league", "eng-premier-league:2025",
+		[]storagetest.PlayerRow{
+			{ID: "p-zub", Name: "Martín Zubimendi", Position: "D M S", Apps: 38, Minutes: 3040},
+			{ID: "p-tim", Name: "Jurriën Timber", Position: "D S", Apps: 30, Minutes: 2475},
+		})
+
+	for query, want := range map[string]string{
+		"martin":  "Martín Zubimendi",
+		"jurrien": "Jurriën Timber",
+		"Martín":  "Martín Zubimendi",
+	} {
+		out := open(t, newDeps(repos), query).View()
+		if !strings.Contains(out, want) {
+			t.Errorf("searching %q should find %q\n---\n%s", query, want, out)
+		}
+	}
+}

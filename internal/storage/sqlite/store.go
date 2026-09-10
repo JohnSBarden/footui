@@ -11,6 +11,7 @@ import (
 
 	"github.com/JohnSBarden/footui/internal/data/models"
 	"github.com/JohnSBarden/footui/internal/storage"
+	"github.com/JohnSBarden/footui/internal/textfold"
 )
 
 // Store implements storage.Repositories against a SQLite database. It is
@@ -123,11 +124,12 @@ func (s *Store) UpsertCompetition(ctx context.Context, c models.Competition) err
 		format = "league"
 	}
 	_, err := s.db.ExecContext(ctx, `
-		INSERT INTO competition (id, name, country, tier, gender, format)
-		VALUES (?, ?, ?, ?, ?, ?)
-		ON CONFLICT(id) DO UPDATE SET name = excluded.name, country = excluded.country,
-			tier = excluded.tier, gender = excluded.gender, format = excluded.format`,
-		c.ID, c.Name, c.Country, c.Tier, c.Gender, format)
+		INSERT INTO competition (id, name, name_folded, country, tier, gender, format)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(id) DO UPDATE SET name = excluded.name, name_folded = excluded.name_folded,
+			country = excluded.country, tier = excluded.tier, gender = excluded.gender,
+			format = excluded.format`,
+		c.ID, c.Name, textfold.Fold(c.Name), c.Country, c.Tier, c.Gender, format)
 	if err != nil {
 		return fmt.Errorf("sqlite: upsert competition %s: %w", c.ID, err)
 	}
@@ -169,8 +171,8 @@ func (s *Store) GetCompetition(ctx context.Context, id string) (models.Competiti
 func (s *Store) FindCompetitionsByName(ctx context.Context, query string) ([]models.Competition, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT id, name, country, tier, gender, format FROM competition
-		WHERE name LIKE '%' || ? || '%' COLLATE NOCASE OR id LIKE '%' || ? || '%' COLLATE NOCASE
-		ORDER BY country, tier`, query, query)
+		WHERE name_folded LIKE '%' || ? || '%' OR id LIKE '%' || ? || '%'
+		ORDER BY country, tier`, textfold.Fold(query), textfold.Fold(query))
 	if err != nil {
 		return nil, fmt.Errorf("sqlite: find competitions by name %q: %w", query, err)
 	}
@@ -286,12 +288,13 @@ func (s *Store) GetSeasons(ctx context.Context, ids []string) (map[string]models
 
 func (s *Store) UpsertTeam(ctx context.Context, t models.Team) error {
 	_, err := s.db.ExecContext(ctx, `
-		INSERT INTO team (id, name, short_name, country, gender, founded_year, venue)
-		VALUES (?, ?, ?, ?, ?, ?, ?)
-		ON CONFLICT(id) DO UPDATE SET name = excluded.name, short_name = excluded.short_name,
-			country = excluded.country, gender = excluded.gender,
-			founded_year = excluded.founded_year, venue = excluded.venue`,
-		t.ID, t.Name, t.ShortName, t.Country, t.Gender, nullIntFromZero(t.FoundedYear), t.Venue)
+		INSERT INTO team (id, name, name_folded, short_name, country, gender, founded_year, venue)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(id) DO UPDATE SET name = excluded.name, name_folded = excluded.name_folded,
+			short_name = excluded.short_name, country = excluded.country,
+			gender = excluded.gender, founded_year = excluded.founded_year, venue = excluded.venue`,
+		t.ID, t.Name, textfold.Fold(t.Name), t.ShortName, t.Country, t.Gender,
+		nullIntFromZero(t.FoundedYear), t.Venue)
 	if err != nil {
 		return fmt.Errorf("sqlite: upsert team %s: %w", t.ID, err)
 	}
@@ -301,7 +304,7 @@ func (s *Store) UpsertTeam(ctx context.Context, t models.Team) error {
 func (s *Store) FindTeamsByName(ctx context.Context, query string) ([]models.Team, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT id, name, short_name, country, gender, founded_year, venue
-		FROM team WHERE name LIKE '%' || ? || '%' ORDER BY name`, query)
+		FROM team WHERE name_folded LIKE '%' || ? || '%' ORDER BY name`, textfold.Fold(query))
 	if err != nil {
 		return nil, fmt.Errorf("sqlite: find teams by name %q: %w", query, err)
 	}
@@ -702,11 +705,13 @@ func scanTeamSeasonStats(rows *sql.Rows) ([]models.TeamSeasonStats, error) {
 
 func (s *Store) UpsertPlayer(ctx context.Context, p models.Player) error {
 	_, err := s.db.ExecContext(ctx, `
-		INSERT INTO player (id, name, date_of_birth, nationality, position, gender)
-		VALUES (?, ?, ?, ?, ?, ?)
-		ON CONFLICT(id) DO UPDATE SET name = excluded.name, date_of_birth = excluded.date_of_birth,
-			nationality = excluded.nationality, position = excluded.position, gender = excluded.gender`,
-		p.ID, p.Name, timePtrToNullString(p.DateOfBirth), p.Nationality, p.Position, p.Gender)
+		INSERT INTO player (id, name, name_folded, date_of_birth, nationality, position, gender)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(id) DO UPDATE SET name = excluded.name, name_folded = excluded.name_folded,
+			date_of_birth = excluded.date_of_birth, nationality = excluded.nationality,
+			position = excluded.position, gender = excluded.gender`,
+		p.ID, p.Name, textfold.Fold(p.Name), timePtrToNullString(p.DateOfBirth),
+		p.Nationality, p.Position, p.Gender)
 	if err != nil {
 		return fmt.Errorf("sqlite: upsert player %s: %w", p.ID, err)
 	}
@@ -764,7 +769,7 @@ func (s *Store) GetPlayers(ctx context.Context, ids []string) (map[string]models
 func (s *Store) FindPlayersByName(ctx context.Context, query string) ([]models.Player, error) {
 	rows, err := s.db.QueryContext(ctx,
 		`SELECT `+playerColumns+` FROM player
-		 WHERE name LIKE '%' || ? || '%' COLLATE NOCASE ORDER BY name LIMIT 200`, query)
+		 WHERE name_folded LIKE '%' || ? || '%' ORDER BY name LIMIT 200`, textfold.Fold(query))
 	if err != nil {
 		return nil, fmt.Errorf("sqlite: find players by name %q: %w", query, err)
 	}

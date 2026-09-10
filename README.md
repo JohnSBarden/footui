@@ -71,9 +71,10 @@ footy team "Arsenal"           # club dashboard
 footy player "Saka"            # player career
 ```
 
-Names are matched against what you've cached, so partial names work. A name
-matching several clubs opens the browse screen filtered to them rather than
-guessing.
+Names are matched against what you've cached, so partial names work, and
+matching ignores case and accents — `footy player martin` finds Martín
+Zubimendi. A name matching several results opens the browse screen filtered
+to them rather than guessing.
 
 ### Keys
 

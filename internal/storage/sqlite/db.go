@@ -41,5 +41,12 @@ func Open(path string) (*sql.DB, error) {
 		return nil, fmt.Errorf("sqlite: migrate: %w", err)
 	}
 
+	// Search columns can't be populated by SQL — folding is Unicode
+	// normalization — so a database predating them is filled in here.
+	if err := backfillFoldedNames(db); err != nil {
+		db.Close()
+		return nil, err
+	}
+
 	return db, nil
 }

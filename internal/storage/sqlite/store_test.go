@@ -327,3 +327,122 @@ func TestPlayerAdvancedStatsStayNullWhenNotSupplied(t *testing.T) {
 		t.Errorf("shots = %v, want nil when the provider had none", *roster[0].Shots)
 	}
 }
+
+// Football is full of accented names and people search from an ASCII
+// keyboard. Before folding, "martin" could not find "Martín Zubimendi" and
+// "jurrien" found nothing at all.
+func TestSearchFindsAccentedNamesFromASCIIQueries(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+
+	for _, p := range []models.Player{
+		{ID: "p1", Name: "Martín Zubimendi", Gender: "men"},
+		{ID: "p2", Name: "Jurriën Timber", Gender: "men"},
+		{ID: "p3", Name: "Martin Odegaard", Gender: "men"},
+	} {
+		if err := s.UpsertPlayer(ctx, p); err != nil {
+			t.Fatalf("UpsertPlayer: %v", err)
+		}
+	}
+
+	cases := map[string][]string{
+		"martin":    {"Martín Zubimendi", "Martin Odegaard"},
+		"MARTIN":    {"Martín Zubimendi", "Martin Odegaard"},
+		"Martín":    {"Martín Zubimendi", "Martin Odegaard"},
+		"jurrien":   {"Jurriën Timber"},
+		"Jurriën":   {"Jurriën Timber"},
+		"zubimendi": {"Martín Zubimendi"},
+	}
+	for query, want := range cases {
+		got, err := s.FindPlayersByName(ctx, query)
+		if err != nil {
+			t.Fatalf("FindPlayersByName(%q): %v", query, err)
+		}
+		names := map[string]bool{}
+		for _, p := range got {
+			names[p.Name] = true
+		}
+		for _, w := range want {
+			if !names[w] {
+				t.Errorf("FindPlayersByName(%q) missed %q (got %d results)", query, w, len(got))
+			}
+		}
+	}
+}
+
+func TestTeamSearchIsAccentInsensitive(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	for _, team := range []models.Team{
+		{ID: "ger-bayern-munich", Name: "Bayern München", Gender: "men"},
+		{ID: "esp-atletico-madrid", Name: "Atlético Madrid", Gender: "men"},
+	} {
+		if err := s.UpsertTeam(ctx, team); err != nil {
+			t.Fatalf("UpsertTeam: %v", err)
+		}
+	}
+
+	for query, want := range map[string]string{
+		"munchen":  "Bayern München",
+		"München":  "Bayern München",
+		"atletico": "Atlético Madrid",
+		"ATLETICO": "Atlético Madrid",
+	} {
+		got, err := s.FindTeamsByName(ctx, query)
+		if err != nil {
+			t.Fatalf("FindTeamsByName(%q): %v", query, err)
+		}
+		if len(got) != 1 || got[0].Name != want {
+			t.Errorf("FindTeamsByName(%q) = %+v, want %q", query, got, want)
+		}
+	}
+}
+
+// A database created before the search columns existed must become
+// searchable on the next open, not only after the user happens to
+// refresh — a silently unsearchable name is a hard bug to notice, since
+// the query succeeds and simply returns nothing.
+func TestFoldedNamesAreBackfilledForPreexistingRows(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+
+	if err := s.UpsertPlayer(ctx, models.Player{ID: "p1", Name: "Martín Zubimendi", Gender: "men"}); err != nil {
+		t.Fatalf("UpsertPlayer: %v", err)
+	}
+	// Simulate a row written before the column existed.
+	if _, err := s.db.ExecContext(ctx, `UPDATE player SET name_folded = NULL WHERE id = 'p1'`); err != nil {
+		t.Fatalf("clearing name_folded: %v", err)
+	}
+	if got, _ := s.FindPlayersByName(ctx, "martin"); len(got) != 0 {
+		t.Fatal("setup: the row should be unsearchable before backfill")
+	}
+
+	if err := backfillFoldedNames(s.db); err != nil {
+		t.Fatalf("backfillFoldedNames: %v", err)
+	}
+
+	got, err := s.FindPlayersByName(ctx, "martin")
+	if err != nil {
+		t.Fatalf("FindPlayersByName: %v", err)
+	}
+	if len(got) != 1 {
+		t.Errorf("backfill did not make the row searchable, got %d results", len(got))
+	}
+}
+
+func TestBackfillIsIdempotent(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	if err := s.UpsertPlayer(ctx, models.Player{ID: "p1", Name: "Martín Zubimendi", Gender: "men"}); err != nil {
+		t.Fatalf("UpsertPlayer: %v", err)
+	}
+
+	for i := 0; i < 3; i++ {
+		if err := backfillFoldedNames(s.db); err != nil {
+			t.Fatalf("backfill pass %d: %v", i, err)
+		}
+	}
+	if got, _ := s.FindPlayersByName(ctx, "martin"); len(got) != 1 {
+		t.Errorf("repeated backfills changed the result: %d", len(got))
+	}
+}

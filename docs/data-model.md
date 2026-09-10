@@ -154,6 +154,32 @@ serve.
 | `Position` | string | understat.com's raw position string, e.g. `"F M"`. |
 | `Gender` | string | Hardcoded `"men"` — every currently-covered competition is men's. |
 
+## Name search
+
+`team`, `player`, and `competition` each carry a `name_folded` column: a
+lowercase, accent-stripped copy of the name, written by
+`internal/textfold.Fold` and never displayed.
+
+It exists because SQLite's `LIKE` is case-insensitive only for ASCII and
+has no notion of accent equivalence. Football names are full of diacritics
+and people search from keyboards that don't have them, so before this,
+`martin` could not find "Martín Zubimendi" and `jurrien` found nothing at
+all for "Jurriën Timber". Folding both sides of the comparison fixes both
+directions without asking the user to type characters they may not have
+keys for.
+
+Folding is Unicode canonical decomposition (NFD) followed by dropping
+combining marks, which covers the whole Latin range without a
+hand-maintained character table, and lowercases everything else — so
+non-Latin scripts stay searchable rather than being mangled.
+
+`0004_folded_names.sql` adds the columns, but cannot populate them: SQLite
+has no normalization function. `sqlite.Open` backfills any NULL rows
+instead, so a database created before the columns existed becomes
+searchable on the next open rather than only after the user happens to
+refresh. A silently unsearchable name would be hard to notice — the query
+succeeds and simply returns nothing.
+
 ## Trophy, TeamColors
 
 Defined in the schema and `models` package but **no provider populates
