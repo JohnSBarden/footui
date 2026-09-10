@@ -114,9 +114,15 @@ func (m *Model) loadSeasonDetail(competitionID, seasonID string) tea.Cmd {
 			return core.ErrMsg{Err: err}
 		}
 
+		// A missing sync log entry is expected, not an error.
+		var lastSync *models.SyncRun
+		if run, err := deps.Repos.LatestSyncRun(deps.Ctx, competitionID, seasonID); err == nil {
+			lastSync = &run
+		}
+
 		return seasonDetailLoadedMsg{
 			seasonID: seasonID, competitionID: competitionID,
-			roster: rows, extras: extras,
+			roster: rows, extras: extras, lastSync: lastSync,
 		}
 	}
 }

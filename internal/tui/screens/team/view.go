@@ -3,6 +3,7 @@ package team
 import (
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/lipgloss"
 
@@ -76,7 +77,28 @@ func (m *Model) header() string {
 			Badge: "(" + strconv.Itoa(len(m.history[c.ID])) + ")",
 		})
 	}
-	return line + "\n" + components.Tabs(th, tabs, m.compIdx)
+	tabBar := components.Tabs(th, tabs, m.compIdx)
+	if note := m.freshnessNote(); note != "" {
+		tabBar += "   " + note
+	}
+	return line + "\n" + tabBar
+}
+
+// freshnessNote says when the selected competition-season was last
+// refreshed. A failed attempt is reported as a failure rather than as age:
+// "we tried and it broke" is what the user needs to act on.
+func (m *Model) freshnessNote() string {
+	if m.lastSync == nil {
+		return ""
+	}
+	ago := components.Freshness(m.lastSync.FinishedAt, time.Now())
+	if ago == "" {
+		return ""
+	}
+	if !m.lastSync.Succeeded() {
+		return m.theme.Negative.Render("refresh failed " + ago)
+	}
+	return m.theme.Muted.Render("updated " + ago)
 }
 
 // statCards summarizes the selected season. Every figure comes from that

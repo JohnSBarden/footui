@@ -33,6 +33,7 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 		}
 		m.roster = msg.roster
 		m.extras = msg.extras
+		m.lastSync = msg.lastSync
 		m.cursorSquad = 0
 		m.rosterLoading = false
 		return m, nil
@@ -166,12 +167,14 @@ func (m *Model) refreshRoster() tea.Cmd {
 	if !hasComp || !hasRow {
 		m.roster = nil
 		m.extras = nil
+		m.lastSync = nil
 		m.rosterSeason = ""
 		return nil
 	}
 
 	m.roster = nil
 	m.extras = nil
+	m.lastSync = nil
 	m.cursorSquad = 0
 	m.rosterSeason = row.Season.ID
 	m.rosterLoading = true

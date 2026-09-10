@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 
@@ -500,5 +501,46 @@ func TestNarrowTerminalsKeepPlayerNamesIntact(t *testing.T) {
 				t.Errorf("width %d dropped the core column %q\n---\n%s", width, col, out)
 			}
 		}
+	}
+}
+
+func TestTeamScreenShowsWhenTheSeasonWasLastRefreshed(t *testing.T) {
+	repos := seedTwoCompetitions(t)
+	if err := repos.RecordSyncRun(context.Background(), models.SyncRun{
+		Provider: "understat", CompetitionID: "eng-premier-league", SeasonID: "eng-premier-league:2025",
+		StartedAt: time.Now().Add(-4 * time.Hour), FinishedAt: time.Now().Add(-4 * time.Hour),
+		Status: models.SyncStatusOK,
+	}); err != nil {
+		t.Fatalf("RecordSyncRun: %v", err)
+	}
+
+	out := settled(t, newDeps(repos), "eng-premier-league", "eng-premier-league:2025").View()
+	if !strings.Contains(out, "updated 4 hours ago") {
+		t.Errorf("expected a freshness indicator\n---\n%s", out)
+	}
+}
+
+// Freshness is per competition-season, so switching tabs must not carry
+// the previous tab's timestamp across.
+func TestFreshnessFollowsTheSelectedCompetition(t *testing.T) {
+	repos := seedTwoCompetitions(t)
+	ctx := context.Background()
+	if err := repos.RecordSyncRun(ctx, models.SyncRun{
+		Provider: "understat", CompetitionID: "eng-premier-league", SeasonID: "eng-premier-league:2025",
+		StartedAt: time.Now().Add(-4 * time.Hour), FinishedAt: time.Now().Add(-4 * time.Hour),
+		Status: models.SyncStatusOK,
+	}); err != nil {
+		t.Fatalf("RecordSyncRun: %v", err)
+	}
+
+	s := settled(t, newDeps(repos), "eng-premier-league", "eng-premier-league:2025")
+	if !strings.Contains(s.View(), "updated 4 hours ago") {
+		t.Fatal("setup: expected the league tab to show its freshness")
+	}
+
+	// The cup tab has no sync log entry of its own.
+	s = tuitest.Key(t, s, "right")
+	if out := s.View(); strings.Contains(out, "4 hours ago") {
+		t.Errorf("the previous tab's freshness leaked across\n---\n%s", out)
 	}
 }

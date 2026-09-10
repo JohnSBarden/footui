@@ -57,7 +57,10 @@ type Model struct {
 	compIdx      int
 	seasonIdx    int
 
-	honours       []models.Trophy
+	honours []models.Trophy
+	// lastSync is the most recent refresh attempt for the selected
+	// competition-season, or nil when it has never been attempted.
+	lastSync      *models.SyncRun
 	roster        []RosterRow
 	extras        map[string]float64
 	rosterSeason  string
@@ -150,8 +153,11 @@ type seasonDetailLoadedMsg struct {
 	seasonID      string
 	competitionID string
 	honours       []models.Trophy
-	roster        []RosterRow
-	extras        map[string]float64
+	// lastSync is the most recent refresh attempt for the selected
+	// competition-season, or nil when it has never been attempted.
+	lastSync *models.SyncRun
+	roster   []RosterRow
+	extras   map[string]float64
 }
 
 // --- accessors used by the view and by tests ---
