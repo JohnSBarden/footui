@@ -118,12 +118,22 @@ func (m *Model) emptyState() string {
 	th := m.deps.Theme
 	if strings.TrimSpace(m.input.Value()) == "" {
 		// Nothing cached at all — this is a first run.
-		return th.Empty.Render("Nothing cached yet.") + "\n\n" +
+		//
+		// Each line is styled separately and joined afterwards: a newline
+		// inside a single Render call makes Lip Gloss pad every line to
+		// the width of the longest, which leaves the shorter one visibly
+		// indented.
+		lines := []string{
+			th.Empty.Render("Nothing cached yet."),
+			"",
 			th.Muted.Render("Run  ") +
-			th.Accent.Render("footy refresh --competition eng-premier-league") +
-			th.Muted.Render("  to get started,\nor  ") +
-			th.Accent.Render("footy competitions") +
-			th.Muted.Render("  to see what can be fetched.")
+				th.Accent.Render("footy refresh --competition eng-premier-league") +
+				th.Muted.Render("  to get started,"),
+			th.Muted.Render("or   ") +
+				th.Accent.Render("footy competitions") +
+				th.Muted.Render("  to see what can be fetched."),
+		}
+		return strings.Join(lines, "\n")
 	}
 	return th.Empty.Render("No cached competition, team, or player matches that.") + "\n\n" +
 		th.Muted.Render("Only refreshed competitions are searchable — try  ") +
