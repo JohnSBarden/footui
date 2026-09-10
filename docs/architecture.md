@@ -27,14 +27,16 @@ a boundary is a value from `internal/data/models` (see
 (`provider.CompetitionRef`, `provider.SeasonRef`, `provider.TeamRef`,
 `provider.PlayerRef`).
 
-Status as of this writing: boundaries (1) source→backend are fully built
-and exercised end-to-end (see `internal/data/sync`, tested against both a
-fake source and live understat.com data). Boundary (2) backend→rendering
-exists today only as `footy refresh`/`footy competitions` reading and
-writing through `storage.Repositories`; the interactive TUI screens
-described in the original design doc haven't been built yet, but they will
-consume the exact same `storage.Repositories` interface — no new backend
-work is implied by adding them.
+Status: both boundaries are built and exercised end to end. The source
+contract has one implementation (`internal/data/provider/understat`),
+tested against a fixture, a fake source, and live data. The rendering side
+is the full TUI — Browse, League, Team, Player — and it reaches data only
+through `storage.Repositories`, never through a provider or the database
+directly.
+
+The boundaries earned their keep: adding four screens required no changes
+to the provider or sync layers, only additional query methods on the
+storage contract.
 
 ## Boundary 1 — Source contract (`internal/data/provider`)
 
@@ -148,31 +150,85 @@ store with no real database (see the pattern used the other direction in
 `internal/data/sync/syncer_test.go`, which fakes the *source* side against
 a real in-memory SQLite store).
 
-## Boundary 3 — Rendering (CLI today, TUI in a later phase)
+## Boundary 3 — Rendering (`internal/cli`, `internal/tui`)
 
-`internal/cli` commands (`footy refresh`, `footy competitions`) construct a
-`sqlite.Store` and a provider, wire them into a `sync.Syncer`, and print
-results — see `internal/cli/refresh.go`. The planned TUI
-(`internal/tui`, per the original design doc's screen breakdown: Browse →
-League → Team → Player) will be constructed the same way, taking a
-`storage.Repositories` and issuing only its query methods
-(`Standings`, `TeamHistory`, `RosterForTeamSeason`, etc.) — no screen will
-import `internal/data/provider` or `internal/storage/sqlite` directly.
+`internal/cli` commands construct a `sqlite.Store` and, for `refresh`, a
+provider and a `sync.Syncer`. The TUI is constructed the same way: it
+receives a `storage.Repositories` and issues only its query methods
+(`Standings`, `TeamHistory`, `RosterForTeamSeason`, `TeamTrophies`, …). No
+screen imports `internal/data/provider` or `internal/storage/sqlite`.
 
-## Data flow for `footy refresh --competition eng-premier-league --season 2025`
+### How screens are structured
 
-1. `internal/cli/refresh.go` looks up the competition in
-   `sync.Scope` (`internal/data/sync/scope.go` — the definitive list of
-   what's currently syncable), opens/migrates the SQLite DB
-   (`sqlite.Open`), and constructs an `understat.Provider` and a
-   `sync.Syncer`.
-2. `Syncer.SyncCompetitionSeason` upserts the `Competition`/`Season` rows,
-   then calls the source through the `sync.Source` interface (the subset of
-   the provider contract a full sync needs: `StandingsProvider` +
-   `TeamsProvider` + `LeaguePlayersProvider`) to fetch teams, standings
-   (with xG merged in already, since understat.com returns it in the same
-   payload), and every player's season stats.
-3. Each fetched `models.*` value is upserted through `storage.Repositories`
-   — one HTTP round trip to understat.com (cached in-process per
-   league/season so the standings, xG, and roster calls that hit the same
-   endpoint don't re-fetch), then a batch of idempotent SQLite upserts.
+```
+internal/tui/
+├── app.go            # the navigation stack, global keys, chrome
+├── core/             # the rendering contract: Screen, Deps, Navigator, nav messages
+├── keys/             # every key binding, paired with its help text
+├── styles/           # the theme, and team-brand theming with contrast adjustment
+├── components/       # table, stat cards, tabs, freshness, formatting
+└── screens/{browse,league,team,player}/
+```
+
+Three rules make this hold together:
+
+1. **Screens never import each other.** Drill-down targets arrive as
+   constructors in `core.Navigator`, injected via `core.Deps`. This is what
+   lets League open Team *and* Team open League without a cycle. A route
+   that isn't wired is a nil field, and screens show a status message
+   rather than crashing — so a screen can ship before its drill-down
+   target exists.
+
+2. **`internal/tui` is the only package that imports the screen packages.**
+   It owns the stack, so "back" is always just popping; no screen has to
+   remember where it came from or rebuild its parent's state.
+
+3. **Screens declare key bindings, not help text.** The root app renders
+   the footer from `Screen.Keys()`, so what the footer promises is what the
+   screen actually handles.
+
+Screens are directly testable: `Update` and `View` are ordinary functions.
+`internal/tui/tuitest` steps a screen through its load sequence, and
+`internal/storage/storagetest` seeds a real in-memory SQLite store — so a
+screen test exercises the same SQL the binary runs.
+
+## Data flow for `footy refresh --all --years 3`
+
+1. `internal/cli/refresh.go` resolves the flags into a list of competitions
+   (from `sync.Scope` — the definitive list of what's syncable) and season
+   start years, opens/migrates the SQLite DB, and constructs an
+   `understat.Provider` and a `sync.Syncer`.
+2. `Syncer.SyncMany` walks every competition-season pair. Each unit is
+   independent: a failure is recorded and the run continues, because the
+   realistic failure mode across dozens of requests to a third-party
+   endpoint is partial, not total. After three *consecutive* failures the
+   run gives up and marks the rest skipped rather than paying a full
+   network timeout for each.
+3. For each unit, `SyncCompetitionSeason` upserts the `Competition` and
+   `Season`, then calls the source through the `sync.Source` interface (the
+   subset of the provider contract a full sync needs: `StandingsProvider` +
+   `TeamsProvider` + `LeaguePlayersProvider`) for teams, standings — with
+   xG and the long-tail stats already merged in, since understat.com
+   returns them in the same payload — and every player's season stats.
+   Each `models.*` value is upserted through `storage.Repositories`.
+4. Every attempt, successful or not, is written to `sync_log`. Recording
+   failures is the point: "we tried an hour ago and it broke" is a
+   different fact from "we haven't tried since Tuesday", and the League
+   screen's freshness indicator distinguishes them.
+5. Finally the curated club colors and honours are re-applied to whatever
+   is now cached. Neither can fail the refresh — the stats are the point.
+
+One HTTP round trip per league/season, cached in-process so the standings,
+team, and roster calls that hit the same endpoint don't re-fetch, and
+optionally cached on disk via `FOOTY_HTTP_CACHE` during development.
+
+## Curated datasets
+
+Two things have no scrapeable source and are hand-maintained:
+`internal/colors/seed/teamcolors.yaml` and
+`internal/trophies/seed/trophies.yaml`. Both follow the same rule: seeding
+is driven by **what is cached**, not by the file. An entry applies only
+when its ID — or one of its aliases, since team IDs are slugs of however
+the provider spells a club's name — matches a team that actually exists in
+the database. A wrong guess is therefore inert rather than harmful, and
+`footy colors` reports which cached clubs are still uncovered.
