@@ -341,3 +341,45 @@ func TestExpectedGoalsColumnsAreDroppedAsAPair(t *testing.T) {
 		}
 	}
 }
+
+func TestEmptyStateOffersTheRefreshKey(t *testing.T) {
+	repos := storagetest.New(t)
+	if err := repos.UpsertCompetition(context.Background(), storagetest.PremierLeague()); err != nil {
+		t.Fatalf("UpsertCompetition: %v", err)
+	}
+	out := tuitest.Settle(t, league.New(newDeps(repos), "eng-premier-league")).View()
+	if !strings.Contains(out, "Press  r") {
+		t.Errorf("empty state should offer the in-app refresh key\n---\n%s", out)
+	}
+}
+
+func TestRefreshTargetIsTheCompetitionShown(t *testing.T) {
+	s := league.New(newDeps(storagetest.New(t)), "esp-la-liga")
+	got, ok := s.RefreshTarget()
+	if !ok || got != "esp-la-liga" {
+		t.Errorf("RefreshTarget = %q, %v; want the screen's competition", got, ok)
+	}
+}
+
+// A refresh that lands while the screen is open must replace the empty
+// state without the user navigating away and back.
+func TestRefreshedMsgReloadsTheStandings(t *testing.T) {
+	repos := storagetest.New(t)
+	if err := repos.UpsertCompetition(context.Background(), storagetest.PremierLeague()); err != nil {
+		t.Fatalf("UpsertCompetition: %v", err)
+	}
+	s := tuitest.Settle(t, league.New(newDeps(repos), "eng-premier-league"))
+	if !strings.Contains(s.View(), "No seasons cached") {
+		t.Fatalf("precondition: expected the empty state\n---\n%s", s.View())
+	}
+
+	storagetest.SeedCompetition(t, repos, storagetest.PremierLeague(), "2025", []storagetest.TeamRow{
+		{ID: "eng-arsenal", Name: "Arsenal", Position: 1, MP: 38, Pts: 89},
+	})
+	updated, cmd := s.Update(core.RefreshedMsg{CompetitionID: "eng-premier-league"})
+	s = tuitest.Resize(t, tuitest.Drive(t, updated, cmd), 100, 30)
+
+	if !strings.Contains(s.View(), "Arsenal") {
+		t.Errorf("standings should show after the refresh\n---\n%s", s.View())
+	}
+}

@@ -14,6 +14,20 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 		m.width, m.height = msg.Width, msg.Height
 		return m, nil
 
+	case core.RefreshedMsg:
+		// Reload everything: the refresh re-seeds colors and honours too.
+		// The current selection is carried over as the "opened from"
+		// hint so the reload lands back on the same tab and row instead
+		// of the one the screen was first opened with.
+		if comp, ok := m.CurrentCompetition(); ok {
+			m.fromCompetitionID = comp.ID
+			if rows := m.CurrentRows(); m.seasonIdx >= 0 && m.seasonIdx < len(rows) {
+				m.fromSeasonID = rows[m.seasonIdx].Season.ID
+			}
+		}
+		m.loading = true
+		return m, m.Init()
+
 	case historyLoadedMsg:
 		m.competitions = msg.competitions
 		m.history = msg.history

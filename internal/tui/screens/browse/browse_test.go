@@ -199,3 +199,52 @@ func TestBrowseFindsAccentedNamesFromASCIIQueries(t *testing.T) {
 		}
 	}
 }
+
+func TestFirstRunEmptyStateOffersTheRefreshKey(t *testing.T) {
+	out := open(t, newDeps(storagetest.New(t)), "").View()
+	// The search box owns "r", so ctrl+r is the key offered here.
+	if !strings.Contains(out, "ctrl+r") {
+		t.Errorf("first-run empty state should offer the in-app refresh key\n---\n%s", out)
+	}
+}
+
+// With nothing cached there is nothing to pick from, so the refresh target
+// is the default competition the empty state names.
+func TestRefreshTargetOnFirstRunIsTheDefaultCompetition(t *testing.T) {
+	s := open(t, newDeps(storagetest.New(t)), "")
+	got, ok := s.(core.Refreshable).RefreshTarget()
+	if !ok || got != "eng-premier-league" {
+		t.Errorf("RefreshTarget = %q, %v; want the default competition", got, ok)
+	}
+}
+
+func TestRefreshTargetIsTheSelectedCompetitionResult(t *testing.T) {
+	s := open(t, newDeps(seeded(t)), "premier league")
+	got, ok := s.(core.Refreshable).RefreshTarget()
+	if !ok || got != "eng-premier-league" {
+		t.Errorf("RefreshTarget = %q, %v; want the highlighted competition", got, ok)
+	}
+}
+
+func TestRefreshTargetIsAbsentWhenATeamIsSelected(t *testing.T) {
+	s := open(t, newDeps(seeded(t)), "newcastle")
+	if got, ok := s.(core.Refreshable).RefreshTarget(); ok {
+		t.Errorf("RefreshTarget = %q; a team result has no competition to refresh", got)
+	}
+}
+
+func TestRefreshedMsgRerunsTheSearch(t *testing.T) {
+	repos := storagetest.New(t)
+	s := open(t, newDeps(repos), "")
+	if !strings.Contains(s.View(), "Nothing cached yet") {
+		t.Fatalf("precondition: expected the first-run state\n---\n%s", s.View())
+	}
+
+	storagetest.SeedCompetition(t, repos, storagetest.PremierLeague(), "2025", nil)
+	updated, cmd := s.Update(core.RefreshedMsg{CompetitionID: "eng-premier-league"})
+	s = tuitest.Drive(t, updated, cmd)
+
+	if !strings.Contains(s.View(), "Premier League") {
+		t.Errorf("the newly cached competition should be listed\n---\n%s", s.View())
+	}
+}

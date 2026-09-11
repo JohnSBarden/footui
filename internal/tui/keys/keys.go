@@ -31,6 +31,18 @@ var (
 		key.WithKeys("?"),
 		key.WithHelp("?", "keys"),
 	)
+	// Refresh fetches the current screen's competition. ctrl+r is bound
+	// too so the key works while a text box has focus.
+	Refresh = key.NewBinding(
+		key.WithKeys("r", "ctrl+r"),
+		key.WithHelp("r", "refresh"),
+	)
+	// RefreshFromTextEntry is what the footer advertises while a screen
+	// has a focused text box, where "r" is a letter the box needs.
+	RefreshFromTextEntry = key.NewBinding(
+		key.WithKeys("ctrl+r"),
+		key.WithHelp("ctrl+r", "refresh"),
+	)
 )
 
 // Navigation bindings screens share. Each screen picks the ones it

@@ -89,6 +89,12 @@ func (m *Model) Init() tea.Cmd {
 	return m.loadCompetition()
 }
 
+// RefreshTarget implements core.Refreshable: a refresh from the League
+// screen fetches the competition it is showing.
+func (m *Model) RefreshTarget() (string, bool) {
+	return m.compID, true
+}
+
 // --- messages ---
 
 type competitionLoadedMsg struct {

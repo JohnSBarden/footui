@@ -382,8 +382,25 @@ func (m *Model) deltaStyle(v float64) lipgloss.Style {
 
 func (m *Model) emptyState() string {
 	th := m.theme
-	return th.Empty.Render("No cached seasons for "+m.team.Name+".") + "\n\n" +
-		th.Muted.Render("Run  ") +
-		th.Accent.Render("footy refresh") +
-		th.Muted.Render("  for a competition this team plays in.")
+	// Each line is styled separately and joined afterwards: a newline
+	// inside a single Render call makes Lip Gloss pad every line to the
+	// width of the longest, which leaves the shorter one visibly indented.
+	lines := []string{th.Empty.Render("No cached seasons for " + m.team.Name + "."), ""}
+	if compID, ok := m.RefreshTarget(); ok {
+		lines = append(lines,
+			th.Muted.Render("Press  ")+th.Accent.Render("r")+th.Muted.Render("  to fetch them now,"),
+			th.Muted.Render("or run  ")+
+				th.Accent.Render("footy refresh --competition "+compID)+
+				th.Muted.Render("  from a shell."),
+		)
+	} else {
+		// Opened by name with no history: there is no competition to
+		// refresh from here, so only the CLI form is offered.
+		lines = append(lines,
+			th.Muted.Render("Run  ")+
+				th.Accent.Render("footy refresh")+
+				th.Muted.Render("  for a competition this team plays in."),
+		)
+	}
+	return strings.Join(lines, "\n")
 }

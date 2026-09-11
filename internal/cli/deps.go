@@ -60,6 +60,7 @@ func (g *globalFlags) launchTUI(ctx context.Context, build func(core.Deps) (core
 	defer db.Close()
 
 	deps := tui.NewDeps(ctx, repos, styles.Resolve(g.noColor))
+	deps.Refresh = tuiRefresher(repos)
 
 	screen, err := build(deps)
 	if err != nil {

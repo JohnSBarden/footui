@@ -13,6 +13,15 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 		m.width, m.height = msg.Width, msg.Height
 		return m, nil
 
+	case core.RefreshedMsg:
+		if msg.CompetitionID != m.compID {
+			return m, nil
+		}
+		// Reload from the top: the refresh may have added a season, not
+		// just rows to the one already shown.
+		m.loading = true
+		return m, m.loadCompetition()
+
 	case competitionLoadedMsg:
 		m.comp = msg.comp
 		m.seasons = msg.seasons

@@ -218,9 +218,7 @@ func (c *Client) get(ctx context.Context, leagueKey, season string) ([]byte, err
 		}
 	}
 
-	// lastErr already names the league/season; repeating it here would
-	// double the prefix in the message the user reads.
-	return nil, fmt.Errorf("giving up after %d attempts: %w", maxAttempts, lastErr)
+	return nil, &ExhaustedError{Attempts: maxAttempts, Last: lastErr}
 }
 
 func (c *Client) attempt(ctx context.Context, url, leagueKey, season string) ([]byte, error) {
@@ -240,7 +238,7 @@ func (c *Client) attempt(ctx context.Context, url, leagueKey, season string) ([]
 	if err != nil {
 		var netErr net.Error
 		if ctx.Err() == nil && errors.As(err, &netErr) && netErr.Timeout() {
-			return nil, &timeoutError{
+			return nil, &TimeoutError{
 				LeagueKey: leagueKey,
 				Season:    season,
 				Host:      req.URL.Host,
@@ -281,26 +279,42 @@ func (e *httpStatusError) Error() string {
 		e.LeagueKey, e.Season, e.Status, e.URL)
 }
 
-// timeoutError is a request that got no response within the client's
-// timeout. net/http's own wording for this is "context deadline exceeded
+// ExhaustedError is a fetch that failed on every attempt it was allowed.
+// Last is the final attempt's error, which already names the league and
+// season — repeating them here would double the prefix in the message
+// the user reads.
+type ExhaustedError struct {
+	Attempts int
+	Last     error
+}
+
+func (e *ExhaustedError) Error() string {
+	return fmt.Sprintf("giving up after %d attempts: %v", e.Attempts, e.Last)
+}
+
+func (e *ExhaustedError) Unwrap() error { return e.Last }
+
+// TimeoutError is a request that got no response within the client's
+// timeout. It is exported so a caller can recognise it and phrase the
+// failure for its own medium. net/http's own wording for this is "context deadline exceeded
 // (Client.Timeout exceeded while awaiting headers)", which is both
 // misleading (no context of ours expired) and unreadable; this says what
 // actually happened. It still satisfies net.Error so retryable treats it
 // as the transient failure it is.
-type timeoutError struct {
+type TimeoutError struct {
 	LeagueKey string
 	Season    string
 	Host      string
 	After     time.Duration
 }
 
-func (e *timeoutError) Error() string {
+func (e *TimeoutError) Error() string {
 	return fmt.Sprintf("understat: fetch %s %s: no response from %s within %s",
 		e.LeagueKey, e.Season, e.Host, e.After)
 }
 
-func (e *timeoutError) Timeout() bool   { return true }
-func (e *timeoutError) Temporary() bool { return true }
+func (e *TimeoutError) Timeout() bool   { return true }
+func (e *TimeoutError) Temporary() bool { return true }
 
 // retryable reports whether an error is worth another attempt.
 //

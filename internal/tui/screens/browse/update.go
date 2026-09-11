@@ -13,6 +13,11 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 		m.width, m.height = msg.Width, msg.Height
 		return m, nil
 
+	case core.RefreshedMsg:
+		// Whatever the query, the index it searches just changed.
+		m.loading = true
+		return m, m.search(m.query)
+
 	case resultsMsg:
 		// Drop results for a query the user has already typed past.
 		if msg.query != m.query {

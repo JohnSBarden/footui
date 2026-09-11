@@ -544,3 +544,51 @@ func TestFreshnessFollowsTheSelectedCompetition(t *testing.T) {
 		t.Errorf("the previous tab's freshness leaked across\n---\n%s", out)
 	}
 }
+
+func TestRefreshTargetIsTheSelectedCompetitionTab(t *testing.T) {
+	s := settled(t, newDeps(seedTwoCompetitions(t)), "eng-premier-league", "eng-premier-league:2025")
+	got, ok := s.(core.Refreshable).RefreshTarget()
+	if !ok || got != "eng-premier-league" {
+		t.Errorf("RefreshTarget = %q, %v; want the selected competition", got, ok)
+	}
+}
+
+// With nothing cached there is no tab to read, but a team opened from a
+// league still knows which one it came from.
+func TestRefreshTargetFallsBackToTheOriginCompetition(t *testing.T) {
+	s := settled(t, newDeps(storagetest.New(t)), "esp-la-liga", "")
+	got, ok := s.(core.Refreshable).RefreshTarget()
+	if !ok || got != "esp-la-liga" {
+		t.Errorf("RefreshTarget = %q, %v; want the competition the team was opened from", got, ok)
+	}
+	if got, ok := settled(t, newDeps(storagetest.New(t)), "", "").(core.Refreshable).RefreshTarget(); ok {
+		t.Errorf("RefreshTarget = %q; with no history and no origin there is nothing to refresh", got)
+	}
+}
+
+func TestEmptyStateOffersTheRefreshKeyOnlyWhenThereIsATarget(t *testing.T) {
+	if out := settled(t, newDeps(storagetest.New(t)), "esp-la-liga", "").View(); !strings.Contains(out, "Press  r") {
+		t.Errorf("a team opened from a league should offer the refresh key\n---\n%s", out)
+	}
+	if out := settled(t, newDeps(storagetest.New(t)), "", "").View(); strings.Contains(out, "Press  r") {
+		t.Errorf("a team with no competition to refresh must not offer a key that does nothing\n---\n%s", out)
+	}
+}
+
+func TestRefreshedMsgReloadsTheHistory(t *testing.T) {
+	repos := storagetest.New(t)
+	s := settled(t, newDeps(repos), "eng-premier-league", "")
+	if !strings.Contains(s.View(), "No cached seasons") {
+		t.Fatalf("precondition: expected the empty state\n---\n%s", s.View())
+	}
+
+	storagetest.SeedCompetition(t, repos, storagetest.PremierLeague(), "2025", []storagetest.TeamRow{
+		{ID: arsenal.ID, Name: "Arsenal", Position: 1, MP: 38, Pts: 85},
+	})
+	updated, cmd := s.Update(core.RefreshedMsg{CompetitionID: "eng-premier-league"})
+	s = tuitest.Resize(t, tuitest.Drive(t, updated, cmd), 110, 44)
+
+	if strings.Contains(s.View(), "No cached seasons") {
+		t.Errorf("history should show after the refresh\n---\n%s", s.View())
+	}
+}

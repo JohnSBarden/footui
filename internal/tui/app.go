@@ -18,6 +18,7 @@ import (
 
 	"github.com/JohnSBarden/footui/internal/data/models"
 	"github.com/JohnSBarden/footui/internal/storage"
+	"github.com/JohnSBarden/footui/internal/tui/components"
 	"github.com/JohnSBarden/footui/internal/tui/core"
 	"github.com/JohnSBarden/footui/internal/tui/keys"
 	"github.com/JohnSBarden/footui/internal/tui/screens/browse"
@@ -37,6 +38,13 @@ type App struct {
 
 	status string
 	err    error
+
+	// refreshing is the status of an in-flight refresh, shown in place of
+	// the status line until it finishes; empty when none is running.
+	// Unlike status it survives keystrokes, so the user can keep
+	// navigating while it runs without losing sight of it.
+	refreshing        string
+	lastRefreshTarget string
 
 	help     help.Model
 	showFull bool
@@ -166,6 +174,9 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// knows the context; the app keeps a copy only so a screen that
 		// ignores ErrMsg doesn't swallow the failure silently.
 		a.err = msg.Err
+
+	case refreshMsg:
+		return a, a.handleRefreshEvent(msg)
 	}
 
 	if key, ok := msg.(tea.KeyMsg); ok {
@@ -203,6 +214,13 @@ func (a *App) handleGlobalKey(key tea.KeyMsg) (bool, tea.Model, tea.Cmd) {
 		a.showFull = !a.showFull
 		a.help.ShowAll = a.showFull
 		return true, a, nil
+	case "r":
+		if entry, ok := a.current().(core.TextEntry); ok && entry.CapturingText() {
+			return false, a, nil
+		}
+		return true, a, a.startRefresh()
+	case "ctrl+r":
+		return true, a, a.startRefresh()
 	}
 	return false, a, nil
 }
@@ -274,6 +292,9 @@ func (a *App) footer() string {
 		// offered here.
 		globals = []key.Binding{keys.Back, keys.QuitFromTextEntry}
 	}
+	if refresh, ok := a.refreshBinding(); ok {
+		globals = append([]key.Binding{refresh}, globals...)
+	}
 
 	km := a.current().Keys()
 	km.Full = append(append([][]key.Binding{}, km.FullHelp()...), globals)
@@ -290,12 +311,17 @@ func (a *App) footer() string {
 	return a.help.View(km)
 }
 
+// statusLine is the single row beneath the footer. Messages are cut to the
+// terminal width: a wrapped status would push the chrome off the bottom of
+// the screen.
 func (a *App) statusLine() string {
-	if a.status != "" {
-		return a.deps.Theme.Status.Render(a.status)
-	}
-	if a.err != nil {
-		return a.deps.Theme.Error.Render("error: " + a.err.Error())
+	switch {
+	case a.refreshing != "":
+		return a.deps.Theme.Status.Render(components.Truncate(a.refreshing, a.width))
+	case a.status != "":
+		return a.deps.Theme.Status.Render(components.Truncate(a.status, a.width))
+	case a.err != nil:
+		return a.deps.Theme.Error.Render(components.Truncate("error: "+a.err.Error(), a.width))
 	}
 	return ""
 }

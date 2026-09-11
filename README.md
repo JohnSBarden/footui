@@ -39,7 +39,8 @@ install alongside it.
 
 ## Getting started
 
-`footy` ships with no data. Fetch some first:
+`footy` ships with no data. Press `ctrl+r` on the first screen to fetch the
+Premier League, or fetch from the shell:
 
 ```sh
 footy refresh                        # current season of the Premier League
@@ -79,7 +80,9 @@ to them rather than guessing.
 ### Keys
 
 Every screen shows its bindings along the bottom; `?` expands the full set.
-`esc` goes back, `q` quits.
+`esc` goes back, `q` quits. `r` (or `ctrl+r` while the search box has focus)
+refreshes the competition on screen without leaving the app; progress and
+the outcome show on the status line.
 
 ## What's covered
 

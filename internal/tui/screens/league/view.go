@@ -229,8 +229,16 @@ func (m *Model) tableHeight() int {
 
 func (m *Model) emptyState(reason string) string {
 	th := m.deps.Theme
-	return th.Empty.Render(reason) + "\n\n" +
-		th.Muted.Render("Run  ") +
-		th.Accent.Render("footy refresh --competition "+m.compID) +
-		th.Muted.Render("  to populate it.")
+	// Each line is styled separately and joined afterwards: a newline
+	// inside a single Render call makes Lip Gloss pad every line to the
+	// width of the longest, which leaves the shorter one visibly indented.
+	lines := []string{
+		th.Empty.Render(reason),
+		"",
+		th.Muted.Render("Press  ") + th.Accent.Render("r") + th.Muted.Render("  to fetch it now,"),
+		th.Muted.Render("or run  ") +
+			th.Accent.Render("footy refresh --competition "+m.compID) +
+			th.Muted.Render("  from a shell."),
+	}
+	return strings.Join(lines, "\n")
 }

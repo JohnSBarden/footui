@@ -1,6 +1,8 @@
 package tui
 
 import (
+	"context"
+	"errors"
 	"strings"
 	"testing"
 
@@ -20,6 +22,10 @@ type fakeScreen struct {
 	width       *int
 	capturing   bool
 	keyMap      core.KeyMap
+	// target is what RefreshTarget reports; refreshed records the
+	// RefreshedMsgs the screen was handed.
+	target    string
+	refreshed *[]string
 }
 
 func newFake(name string) fakeScreen {
@@ -28,6 +34,7 @@ func newFake(name string) fakeScreen {
 		initialized: new(bool),
 		keys:        new([]string),
 		width:       new(int),
+		refreshed:   new([]string),
 	}
 }
 
@@ -42,9 +49,13 @@ func (f fakeScreen) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 		*f.keys = append(*f.keys, msg.String())
 	case tea.WindowSizeMsg:
 		*f.width = msg.Width
+	case core.RefreshedMsg:
+		*f.refreshed = append(*f.refreshed, msg.CompetitionID)
 	}
 	return f, nil
 }
+
+func (f fakeScreen) RefreshTarget() (string, bool) { return f.target, f.target != "" }
 
 func (f fakeScreen) View() string        { return "view:" + f.name }
 func (f fakeScreen) Title() string       { return f.name }
@@ -69,6 +80,8 @@ func keyPress(name string) tea.KeyMsg {
 		return tea.KeyMsg{Type: tea.KeyEsc}
 	case "ctrl+c":
 		return tea.KeyMsg{Type: tea.KeyCtrlC}
+	case "ctrl+r":
+		return tea.KeyMsg{Type: tea.KeyCtrlR}
 	default:
 		return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(name)}
 	}
@@ -368,5 +381,214 @@ func TestUnsizedTerminalKeepsAUsableDefault(t *testing.T) {
 
 	if a := app.width; a < 80 {
 		t.Errorf("app width fell to %d; an unsized terminal should keep a usable default", a)
+	}
+}
+
+// fakeRefresher records the competition it was asked for and plays back a
+// scripted refresh: each progress line, then the summary or error.
+type fakeRefresher struct {
+	called   []string
+	progress []string
+	summary  string
+	err      error
+}
+
+func (f *fakeRefresher) fn() core.Refresher {
+	return func(ctx context.Context, competitionID string, progress func(string)) (string, error) {
+		f.called = append(f.called, competitionID)
+		for _, p := range f.progress {
+			progress(p)
+		}
+		return f.summary, f.err
+	}
+}
+
+// drive runs a command and feeds its message back into the app, repeating
+// until the chain of commands ends — the synchronous equivalent of the
+// Bubble Tea runtime, minus the goroutines. Views seen along the way are
+// returned so a test can assert on what the user saw mid-flight.
+func drive(t *testing.T, app *App, cmd tea.Cmd) (*App, []string) {
+	t.Helper()
+	var views []string
+	for i := 0; cmd != nil; i++ {
+		if i > 50 {
+			t.Fatal("command chain did not terminate")
+		}
+		msg := cmd()
+		if msg == nil {
+			break
+		}
+		var updated tea.Model
+		updated, cmd = app.Update(msg)
+		app = updated.(*App)
+		views = append(views, app.View())
+	}
+	return app, views
+}
+
+func newAppWithRefresh(initial core.Screen, r *fakeRefresher) *App {
+	return NewApp(core.Deps{Theme: styles.Plain(), Refresh: r.fn()}, initial)
+}
+
+func TestRRefreshesTheCurrentScreensCompetition(t *testing.T) {
+	root := newFake("Browse")
+	root.target = "eng-premier-league"
+	league := newFake("League")
+	league.target = "esp-la-liga"
+	r := &fakeRefresher{progress: []string{"attempt 1 of 3 timed out"}, summary: "20 teams, 500 players"}
+	app := newAppWithRefresh(root, r)
+	updated, _ := app.Update(core.PushMsg{Screen: league})
+	app = updated.(*App)
+
+	updated, cmd := app.Update(keyPress("r"))
+	app = updated.(*App)
+	if cmd == nil {
+		t.Fatal("r should start a refresh")
+	}
+	if got := app.View(); !strings.Contains(got, "Refreshing esp-la-liga") {
+		t.Errorf("the user should be told a refresh started, got %q", got)
+	}
+
+	app, views := drive(t, app, cmd)
+
+	if len(r.called) != 1 || r.called[0] != "esp-la-liga" {
+		t.Errorf("refreshed %v, want the visible screen's competition", r.called)
+	}
+	if !strings.Contains(strings.Join(views, "\n"), "attempt 1 of 3 timed out") {
+		t.Error("progress lines should be shown while the refresh runs")
+	}
+	if got := app.View(); !strings.Contains(got, "20 teams, 500 players") {
+		t.Errorf("the summary should be shown when the refresh completes, got %q", got)
+	}
+	// Every screen on the stack hears about it, not just the visible one.
+	for _, s := range []fakeScreen{root, league} {
+		if got := *s.refreshed; len(got) != 1 || got[0] != "esp-la-liga" {
+			t.Errorf("%s received RefreshedMsg %v, want one for esp-la-liga", s.name, got)
+		}
+	}
+}
+
+func TestRefreshFailureIsShownAndNothingReloads(t *testing.T) {
+	screen := newFake("League")
+	screen.target = "eng-premier-league"
+	r := &fakeRefresher{err: errors.New("no response from understat.com within 15s")}
+	app := newAppWithRefresh(screen, r)
+
+	updated, cmd := app.Update(keyPress("r"))
+	app, _ = drive(t, updated.(*App), cmd)
+
+	if got := app.View(); !strings.Contains(got, "no response from understat.com") {
+		t.Errorf("the failure should be shown, got %q", got)
+	}
+	if len(*screen.refreshed) != 0 {
+		t.Error("a failed refresh must not tell screens to reload")
+	}
+}
+
+func TestRIsIgnoredWhileARefreshIsRunning(t *testing.T) {
+	screen := newFake("League")
+	screen.target = "eng-premier-league"
+	r := &fakeRefresher{}
+	app := newAppWithRefresh(screen, r)
+
+	updated, first := app.Update(keyPress("r"))
+	app = updated.(*App)
+	updated, second := app.Update(keyPress("r"))
+	app = updated.(*App)
+
+	drive(t, app, first)
+	drive(t, app, second)
+	if len(r.called) != 1 {
+		t.Errorf("refresh ran %d times for two presses mid-flight, want 1", len(r.called))
+	}
+}
+
+func TestRExplainsWhenTheScreenHasNothingToRefresh(t *testing.T) {
+	r := &fakeRefresher{}
+	app := newAppWithRefresh(newFake("Player"), r)
+
+	updated, cmd := app.Update(keyPress("r"))
+	app, _ = drive(t, updated.(*App), cmd)
+
+	if len(r.called) != 0 {
+		t.Errorf("refreshed %v from a screen with no target", r.called)
+	}
+	if got := app.View(); !strings.Contains(got, "open a league") {
+		t.Errorf("the user should be told where refresh works, got %q", got)
+	}
+}
+
+func TestRExplainsWhenNoRefresherIsWired(t *testing.T) {
+	screen := newFake("League")
+	screen.target = "eng-premier-league"
+	app := newApp(screen)
+
+	updated, cmd := app.Update(keyPress("r"))
+	app, _ = drive(t, updated.(*App), cmd)
+
+	if got := app.View(); !strings.Contains(got, "footy refresh --competition eng-premier-league") {
+		t.Errorf("without a refresher the CLI command should be offered, got %q", got)
+	}
+}
+
+// Browse's search box needs the literal "r"; ctrl+r is the refresh key
+// there, and the footer must say so.
+func TestCtrlRRefreshesWhileAScreenCapturesText(t *testing.T) {
+	screen := newFake("Browse")
+	screen.capturing = true
+	screen.target = "eng-premier-league"
+	r := &fakeRefresher{}
+	app := newAppWithRefresh(screen, r)
+
+	updated, cmd := app.Update(keyPress("r"))
+	app = updated.(*App)
+	drive(t, app, cmd)
+	if len(r.called) != 0 {
+		t.Fatal("r must reach the text box, not refresh")
+	}
+	if len(*screen.keys) != 1 || (*screen.keys)[0] != "r" {
+		t.Errorf("screen received %v, want the literal r", *screen.keys)
+	}
+
+	updated, cmd = app.Update(keyPress("ctrl+r"))
+	app = updated.(*App)
+	drive(t, app, cmd)
+	if len(r.called) != 1 {
+		t.Error("ctrl+r should refresh while text is being captured")
+	}
+	if footer := app.footer(); !strings.Contains(footer, "ctrl+r") || !strings.Contains(footer, "refresh") {
+		t.Errorf("footer should offer ctrl+r to refresh, got %q", footer)
+	}
+}
+
+func TestFooterOffersRefreshOnlyWhereItWorks(t *testing.T) {
+	league := newFake("League")
+	league.target = "eng-premier-league"
+	if footer := newAppWithRefresh(league, &fakeRefresher{}).footer(); !strings.Contains(footer, "refresh") {
+		t.Errorf("a screen with a refresh target should advertise it, got %q", footer)
+	}
+	if footer := newAppWithRefresh(newFake("Player"), &fakeRefresher{}).footer(); strings.Contains(footer, "refresh") {
+		t.Errorf("a screen with nothing to refresh should not advertise it, got %q", footer)
+	}
+}
+
+// The status line has one row; a long message must be cut to fit rather
+// than wrapping and pushing the chrome off the bottom of the screen.
+func TestStatusLineIsTruncatedToTheTerminalWidth(t *testing.T) {
+	app := newApp(newFake("League"))
+	updated, _ := app.Update(tea.WindowSizeMsg{Width: 40, Height: 20})
+	app = updated.(*App)
+
+	long := strings.Repeat("x", 80)
+	updated, _ = app.Update(core.ErrMsg{Err: errors.New(long)})
+	app = updated.(*App)
+
+	for _, line := range strings.Split(app.View(), "\n") {
+		if len([]rune(line)) > 40 {
+			t.Errorf("line wider than the 40-column terminal: %q", line)
+		}
+	}
+	if !strings.Contains(app.View(), "…") {
+		t.Error("a truncated status line should end in an ellipsis")
 	}
 }

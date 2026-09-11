@@ -127,6 +127,17 @@ func (m *Model) Init() tea.Cmd {
 	return tea.Batch(m.loadHistory(), m.loadColors(), m.loadHonours())
 }
 
+// RefreshTarget implements core.Refreshable: the selected competition tab,
+// or — when nothing is cached yet so there are no tabs — the competition
+// the team was opened from. A team opened by name with no history has no
+// competition to refresh.
+func (m *Model) RefreshTarget() (string, bool) {
+	if comp, ok := m.CurrentCompetition(); ok {
+		return comp.ID, true
+	}
+	return m.fromCompetitionID, m.fromCompetitionID != ""
+}
+
 // --- messages ---
 
 type historyLoadedMsg struct {

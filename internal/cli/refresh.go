@@ -8,11 +8,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/JohnSBarden/footui/internal/colors"
 	"github.com/JohnSBarden/footui/internal/data/models"
-	"github.com/JohnSBarden/footui/internal/data/provider/understat"
 	"github.com/JohnSBarden/footui/internal/data/sync"
-	"github.com/JohnSBarden/footui/internal/trophies"
 	"github.com/JohnSBarden/footui/internal/tui/components"
 )
 
@@ -61,40 +58,27 @@ func newRefreshCmd(g *globalFlags) *cobra.Command {
 			}
 			defer db.Close()
 
-			// Each retry is announced as it happens, for the same reason
-			// each unit is printed as it lands: three 15-second timeouts
-			// in a row with nothing on screen look like a hang.
-			source := understat.New().OnRetry(func(attempt, of int, err error) {
-				printRetry(out, attempt, of, err)
-			})
-			syncer := sync.New(source, store).WithProviderName("understat")
-			syncer.MaxAge = f.maxAge
-
 			fmt.Fprintf(out, "Refreshing %d competition-season(s)…\n\n", len(comps)*len(seasons))
-			// Print each unit as it lands rather than batching the whole
-			// report to the end: a full refresh is mostly network wait,
-			// and silence for minutes is indistinguishable from a hang.
-			results := syncer.SyncMany(cmdContext(cmd), comps, seasons, func(u sync.UnitResult) {
-				printUnit(out, u)
+			// Each unit and each retry is printed as it happens rather
+			// than batched into the report: a full refresh is mostly
+			// network wait, and silence for minutes — or for three
+			// 15-second timeouts in a row — is indistinguishable from a
+			// hang.
+			noted := false
+			results := runRefresh(cmdContext(cmd), store, comps, seasons, f.maxAge, refreshEvents{
+				unit: func(u sync.UnitResult) { printUnit(out, u) },
+				retry: func(attempt, of int, err error) {
+					fmt.Fprintf(out, "  retry attempt %d of %d failed, trying again: %v\n", attempt, of, err)
+				},
+				note: func(text string) {
+					// The notes sit in their own block below the units.
+					if !noted {
+						fmt.Fprintln(out)
+						noted = true
+					}
+					fmt.Fprintf(out, "  %s\n", text)
+				},
 			})
-
-			// Curated colors and honours are re-seeded after every refresh
-			// so a newly cached competition picks up its clubs' branding
-			// and trophies with no extra step. Neither may fail the
-			// refresh: the stats are the point, these are decoration.
-			if colorReport, err := colors.Seed(cmdContext(cmd), store); err != nil {
-				fmt.Fprintf(out, "\n  note: could not apply club colors: %v\n", err)
-			} else if colorReport.Applied > 0 {
-				fmt.Fprintf(out, "\n  colors applied to %d of %d cached teams\n",
-					colorReport.Applied, colorReport.Applied+len(colorReport.Uncolored))
-			}
-
-			if trophyReport, err := trophies.Seed(cmdContext(cmd), store); err != nil {
-				fmt.Fprintf(out, "  note: could not apply club honours: %v\n", err)
-			} else if trophyReport.Teams > 0 {
-				fmt.Fprintf(out, "  honours applied to %d teams (%d trophies)\n",
-					trophyReport.Teams, trophyReport.Trophies)
-			}
 
 			return report(out, results, g.dbPathOrDefault())
 		},
@@ -181,13 +165,6 @@ func printUnit(out io.Writer, r sync.UnitResult) {
 	default:
 		fmt.Fprintf(out, "  ok    %s  %3d teams, %4d players\n", label, r.Result.Teams, r.Result.PlayerStats)
 	}
-}
-
-// printRetry announces one failed attempt that is about to be retried. It
-// sits under the unit it belongs to, which is printed once the retries are
-// exhausted or one succeeds.
-func printRetry(out io.Writer, attempt, of int, err error) {
-	fmt.Fprintf(out, "  retry attempt %d of %d failed, trying again: %v\n", attempt, of, err)
 }
 
 func report(out io.Writer, results []sync.UnitResult, dbPath string) error {

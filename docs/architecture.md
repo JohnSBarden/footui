@@ -158,6 +158,13 @@ receives a `storage.Repositories` and issues only its query methods
 (`Standings`, `TeamHistory`, `RosterForTeamSeason`, `TeamTrophies`, …). No
 screen imports `internal/data/provider` or `internal/storage/sqlite`.
 
+The TUI's refresh key is the one place it triggers a write, and it keeps
+the boundary by injection: `internal/cli` builds a `core.Refresher` (a
+function) from the same pipeline `footy refresh` uses and hands it to the
+root app in `core.Deps`. Screens only report which competition a refresh
+from them should fetch (`core.Refreshable`) and re-query when told it
+landed (`core.RefreshedMsg`).
+
 ### How screens are structured
 
 ```

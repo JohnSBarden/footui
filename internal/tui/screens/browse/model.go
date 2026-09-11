@@ -11,6 +11,7 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"strings"
 
 	"github.com/JohnSBarden/footui/internal/data/models"
 	"github.com/JohnSBarden/footui/internal/tui/core"
@@ -99,6 +100,33 @@ func (m *Model) Keys() core.KeyMap {
 // Init implements core.Screen.
 func (m *Model) Init() tea.Cmd {
 	return tea.Batch(textinput.Blink, m.search(m.query))
+}
+
+// defaultCompetition is what a first-run refresh fetches: the same one the
+// empty state has always told the user to fetch by hand.
+const defaultCompetition = "eng-premier-league"
+
+// RefreshTarget implements core.Refreshable. With a competition result
+// highlighted, that competition is refreshed. With nothing cached at all
+// there is nothing to pick from, so the default competition is; a
+// highlighted team or player has no single competition to refresh.
+func (m *Model) RefreshTarget() (string, bool) {
+	if r, ok := m.SelectedResult(); ok {
+		if r.Kind == KindCompetition {
+			return r.Competition.ID, true
+		}
+		return "", false
+	}
+	if m.firstRun() {
+		return defaultCompetition, true
+	}
+	return "", false
+}
+
+// firstRun reports whether the cache is empty: a blank query returned
+// nothing, and even the loading spinner has settled.
+func (m *Model) firstRun() bool {
+	return !m.loading && len(m.results) == 0 && strings.TrimSpace(m.input.Value()) == ""
 }
 
 // CapturingText implements core.TextEntry: while the search box has focus,
