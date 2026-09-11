@@ -2,6 +2,7 @@ package understat
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -122,6 +123,9 @@ func TestPersistentFailureGivesUpAfterMaxAttempts(t *testing.T) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
 
+	var retries int
+	c.OnRetry = func(attempt, of int, err error) { retries++ }
+
 	_, err := c.fetchLeagueData(context.Background(), "EPL", "2025")
 	if err == nil {
 		t.Fatal("expected an error")
@@ -131,6 +135,11 @@ func TestPersistentFailureGivesUpAfterMaxAttempts(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "giving up") {
 		t.Errorf("error should say it exhausted its attempts: %v", err)
+	}
+	// The final failure is not followed by a retry, so it must not be
+	// announced as one.
+	if retries != maxAttempts-1 {
+		t.Errorf("OnRetry fired %d times for %d attempts, want %d", retries, maxAttempts, maxAttempts-1)
 	}
 }
 
@@ -291,5 +300,79 @@ func TestRequestCarriesTheHeadersTheEndpointExpects(t *testing.T) {
 	}
 	if !strings.Contains(gotReferer, "/league/EPL") {
 		t.Errorf("Referer = %q", gotReferer)
+	}
+}
+
+// A request that times out is the most common transient failure there is,
+// and net/http reports it as context.DeadlineExceeded — the same sentinel
+// a user's ctrl+c produces. It must still be retried.
+func TestRequestTimeoutIsRetried(t *testing.T) {
+	var calls int32
+	c, _ := newTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if atomic.AddInt32(&calls, 1) < 2 {
+			time.Sleep(200 * time.Millisecond)
+			return
+		}
+		w.Write([]byte(fixtureJSON))
+	}))
+	c.httpClient.Timeout = 50 * time.Millisecond
+
+	var retries []string
+	c.OnRetry = func(attempt, of int, err error) {
+		retries = append(retries, fmt.Sprintf("%d/%d %v", attempt, of, err))
+	}
+
+	if _, err := c.fetchLeagueData(context.Background(), "EPL", "2025"); err != nil {
+		t.Fatalf("a timed-out request should have been retried and recovered: %v", err)
+	}
+	if got := atomic.LoadInt32(&calls); got != 2 {
+		t.Errorf("made %d attempts, want 2", got)
+	}
+	if len(retries) != 1 || !strings.HasPrefix(retries[0], "1/3 ") {
+		t.Errorf("OnRetry calls = %q, want one for attempt 1 of 3", retries)
+	}
+}
+
+// The user's interrupt looks identical to a timeout from the error alone;
+// the difference is that their context is done.
+func TestUserCancellationIsNotRetried(t *testing.T) {
+	var calls int32
+	ctx, cancel := context.WithCancel(context.Background())
+	c, _ := newTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&calls, 1)
+		cancel()
+		time.Sleep(200 * time.Millisecond)
+	}))
+
+	if _, err := c.fetchLeagueData(ctx, "EPL", "2025"); err == nil {
+		t.Fatal("expected an error")
+	}
+	if got := atomic.LoadInt32(&calls); got != 1 {
+		t.Errorf("made %d attempts after ctrl+c, want 1", got)
+	}
+}
+
+// net/http describes its own timeout as "context deadline exceeded
+// (Client.Timeout exceeded while awaiting headers)", which tells the user
+// nothing about what happened or why. The error they read should.
+func TestTimeoutErrorIsReadable(t *testing.T) {
+	c, _ := newTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(200 * time.Millisecond)
+	}))
+	c.httpClient.Timeout = 50 * time.Millisecond
+
+	_, err := c.fetchLeagueData(context.Background(), "EPL", "2025")
+	if err == nil {
+		t.Fatal("expected an error")
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, "no response") || !strings.Contains(msg, "50ms") {
+		t.Errorf("timeout should say no response arrived within the timeout: %q", msg)
+	}
+	if strings.Contains(msg, "Client.Timeout") || strings.Contains(msg, "context deadline") {
+		t.Errorf("timeout should not leak net/http internals: %q", msg)
+	}
+	if strings.Count(msg, "EPL 2025") != 1 {
+		t.Errorf("league/season should be named exactly once: %q", msg)
 	}
 }

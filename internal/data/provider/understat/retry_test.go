@@ -27,13 +27,11 @@ func TestRetryableClassification(t *testing.T) {
 		{"no such host", &net.DNSError{Err: "no such host", IsNotFound: true}, false},
 		{"temporary resolver failure", &net.DNSError{Err: "server misbehaving", IsTemporary: true}, true},
 		{"dns timeout", &net.DNSError{Err: "timeout", IsTimeout: true}, true},
-		{"user cancelled", context.Canceled, false},
-		{"deadline exceeded", context.DeadlineExceeded, false},
 		{"unclassified", errors.New("something odd"), false},
 	}
 
 	for _, c := range cases {
-		if got := retryable(c.err); got != c.want {
+		if got := retryable(context.Background(), c.err); got != c.want {
 			t.Errorf("%s: retryable = %v, want %v", c.name, got, c.want)
 		}
 	}
@@ -41,8 +39,18 @@ func TestRetryableClassification(t *testing.T) {
 
 func TestRetryableSeesThroughWrapping(t *testing.T) {
 	wrapped := errors.Join(errors.New("context"), &httpStatusError{Status: 503})
-	if !retryable(wrapped) {
+	if !retryable(context.Background(), wrapped) {
 		t.Error("a wrapped 503 should still be retryable")
+	}
+}
+
+// A done context means the user interrupted, whatever the error says —
+// even one that would otherwise be worth retrying.
+func TestRetryableDefersToADoneContext(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if retryable(ctx, &httpStatusError{Status: 503}) {
+		t.Error("nothing is retryable once the user has cancelled")
 	}
 }
 

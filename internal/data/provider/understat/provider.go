@@ -25,6 +25,16 @@ func New() *Provider {
 	return &Provider{client: NewClient(1 * time.Second)}
 }
 
+// OnRetry registers fn to be told each time a failed request is about to
+// be retried, with the attempt that failed, the total allowed, and why.
+// Callers that report progress to a user should set it: a retry cycle
+// against an unresponsive host otherwise sits silent for the length of
+// every timeout it waits through.
+func (p *Provider) OnRetry(fn func(attempt, of int, err error)) *Provider {
+	p.client.OnRetry = fn
+	return p
+}
+
 var _ provider.StandingsProvider = (*Provider)(nil)
 var _ provider.XGProvider = (*Provider)(nil)
 var _ provider.PlayerStatsProvider = (*Provider)(nil)

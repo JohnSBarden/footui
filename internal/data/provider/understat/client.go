@@ -68,6 +68,10 @@ type Client struct {
 	// cacheDir, when non-empty, is a directory of raw JSON responses read
 	// before hitting the network and written after a successful fetch.
 	cacheDir string
+	// OnRetry, when set, is called before each retry. A refresh against an
+	// unresponsive host is otherwise silent for the length of every
+	// timeout it waits through, which is indistinguishable from a hang.
+	OnRetry func(attempt, of int, err error)
 
 	mu        sync.Mutex
 	lastFetch time.Time
@@ -192,6 +196,12 @@ func (c *Client) get(ctx context.Context, leagueKey, season string) ([]byte, err
 	var lastErr error
 	for attempt := 0; attempt < maxAttempts; attempt++ {
 		if attempt > 0 {
+			// Announced here rather than after the failure so the last
+			// attempt, which has no retry following it, isn't reported
+			// as "trying again".
+			if c.OnRetry != nil {
+				c.OnRetry(attempt, maxAttempts, lastErr)
+			}
 			if err := sleepCtx(ctx, backoffFor(attempt)); err != nil {
 				return nil, err
 			}
@@ -203,13 +213,14 @@ func (c *Client) get(ctx context.Context, leagueKey, season string) ([]byte, err
 		}
 		lastErr = err
 
-		if !retryable(err) {
+		if !retryable(ctx, err) {
 			return nil, err
 		}
 	}
 
-	return nil, fmt.Errorf("understat: fetch %s %s: giving up after %d attempts: %w",
-		leagueKey, season, maxAttempts, lastErr)
+	// lastErr already names the league/season; repeating it here would
+	// double the prefix in the message the user reads.
+	return nil, fmt.Errorf("giving up after %d attempts: %w", maxAttempts, lastErr)
 }
 
 func (c *Client) attempt(ctx context.Context, url, leagueKey, season string) ([]byte, error) {
@@ -227,6 +238,15 @@ func (c *Client) attempt(ctx context.Context, url, leagueKey, season string) ([]
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
+		var netErr net.Error
+		if ctx.Err() == nil && errors.As(err, &netErr) && netErr.Timeout() {
+			return nil, &timeoutError{
+				LeagueKey: leagueKey,
+				Season:    season,
+				Host:      req.URL.Host,
+				After:     c.httpClient.Timeout,
+			}
+		}
 		return nil, fmt.Errorf("understat: fetch %s %s: %w", leagueKey, season, err)
 	}
 	defer resp.Body.Close()
@@ -261,6 +281,27 @@ func (e *httpStatusError) Error() string {
 		e.LeagueKey, e.Season, e.Status, e.URL)
 }
 
+// timeoutError is a request that got no response within the client's
+// timeout. net/http's own wording for this is "context deadline exceeded
+// (Client.Timeout exceeded while awaiting headers)", which is both
+// misleading (no context of ours expired) and unreadable; this says what
+// actually happened. It still satisfies net.Error so retryable treats it
+// as the transient failure it is.
+type timeoutError struct {
+	LeagueKey string
+	Season    string
+	Host      string
+	After     time.Duration
+}
+
+func (e *timeoutError) Error() string {
+	return fmt.Sprintf("understat: fetch %s %s: no response from %s within %s",
+		e.LeagueKey, e.Season, e.Host, e.After)
+}
+
+func (e *timeoutError) Timeout() bool   { return true }
+func (e *timeoutError) Temporary() bool { return true }
+
 // retryable reports whether an error is worth another attempt.
 //
 // The distinction that matters is transient versus settled. A timeout or a
@@ -268,9 +309,14 @@ func (e *httpStatusError) Error() string {
 // genuinely isn't there, and a DNS failure means the host can't be
 // resolved at all — retrying either just multiplies the wait before the
 // user learns the same thing.
-func retryable(err error) bool {
-	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-		// A cancelled parent context is the user interrupting.
+//
+// Whether the user interrupted is read from ctx, not from err. net/http
+// reports its own request timeouts as context.DeadlineExceeded as well, so
+// classifying on the error alone treats every timeout as a cancellation
+// and never retries the single most common transient failure — which is
+// exactly the bug this signature exists to prevent.
+func retryable(ctx context.Context, err error) bool {
+	if ctx.Err() != nil {
 		return false
 	}
 

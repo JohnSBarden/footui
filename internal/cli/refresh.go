@@ -61,7 +61,13 @@ func newRefreshCmd(g *globalFlags) *cobra.Command {
 			}
 			defer db.Close()
 
-			syncer := sync.New(understat.New(), store).WithProviderName("understat")
+			// Each retry is announced as it happens, for the same reason
+			// each unit is printed as it lands: three 15-second timeouts
+			// in a row with nothing on screen look like a hang.
+			source := understat.New().OnRetry(func(attempt, of int, err error) {
+				printRetry(out, attempt, of, err)
+			})
+			syncer := sync.New(source, store).WithProviderName("understat")
 			syncer.MaxAge = f.maxAge
 
 			fmt.Fprintf(out, "Refreshing %d competition-season(s)…\n\n", len(comps)*len(seasons))
@@ -175,6 +181,13 @@ func printUnit(out io.Writer, r sync.UnitResult) {
 	default:
 		fmt.Fprintf(out, "  ok    %s  %3d teams, %4d players\n", label, r.Result.Teams, r.Result.PlayerStats)
 	}
+}
+
+// printRetry announces one failed attempt that is about to be retried. It
+// sits under the unit it belongs to, which is printed once the retries are
+// exhausted or one succeeds.
+func printRetry(out io.Writer, attempt, of int, err error) {
+	fmt.Fprintf(out, "  retry attempt %d of %d failed, trying again: %v\n", attempt, of, err)
 }
 
 func report(out io.Writer, results []sync.UnitResult, dbPath string) error {
