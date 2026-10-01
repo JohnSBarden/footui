@@ -1,0 +1,52 @@
+{
+ "sports": [
+  {
+   "leagues": [
+    {
+     "teams": [
+      {
+       "team": {
+        "id": "182",
+        "displayName": "Lakeshore FC",
+        "shortDisplayName": "Lakeshore",
+        "abbreviation": "LAK",
+        "color": "7ccdef",
+        "alternateColor": "ff0000"
+       }
+      },
+      {
+       "team": {
+        "id": "183",
+        "displayName": "Riverside SC",
+        "shortDisplayName": "Riverside",
+        "abbreviation": "RIV",
+        "color": "1a2b3c",
+        "alternateColor": "not-a-color"
+       }
+      },
+      {
+       "team": {
+        "id": "184",
+        "displayName": "Highland United",
+        "shortDisplayName": "Highland",
+        "abbreviation": "HIG",
+        "color": "",
+        "alternateColor": ""
+       }
+      },
+      {
+       "team": {
+        "id": "185",
+        "displayName": "Prairie City",
+        "shortDisplayName": "Prairie",
+        "abbreviation": "PRC",
+        "color": "00573f",
+        "alternateColor": "ffffff"
+       }
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

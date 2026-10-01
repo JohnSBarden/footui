@@ -15,6 +15,15 @@ func TestFoldStripsAccentsAndCase(t *testing.T) {
 		"Nicolás Otamendi":    "nicolas otamendi",
 		"Çağlar Söyüncü":      "caglar soyuncu",
 		"Håland":              "haland",
+		// Letters with no combining mark for NFD to split off.
+		"Martin Ødegaard":   "martin odegaard",
+		"Rasmus Højlund":    "rasmus hojlund",
+		"Kevin Großkreutz":  "kevin grosskreutz",
+		"Łukasz Fabiański":  "lukasz fabianski",
+		"Kerem Aktürkoğlu":  "kerem akturkoglu",
+		"Arda Güler (ı)":    "arda guler (i)",
+		"Søren Kierkegaard": "soren kierkegaard",
+		"Đorđe Petrović":    "dorde petrovic",
 	}
 	for in, want := range cases {
 		if got := Fold(in); got != want {

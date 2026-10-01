@@ -6,6 +6,7 @@ package sync
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -164,6 +165,31 @@ func (s *Syncer) syncCompetitionSeason(ctx context.Context, comp models.Competit
 		return res, fmt.Errorf("sync: fetch roster stats: %w", err)
 	}
 
+	// A provider that returns its own IDs has them mapped to canonical
+	// ones before anything is written; see identity.go.
+	var ids *resolver
+	if hasNativeIDs(teams) {
+		if ids, err = newResolver(ctx, s.repos, comp); err != nil {
+			return res, fmt.Errorf("sync: resolve identities: %w", err)
+		}
+		if teams, err = ids.teams(ctx, teams); err != nil {
+			return res, fmt.Errorf("sync: resolve teams: %w", err)
+		}
+		for i := range standings {
+			standings[i].TeamID = ids.canonicalTeam(standings[i].TeamID)
+		}
+		var playerIDs map[string]string
+		if players, playerIDs, err = ids.players(ctx, players, playerStats); err != nil {
+			return res, fmt.Errorf("sync: resolve players: %w", err)
+		}
+		for i := range playerStats {
+			playerStats[i].TeamID = ids.canonicalTeam(playerStats[i].TeamID)
+			if c, ok := playerIDs[playerStats[i].PlayerID]; ok {
+				playerStats[i].PlayerID = c
+			}
+		}
+	}
+
 	if err := s.repos.UpsertCompetition(ctx, comp); err != nil {
 		return res, err
 	}
@@ -202,7 +228,50 @@ func (s *Syncer) syncCompetitionSeason(ctx context.Context, comp models.Competit
 		res.PlayerStats++
 	}
 
+	s.applyProviderColors(ctx, compRef, seasonRef, ids)
 	return res, nil
+}
+
+// colorSource is a provider that knows clubs' brand colors.
+type colorSource interface {
+	TeamColors(ctx context.Context, comp provider.CompetitionRef, season provider.SeasonRef) ([]models.TeamColors, error)
+}
+
+// applyProviderColors stores a provider's brand colors for clubs that
+// have none yet. It never replaces existing colors: curated ones are
+// better, and the curated seed runs after every refresh anyway. Like the
+// seed it is decoration, so a failure here doesn't fail the refresh.
+func (s *Syncer) applyProviderColors(ctx context.Context, comp provider.CompetitionRef, season provider.SeasonRef, ids *resolver) {
+	cs, ok := s.source.(colorSource)
+	if !ok {
+		return
+	}
+	colors, err := cs.TeamColors(ctx, comp, season)
+	if err != nil {
+		return
+	}
+	for _, c := range colors {
+		if ids != nil {
+			mapped, known := ids.teamOf[c.TeamID]
+			if !known {
+				continue // a club not in this season's table
+			}
+			c.TeamID = mapped
+		}
+		if _, err := s.repos.GetTeamColors(ctx, c.TeamID); errors.Is(err, storage.ErrNotFound) {
+			_ = s.repos.UpsertTeamColors(ctx, c)
+		}
+	}
+}
+
+// hasNativeIDs reports whether a provider returned its own team IDs.
+func hasNativeIDs(teams []models.Team) bool {
+	for _, t := range teams {
+		if _, _, ok := nativeID(t.ID); ok {
+			return true
+		}
+	}
+	return false
 }
 
 // UnitResult is the outcome of syncing one competition-season. Err being

@@ -1,0 +1,186 @@
+{
+ "children": [
+  {
+   "name": "Eastern Conference",
+   "standings": {
+    "entries": [
+     {
+      "team": {
+       "id": "183",
+       "displayName": "Riverside SC",
+       "shortDisplayName": "Riverside",
+       "abbreviation": "RIV"
+      },
+      "stats": [
+       {
+        "name": "rank",
+        "value": 1
+       },
+       {
+        "name": "gamesPlayed",
+        "value": 34
+       },
+       {
+        "name": "wins",
+        "value": 16
+       },
+       {
+        "name": "ties",
+        "value": 6
+       },
+       {
+        "name": "losses",
+        "value": 12
+       },
+       {
+        "name": "pointsFor",
+        "value": 58
+       },
+       {
+        "name": "pointsAgainst",
+        "value": 50
+       },
+       {
+        "name": "points",
+        "value": 54
+       }
+      ]
+     },
+     {
+      "team": {
+       "id": "182",
+       "displayName": "Lakeshore FC",
+       "shortDisplayName": "Lakeshore",
+       "abbreviation": "LAK"
+      },
+      "stats": [
+       {
+        "name": "rank",
+        "value": 2
+       },
+       {
+        "name": "gamesPlayed",
+        "value": 34
+       },
+       {
+        "name": "wins",
+        "value": 15
+       },
+       {
+        "name": "ties",
+        "value": 8
+       },
+       {
+        "name": "losses",
+        "value": 11
+       },
+       {
+        "name": "pointsFor",
+        "value": 68
+       },
+       {
+        "name": "pointsAgainst",
+        "value": 60
+       },
+       {
+        "name": "points",
+        "value": 53
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "name": "Western Conference",
+   "standings": {
+    "entries": [
+     {
+      "team": {
+       "id": "185",
+       "displayName": "Prairie City",
+       "shortDisplayName": "Prairie",
+       "abbreviation": "PRC"
+      },
+      "stats": [
+       {
+        "name": "rank",
+        "value": 1
+       },
+       {
+        "name": "gamesPlayed",
+        "value": 34
+       },
+       {
+        "name": "wins",
+        "value": 12
+       },
+       {
+        "name": "ties",
+        "value": 8
+       },
+       {
+        "name": "losses",
+        "value": 14
+       },
+       {
+        "name": "pointsFor",
+        "value": 48
+       },
+       {
+        "name": "pointsAgainst",
+        "value": 52
+       },
+       {
+        "name": "points",
+        "value": 44
+       }
+      ]
+     },
+     {
+      "team": {
+       "id": "184",
+       "displayName": "Highland United",
+       "shortDisplayName": "Highland",
+       "abbreviation": "HIG"
+      },
+      "stats": [
+       {
+        "name": "rank",
+        "value": 2
+       },
+       {
+        "name": "gamesPlayed",
+        "value": 34
+       },
+       {
+        "name": "wins",
+        "value": 11
+       },
+       {
+        "name": "ties",
+        "value": 8
+       },
+       {
+        "name": "losses",
+        "value": 15
+       },
+       {
+        "name": "pointsFor",
+        "value": 45
+       },
+       {
+        "name": "pointsAgainst",
+        "value": 55
+       },
+       {
+        "name": "points",
+        "value": 41
+       }
+      ]
+     }
+    ]
+   }
+  }
+ ]
+}

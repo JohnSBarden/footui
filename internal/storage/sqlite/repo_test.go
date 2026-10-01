@@ -366,6 +366,40 @@ func TestNullDescriptiveColumnsReadAsEmpty(t *testing.T) {
 	}
 }
 
+// --- external refs ---
+
+func TestExternalRefsRoundTripAndCorrect(t *testing.T) {
+	s := newTestStore(t)
+	if _, err := s.ExternalRef(ctx, "team", "espn", "359"); !errors.Is(err, storage.ErrNotFound) {
+		t.Fatalf("unmapped: %v, want ErrNotFound", err)
+	}
+	mustNoErr(t, s.PutExternalRef(ctx, "team", "int-arsenal", "espn", "359"))
+	mustNoErr(t, s.PutExternalRef(ctx, "team", "eng-arsenal", "espn", "359")) // a correction
+	if id, err := s.ExternalRef(ctx, "team", "espn", "359"); err != nil || id != "eng-arsenal" {
+		t.Errorf("got %q, %v; a later put should correct the mapping", id, err)
+	}
+	// Entity types are separate namespaces.
+	if _, err := s.ExternalRef(ctx, "player", "espn", "359"); !errors.Is(err, storage.ErrNotFound) {
+		t.Errorf("a team mapping leaked into players: %v", err)
+	}
+}
+
+func TestTeamPlayersSpansCompetitionsAndSeasons(t *testing.T) {
+	s := newTestStore(t)
+	a := seedCompetitionSeason(t, s, "eng-premier-league", "2024", "club", "Club")
+	b := seedCompetitionSeason(t, s, "eur-champions-league", "2025", "club", "Club")
+	for _, p := range []struct{ id, season, comp string }{{"p1", a, "eng-premier-league"}, {"p2", b, "eur-champions-league"}, {"p1", b, "eur-champions-league"}} {
+		mustNoErr(t, s.UpsertPlayer(ctx, models.Player{ID: p.id, Name: "Player " + p.id, Gender: "men"}))
+		mustNoErr(t, s.UpsertPlayerSeasonStats(ctx, models.PlayerSeasonStats{
+			PlayerID: p.id, TeamID: "club", CompetitionID: p.comp, SeasonID: p.season, Source: "test"}))
+	}
+	squad, err := s.TeamPlayers(ctx, "club")
+	mustNoErr(t, err)
+	if len(squad) != 2 {
+		t.Errorf("squad %v, want each player once", squad)
+	}
+}
+
 // --- integrity ---
 
 func TestForeignKeysAreEnforced(t *testing.T) {

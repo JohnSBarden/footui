@@ -1,0 +1,46 @@
+{
+ "splits": {
+  "categories": [
+   {
+    "stats": [
+     {
+      "name": "possessionPct",
+      "value": 0
+     },
+     {
+      "name": "wonCorners",
+      "value": 1856
+     },
+     {
+      "name": "foulsCommitted",
+      "value": 380
+     },
+     {
+      "name": "foulsSuffered",
+      "value": 410
+     }
+    ]
+   },
+   {
+    "stats": [
+     {
+      "name": "totalShots",
+      "value": 512
+     },
+     {
+      "name": "shotsOnTarget",
+      "value": 208
+     },
+     {
+      "name": "yellowCards",
+      "value": 62
+     },
+     {
+      "name": "redCards",
+      "value": 3
+     }
+    ]
+   }
+  ]
+ }
+}

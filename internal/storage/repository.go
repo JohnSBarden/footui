@@ -138,6 +138,20 @@ type PlayerStatsRepo interface {
 	PlayerHistory(ctx context.Context, playerID string) ([]models.PlayerSeasonStats, error)
 }
 
+// ExternalRefRepo maps a provider's own IDs to footy's canonical ones, so
+// the same club or player fetched from two providers is one entity.
+type ExternalRefRepo interface {
+	// ExternalRef returns the canonical ID a provider's ID was resolved
+	// to, or ErrNotFound if it never has been. entityType is "team" or
+	// "player".
+	ExternalRef(ctx context.Context, entityType, provider, providerID string) (string, error)
+	PutExternalRef(ctx context.Context, entityType, canonicalID, provider, providerID string) error
+	// TeamPlayers returns every player with a stat line for the team, in
+	// any competition or season — the squad a newly fetched player is
+	// matched against.
+	TeamPlayers(ctx context.Context, teamID string) ([]models.Player, error)
+}
+
 // Repositories bundles every repo interface — the shape the sync layer and
 // CLI/TUI construction code depend on, so wiring up storage is passing one
 // value rather than six.
@@ -152,4 +166,5 @@ type Repositories interface {
 	TrophiesRepo
 	SyncLogRepo
 	CacheRepo
+	ExternalRefRepo
 }

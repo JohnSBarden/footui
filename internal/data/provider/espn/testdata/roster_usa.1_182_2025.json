@@ -1,0 +1,160 @@
+{
+ "athletes": [
+  {
+   "id": "900001",
+   "displayName": "Pim Vandersloot",
+   "dateOfBirth": "1997-02-07T08:00Z",
+   "citizenship": "Belgium",
+   "position": {
+    "abbreviation": "F"
+   },
+   "statistics": {
+    "splits": {
+     "categories": [
+      {
+       "stats": [
+        {
+         "name": "appearances",
+         "value": 36
+        },
+        {
+         "name": "totalGoals",
+         "value": 19
+        },
+        {
+         "name": "goalAssists",
+         "value": 2
+        },
+        {
+         "name": "yellowCards",
+         "value": 3
+        },
+        {
+         "name": "redCards",
+         "value": 0
+        },
+        {
+         "name": "totalShots",
+         "value": 89
+        }
+       ]
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "900002",
+   "displayName": "Tomas Ferreira",
+   "dateOfBirth": "2001-06-15T07:00Z",
+   "citizenship": "Portugal",
+   "position": {
+    "abbreviation": "M"
+   },
+   "statistics": {
+    "splits": {
+     "categories": [
+      {
+       "stats": [
+        {
+         "name": "appearances",
+         "value": 30
+        },
+        {
+         "name": "totalGoals",
+         "value": 4
+        },
+        {
+         "name": "goalAssists",
+         "value": 9
+        },
+        {
+         "name": "yellowCards",
+         "value": 6
+        },
+        {
+         "name": "redCards",
+         "value": 1
+        },
+        {
+         "name": "totalShots",
+         "value": 41
+        }
+       ]
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "900003",
+   "displayName": "Sam Okafor",
+   "dateOfBirth": "1995-11-02T08:00Z",
+   "citizenship": "USA",
+   "position": {
+    "abbreviation": "G"
+   },
+   "statistics": {
+    "splits": {
+     "categories": [
+      {
+       "stats": [
+        {
+         "name": "appearances",
+         "value": 34
+        },
+        {
+         "name": "totalGoals",
+         "value": 0
+        },
+        {
+         "name": "goalAssists",
+         "value": 0
+        },
+        {
+         "name": "yellowCards",
+         "value": 1
+        },
+        {
+         "name": "redCards",
+         "value": 0
+        }
+       ]
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "900004",
+   "displayName": "Reserve Keeper",
+   "dateOfBirth": "2004-01-20T08:00Z",
+   "citizenship": "USA",
+   "position": {
+    "abbreviation": "G"
+   },
+   "statistics": {
+    "splits": {
+     "categories": [
+      {
+       "stats": [
+        {
+         "name": "appearances",
+         "value": 0
+        },
+        {
+         "name": "totalGoals",
+         "value": 0
+        },
+        {
+         "name": "goalAssists",
+         "value": 0
+        }
+       ]
+      }
+     ]
+    }
+   }
+  }
+ ]
+}

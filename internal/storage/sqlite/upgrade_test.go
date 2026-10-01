@@ -250,6 +250,30 @@ func checkFixture(t *testing.T, s *Store) {
 	}
 }
 
+// A database folded by the old rules (which left Ø alone) is refolded on
+// upgrade, so search finds names it used to miss.
+func TestOldFoldsAreRedoneOnUpgrade(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "old.db")
+	db := rawOpen(t, path)
+	if err := migrateTo(db, "0005"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`INSERT INTO team (id, name, name_folded, gender) VALUES ('int-bodo-glimt', 'Bodø/Glimt', 'bodø/glimt', 'men')`); err != nil {
+		t.Fatal(err)
+	}
+	db.Close()
+
+	upgraded, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer upgraded.Close()
+	teams, err := NewStore(upgraded).FindTeamsByName(ctx, "bodo")
+	if err != nil || len(teams) != 1 {
+		t.Errorf("searching bodo after upgrade found %v, %v", teams, err)
+	}
+}
+
 // A database migrated by a newer footy must be refused, not written to.
 func TestANewerSchemaIsRefused(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "future.db")
