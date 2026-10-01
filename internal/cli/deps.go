@@ -29,17 +29,18 @@ type globalFlags struct {
 	staleAfter time.Duration
 	// theme is the club theme mode name, "weak" or "strong".
 	theme string
+
+	// settings are the values commands actually use: the flags above
+	// merged with the environment and the config file. Filled in by
+	// resolveSettings before any command runs.
+	settings settings
 }
 
 // openStore opens (creating and migrating if needed) the local database and
 // returns it alongside the repositories the TUI and sync layer use. The
 // caller closes the returned *sql.DB.
 func (g *globalFlags) openStore() (*sql.DB, storage.Repositories, error) {
-	path := g.dbPath
-	if path == "" {
-		path = config.DefaultDBPath()
-	}
-	db, err := sqlite.Open(path)
+	db, err := sqlite.Open(g.dbPathOrDefault())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -49,8 +50,8 @@ func (g *globalFlags) openStore() (*sql.DB, storage.Repositories, error) {
 // dbPathOrDefault reports the database path a command will use, for
 // user-facing messages.
 func (g *globalFlags) dbPathOrDefault() string {
-	if g.dbPath != "" {
-		return g.dbPath
+	if g.settings.dbPath != "" {
+		return g.settings.dbPath
 	}
 	return config.DefaultDBPath()
 }
@@ -59,10 +60,6 @@ func (g *globalFlags) dbPathOrDefault() string {
 // with the screen build returns. Every TUI-launching command funnels
 // through here so database lifetime and theme resolution live in one place.
 func (g *globalFlags) launchTUI(ctx context.Context, build func(core.Deps) (core.Screen, error)) error {
-	mode, err := styles.ParseMode(g.theme)
-	if err != nil {
-		return err
-	}
 	db, repos, err := g.openStore()
 	if err != nil {
 		return err
@@ -70,16 +67,16 @@ func (g *globalFlags) launchTUI(ctx context.Context, build func(core.Deps) (core
 	defer db.Close()
 
 	now := time.Now()
-	deps := tui.NewDeps(ctx, repos, styles.Resolve(g.noColor))
+	deps := tui.NewDeps(ctx, repos, styles.Resolve(g.settings.noColor))
 	deps.Refresh = tuiRefresher(repos)
 	deps.Catalog = tuiCatalog(now)
-	deps.Appearance = &styles.Appearance{Mode: mode}
+	deps.Appearance = &styles.Appearance{Mode: g.settings.theme}
 
 	screen, err := build(deps)
 	if err != nil {
 		return err
 	}
-	return tui.Run(deps, screen, staleRefreshes(ctx, repos, now, g.staleAfter)...)
+	return tui.Run(deps, screen, staleRefreshes(ctx, repos, now, g.settings.staleAfter)...)
 }
 
 // resolveCompetition turns a free-text competition name into exactly one

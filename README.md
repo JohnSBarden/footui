@@ -107,8 +107,32 @@ A club's dashboard is drawn in its colors, in one of two modes:
   accents, and win/loss colors are chosen to meet WCAG AA contrast against
   it, and the selected row is drawn inverse.
 
-Press `t` to switch while running, or pick one with `--theme strong`. Set
-`FOOTY_THEME=strong` in your shell profile to make it the default.
+Press `t` to switch while running, or pick one with `--theme strong`. To
+make it the default, set `theme: strong` in the settings file (below) or
+`FOOTY_THEME=strong` in your shell profile.
+
+### Settings
+
+Settings live in an optional YAML file at
+`$XDG_CONFIG_HOME/footui/config.yaml` (usually `~/.config/footui/config.yaml`;
+set `$FOOTY_CONFIG` to use another path):
+
+```sh
+footy config init    # write a commented file with every setting at its default
+footy config         # show the settings in effect and where each came from
+footy config path    # print the file's location
+```
+
+```yaml
+theme: strong        # weak | strong
+stale_after: 2h      # refresh-on-open threshold; 0 turns it off
+db: ~/footy/footy.db # database location
+no_color: false
+```
+
+A flag on the command line always wins, then an environment variable
+(`FOOTY_THEME`, `NO_COLOR`), then the file, then the built-in default. A
+misspelt key is an error naming the file, not a setting silently ignored.
 
 ## What's covered
 
@@ -156,6 +180,7 @@ easiest way to improve coverage.
 | `footy status` | Show what's cached and how fresh it is |
 | `footy competitions` | List what can be refreshed |
 | `footy colors` | Apply curated club colors and report coverage |
+| `footy config` | Show settings and their sources (`init`, `path`) |
 | `footy completion <shell>` | Shell completions for bash, zsh, fish, powershell |
 
 Global flags: `--db` to point at another database, `--no-color` to disable

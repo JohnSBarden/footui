@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"context"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -19,6 +20,12 @@ import (
 func run(t *testing.T, args ...string) (string, error) {
 	t.Helper()
 	var buf bytes.Buffer
+
+	// Never read the developer's own settings file. A test that wants one
+	// sets FOOTY_CONFIG itself before calling run.
+	if os.Getenv("FOOTY_CONFIG") == "" {
+		t.Setenv("FOOTY_CONFIG", filepath.Join(t.TempDir(), "none.yaml"))
+	}
 
 	cmd := NewRootCmd()
 	cmd.SetOut(&buf)

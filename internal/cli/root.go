@@ -28,6 +28,14 @@ func NewRootCmd() *cobra.Command {
 		// Errors are printed once, by Execute below. Without this Cobra
 		// prints them too and every failure appears twice.
 		SilenceErrors: true,
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			// The config commands must work with a broken config file —
+			// they are how it gets fixed — so they resolve on their own.
+			if cmd.Annotations[skipSettings] != "" {
+				return nil
+			}
+			return g.resolveSettings(cmd)
+		},
 		// Bare `footy` opens the Browse screen over whatever is cached.
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmdContext(cmd)
@@ -41,10 +49,10 @@ func NewRootCmd() *cobra.Command {
 		"override the SQLite database path (default: $XDG_DATA_HOME/footui/footy.db)")
 	root.PersistentFlags().BoolVar(&g.noColor, "no-color", false,
 		"disable color output (also honours the NO_COLOR environment variable)")
-	root.PersistentFlags().StringVar(&g.theme, "theme", os.Getenv("FOOTY_THEME"),
-		"club theme: weak (club colors as highlights) or strong (screen painted in club colors); default $FOOTY_THEME or weak")
+	root.PersistentFlags().StringVar(&g.theme, "theme", "",
+		"club theme: weak (club colors as highlights) or strong (screen painted in club colors); default $FOOTY_THEME, then the config file, then weak")
 	root.PersistentFlags().DurationVar(&g.staleAfter, "stale-after", DefaultStaleAfter,
-		"when the interface opens, refresh followed leagues whose current season is older than this (0 disables)")
+		"when the interface opens, refresh followed leagues whose current season is older than this (0 disables; config: stale_after)")
 
 	root.AddCommand(newVersionCmd())
 	root.AddCommand(newRefreshCmd(g))
@@ -54,6 +62,7 @@ func NewRootCmd() *cobra.Command {
 	root.AddCommand(newPlayerCmd(g))
 	root.AddCommand(newColorsCmd(g))
 	root.AddCommand(newStatusCmd(g))
+	root.AddCommand(newConfigCmd(g))
 
 	return root
 }
