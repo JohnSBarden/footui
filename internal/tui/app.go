@@ -275,6 +275,8 @@ func (a *App) handleGlobalKey(key tea.KeyMsg) (bool, tea.Model, tea.Cmd) {
 			return false, a, nil
 		}
 		return true, a, a.toggleTheme()
+	case "ctrl+t":
+		return true, a, a.toggleTheme()
 	}
 	return false, a, nil
 }
@@ -300,11 +302,14 @@ func (a *App) toggleTheme() tea.Cmd {
 	a.deps.Appearance.Toggle()
 	mode := a.deps.Appearance.Mode
 	if mode == styles.Strong {
-		a.status = "theme: strong — club screens are painted in the club's colors"
+		a.status = "theme: strong — screens painted in the club's colors (footy's blue elsewhere)"
 	} else {
-		a.status = "theme: weak — club colors as highlights on your terminal's background"
+		a.status = "theme: weak — your terminal's background, club colors as highlights"
 	}
-	return a.broadcast(core.ThemeChangedMsg{Mode: mode})
+	// Screens pushed later are built from a.deps, so they start in the
+	// new mode too.
+	a.deps.Theme = styles.BaseFor(mode, false)
+	return a.broadcast(core.ThemeChangedMsg{Mode: mode, Theme: a.deps.Theme})
 }
 
 // capturingText reports whether the visible screen wants bare letters.
@@ -391,12 +396,11 @@ func (a *App) footer() string {
 	// The global bindings are the app's, not the screen's, so they're
 	// appended here rather than repeated in every screen's KeyMap — and
 	// to both views, or the expanded help would omit how to get out of it.
-	globals := []key.Binding{keys.Help, keys.Back, keys.Quit}
-	fullGlobals := []key.Binding{keys.Theme}
+	globals := []key.Binding{keys.Theme, keys.Help, keys.Back, keys.Quit}
 	if a.capturingText() {
 		// "?" is also swallowed by the text box, so neither it nor "q" is
 		// offered here.
-		globals = []key.Binding{keys.Back, keys.QuitFromTextEntry}
+		globals = []key.Binding{keys.ThemeFromTextEntry, keys.Back, keys.QuitFromTextEntry}
 	}
 	if a.catalogAvailable() && a.current().Title() != catalog.Title {
 		download := keys.Catalog
@@ -411,9 +415,6 @@ func (a *App) footer() string {
 
 	km := a.current().Keys()
 	km.Full = append(append([][]key.Binding{}, km.FullHelp()...), globals)
-	if !a.capturingText() {
-		km.Full = append(km.Full, fullGlobals)
-	}
 	km.Short = append(append([]key.Binding{}, km.Short...), globals...)
 
 	a.help.Width = a.width

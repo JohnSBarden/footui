@@ -52,8 +52,13 @@ var (
 	// Theme switches club screens between the weak theme (club colors as
 	// highlights) and the strong one (painted in the club's colors).
 	Theme = key.NewBinding(
-		key.WithKeys("t"),
-		key.WithHelp("t", "strong/weak theme"),
+		key.WithKeys("t", "ctrl+t"),
+		key.WithHelp("t", "theme"),
+	)
+	// ThemeFromTextEntry is the theme key while a text box has focus.
+	ThemeFromTextEntry = key.NewBinding(
+		key.WithKeys("ctrl+t"),
+		key.WithHelp("ctrl+t", "theme"),
 	)
 	CatalogFromTextEntry = key.NewBinding(
 		key.WithKeys("ctrl+g"),

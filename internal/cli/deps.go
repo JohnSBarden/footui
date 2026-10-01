@@ -66,7 +66,7 @@ func (g *globalFlags) launchTUI(ctx context.Context, build func(core.Deps) (core
 	defer db.Close()
 
 	now := time.Now()
-	deps := tui.NewDeps(ctx, repos, styles.Resolve(g.settings.noColor))
+	deps := tui.NewDeps(ctx, repos, styles.BaseFor(g.settings.theme, g.settings.noColor))
 	deps.Refresh = tuiRefresher(repos)
 	deps.Catalog = tuiCatalog(now)
 	deps.Appearance = &styles.Appearance{Mode: g.settings.theme}

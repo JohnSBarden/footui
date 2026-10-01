@@ -107,7 +107,9 @@ A club's dashboard is drawn in its colors, in one of two modes:
   accents, and win/loss colors are chosen to meet WCAG AA contrast against
   it, and the selected row is drawn inverse.
 
-Press `t` to switch while running, or pick one with `--theme strong`. To
+Press `t` (or `ctrl+t`, which also works while typing in search) to switch
+while running, or pick one with `--theme strong`. Strong mode paints every
+screen: a club's pages in its colors, everything else in footy's blue. To
 make it the default, set `theme: strong` in the settings file (below) or
 `FOOTY_THEME=strong` in your shell profile.
 

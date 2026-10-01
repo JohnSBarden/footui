@@ -9,6 +9,12 @@ import (
 // Update implements core.Screen.
 func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 	switch msg := msg.(type) {
+	case core.ThemeChangedMsg:
+		// This screen draws its own content, so it adopts the new theme
+		// rather than leaving text styled for the old background.
+		m.deps.Theme = msg.Theme
+		return m, nil
+
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
 		return m, nil

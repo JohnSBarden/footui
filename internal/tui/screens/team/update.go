@@ -69,8 +69,13 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 		return m, nil
 
 	case core.ThemeChangedMsg:
+		m.deps.Theme = msg.Theme
 		if m.colors != nil {
 			m.theme = styles.TeamThemeFor(m.colors.PrimaryHex, m.colors.SecondaryHex, msg.Mode)
+		} else {
+			// A club with no colors shows in the base theme, which is
+			// now the new mode's.
+			m.theme = msg.Theme
 		}
 		return m, nil
 

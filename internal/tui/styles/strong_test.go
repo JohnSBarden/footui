@@ -66,6 +66,30 @@ func TestStrongThemeFallsBackToWeakWithoutAPrimary(t *testing.T) {
 	}
 }
 
+// Screens with no club (Browse, a league table) must change with the mode
+// too, or switching looks like it did nothing.
+func TestBaseThemeFollowsTheMode(t *testing.T) {
+	t.Setenv("NO_COLOR", "")
+	if BaseFor(Weak, false).Background != nil {
+		t.Error("weak mode keeps the terminal's background")
+	}
+	strong := BaseFor(Strong, false)
+	if strong.Background == nil {
+		t.Fatal("strong mode paints club-less screens in footy's colors")
+	}
+	bg := concrete(t, strong.Background)
+	for name, c := range map[string]lipgloss.TerminalColor{
+		"text": strong.Palette.Text, "muted": strong.Palette.Muted, "accent": strong.Palette.Accent,
+	} {
+		if r := contrastRatio(concrete(t, c), bg); r < minContrast {
+			t.Errorf("footy's own strong theme: %s contrast %.2f, want ≥ %.1f", name, r, minContrast)
+		}
+	}
+	if !BaseFor(Strong, true).NoColor {
+		t.Error("--no-color wins over strong mode")
+	}
+}
+
 func TestParseMode(t *testing.T) {
 	for in, want := range map[string]Mode{"": Weak, "weak": Weak, "STRONG": Strong, " strong ": Strong} {
 		if got, err := ParseMode(in); err != nil || got != want {
