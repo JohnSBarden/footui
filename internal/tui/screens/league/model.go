@@ -15,9 +15,6 @@ import (
 	"github.com/JohnSBarden/footui/internal/tui/keys"
 )
 
-// maxSeasons is how many recent seasons the League screen exposes.
-const maxSeasons = 2
-
 // Row pairs a standings stat line with the team it belongs to. Stats rows
 // carry only team IDs, so the screen resolves names once at load time
 // rather than per render.
@@ -124,9 +121,6 @@ func (m *Model) loadCompetition() tea.Cmd {
 		seasons, err := deps.Repos.ListSeasons(deps.Ctx, compID)
 		if err != nil {
 			return core.ErrMsg{Err: err}
-		}
-		if len(seasons) > maxSeasons {
-			seasons = seasons[:maxSeasons]
 		}
 		return competitionLoadedMsg{comp: comp, seasons: seasons}
 	}

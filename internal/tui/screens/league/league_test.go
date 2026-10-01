@@ -2,11 +2,14 @@ package league_test
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/JohnSBarden/footui/internal/data/models"
+	"github.com/charmbracelet/lipgloss"
+
 	"github.com/JohnSBarden/footui/internal/storage"
 	"github.com/JohnSBarden/footui/internal/storage/storagetest"
 	"github.com/JohnSBarden/footui/internal/tui/core"
@@ -129,21 +132,84 @@ func TestCursorMovesAndClampsAtBothEnds(t *testing.T) {
 	}
 }
 
-func TestOnlyTwoMostRecentSeasonsAreOffered(t *testing.T) {
+// seasonsScreen seeds the given seasons and settles a League screen.
+func seasonsScreen(t *testing.T, width int, labels ...string) core.Screen {
+	t.Helper()
 	repos := storagetest.New(t)
 	comp := storagetest.PremierLeague()
-	for _, label := range []string{"2023", "2024", "2025"} {
+	for _, label := range labels {
 		storagetest.SeedCompetition(t, repos, comp, label, storagetest.SampleStandings())
 	}
+	return tuitest.Resize(t, tuitest.Settle(t, league.New(newDeps(repos), comp.ID)), width, 30)
+}
 
-	s := tuitest.Resize(t, tuitest.Settle(t, league.New(newDeps(repos), comp.ID)), 100, 30)
-	out := s.View()
-
-	if !strings.Contains(out, "2025-26") || !strings.Contains(out, "2024-25") {
-		t.Errorf("expected the two most recent seasons in the season bar\n---\n%s", out)
+// seasonBar is the line of the view holding the season tabs.
+func seasonBar(t *testing.T, s core.Screen) string {
+	t.Helper()
+	for _, line := range strings.Split(s.View(), "\n") {
+		if strings.Contains(line, "[") && strings.Contains(line, "-") {
+			return line
+		}
 	}
-	if strings.Contains(out, "2023-24") {
-		t.Errorf("League screen is capped at two seasons but offered a third\n---\n%s", out)
+	t.Fatalf("no season bar in view\n---\n%s", s.View())
+	return ""
+}
+
+// Every cached season must be reachable — a user who downloaded ten
+// seasons should be able to look at all ten.
+func TestEveryCachedSeasonIsReachable(t *testing.T) {
+	labels := []string{"2018", "2019", "2020", "2021", "2022", "2023", "2024", "2025"}
+	s := seasonsScreen(t, 120, labels...)
+	if bar := seasonBar(t, s); !strings.Contains(bar, "[2025-26]") {
+		t.Fatalf("should open on the most recent season, bar %q", bar)
+	}
+	for range labels {
+		s = tuitest.Key(t, s, "left")
+	}
+	if bar := seasonBar(t, s); !strings.Contains(bar, "[2018-19]") {
+		t.Errorf("holding left should reach the oldest cached season, bar %q", bar)
+	}
+}
+
+// The tabs read like a timeline, oldest on the left, so the left arrow
+// moves left on screen and back in time.
+func TestSeasonTabsAreChronologicalAndArrowsMatch(t *testing.T) {
+	s := seasonsScreen(t, 120, "2023", "2024", "2025")
+	bar := seasonBar(t, s)
+	if strings.Index(bar, "2023-24") > strings.Index(bar, "2025-26") {
+		t.Fatalf("older seasons should be to the left, bar %q", bar)
+	}
+	s = tuitest.Key(t, s, "left")
+	if bar := seasonBar(t, s); !strings.Contains(bar, "[2024-25]") {
+		t.Errorf("left from 2025-26 should select 2024-25, the tab to its left; bar %q", bar)
+	}
+	s = tuitest.Key(t, s, "right")
+	if bar := seasonBar(t, s); !strings.Contains(bar, "[2025-26]") {
+		t.Errorf("right should move forward again; bar %q", bar)
+	}
+}
+
+// Seventeen seasons don't fit on one line; the bar scrolls to keep the
+// selected season in view and says there are more.
+func TestSeasonBarScrollsToFitTheTerminal(t *testing.T) {
+	var labels []string
+	for y := 2010; y <= 2026; y++ {
+		labels = append(labels, fmt.Sprint(y))
+	}
+	s := seasonsScreen(t, 60, labels...)
+	bar := seasonBar(t, s)
+	if w := lipgloss.Width(bar); w > 60 {
+		t.Errorf("season bar is %d wide in a 60-column terminal: %q", w, bar)
+	}
+	if !strings.Contains(bar, "[2026-27]") || !strings.Contains(bar, "‹") {
+		t.Errorf("should show the selected season and mark older ones off-screen: %q", bar)
+	}
+	for i := 0; i < 16; i++ {
+		s = tuitest.Key(t, s, "left")
+	}
+	bar = seasonBar(t, s)
+	if !strings.Contains(bar, "[2010-11]") || !strings.Contains(bar, "›") {
+		t.Errorf("scrolled to the oldest, newer seasons should be marked off-screen: %q", bar)
 	}
 }
 

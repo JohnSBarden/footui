@@ -177,8 +177,15 @@ func (m *Model) header() string {
 		line = lipgloss.JoinHorizontal(lipgloss.Center, title, th.Subtitle.Render("  "+strings.Join(meta, " · ")))
 	}
 
-	if seasonBar := m.seasonBar(); seasonBar != "" {
-		if freshness := m.freshnessNote(); freshness != "" {
+	// The season tabs share their line with the freshness note, so they
+	// get whatever width the note leaves.
+	freshness := m.freshnessNote()
+	budget := m.width
+	if freshness != "" {
+		budget -= lipgloss.Width(freshness) + 3
+	}
+	if seasonBar := m.seasonBar(budget); seasonBar != "" {
+		if freshness != "" {
 			seasonBar += "   " + freshness
 		}
 		return line + "\n" + seasonBar
@@ -209,22 +216,70 @@ func (m *Model) freshnessNote() string {
 // seasonBar renders the season selector. It's shown even with a single
 // cached season so the user can always see which season the numbers are
 // from, rather than having to infer it.
-func (m *Model) seasonBar() string {
+//
+// Seasons read left to right in time, oldest first, so the left arrow
+// (an older season) moves left on screen. Every cached season is offered;
+// when they don't all fit, the bar shows a window around the selected one
+// with ‹ and › marking seasons off either end.
+func (m *Model) seasonBar(maxWidth int) string {
 	th := m.deps.Theme
-	if len(m.seasons) == 0 {
+	n := len(m.seasons)
+	if n == 0 {
 		return ""
 	}
 
-	parts := make([]string, 0, len(m.seasons))
-	for i, s := range m.seasons {
-		label := components.SeasonName(s)
+	// m.seasons is most recent first; display position d holds season
+	// n-1-d, so the selected season sits at n-1-seasonIdx.
+	tabs := make([]string, n)
+	for d := 0; d < n; d++ {
+		i := n - 1 - d
+		label := components.SeasonName(m.seasons[i])
 		if i == m.seasonIdx {
-			parts = append(parts, th.Accent.Bold(true).Render("["+label+"]"))
+			tabs[d] = th.Accent.Bold(true).Render("[" + label + "]")
 		} else {
-			parts = append(parts, th.Muted.Render(" "+label+" "))
+			tabs[d] = th.Muted.Render(" " + label + " ")
 		}
 	}
-	return strings.Join(parts, " ")
+	sel := n - 1 - m.seasonIdx
+
+	// Grow a window outward from the selection while it fits, preferring
+	// newer seasons, and leaving room for the ‹ › markers.
+	const marker = 2
+	width := func(lo, hi int) int {
+		w := 0
+		for d := lo; d <= hi; d++ {
+			w += lipgloss.Width(tabs[d]) + 1
+		}
+		if lo > 0 {
+			w += marker
+		}
+		if hi < n-1 {
+			w += marker
+		}
+		return w - 1
+	}
+	lo, hi := sel, sel
+	for grew := true; grew; {
+		grew = false
+		if hi < n-1 && width(lo, hi+1) <= maxWidth {
+			hi++
+			grew = true
+		}
+		if lo > 0 && width(lo-1, hi) <= maxWidth {
+			lo--
+			grew = true
+		}
+	}
+
+	var b strings.Builder
+	if lo > 0 {
+		b.WriteString(th.Muted.Render("‹ "))
+	}
+	b.WriteString(strings.Join(tabs[lo:hi+1], " "))
+	if hi < n-1 {
+		b.WriteString(th.Muted.Render(" ›"))
+	}
+	return b.String()
 }
 
 func (m *Model) table() string {
