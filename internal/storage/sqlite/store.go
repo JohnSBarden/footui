@@ -137,7 +137,7 @@ func (s *Store) UpsertCompetition(ctx context.Context, c models.Competition) err
 }
 
 func (s *Store) ListCompetitions(ctx context.Context) ([]models.Competition, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT id, name, country, tier, gender, format FROM competition ORDER BY country, tier`)
+	rows, err := s.db.QueryContext(ctx, `SELECT id, name, country, tier, gender, format FROM competition ORDER BY country, tier, name`)
 	if err != nil {
 		return nil, fmt.Errorf("sqlite: list competitions: %w", err)
 	}
@@ -172,7 +172,7 @@ func (s *Store) FindCompetitionsByName(ctx context.Context, query string) ([]mod
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT id, name, country, tier, gender, format FROM competition
 		WHERE name_folded LIKE '%' || ? || '%' OR id LIKE '%' || ? || '%'
-		ORDER BY country, tier`, textfold.Fold(query), textfold.Fold(query))
+		ORDER BY country, tier, name`, textfold.Fold(query), textfold.Fold(query))
 	if err != nil {
 		return nil, fmt.Errorf("sqlite: find competitions by name %q: %w", query, err)
 	}
@@ -303,7 +303,7 @@ func (s *Store) UpsertTeam(ctx context.Context, t models.Team) error {
 
 func (s *Store) FindTeamsByName(ctx context.Context, query string) ([]models.Team, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, name, short_name, country, gender, founded_year, venue
+		SELECT id, name, COALESCE(short_name, ''), COALESCE(country, ''), gender, founded_year, COALESCE(venue, '')
 		FROM team WHERE name_folded LIKE '%' || ? || '%' ORDER BY name`, textfold.Fold(query))
 	if err != nil {
 		return nil, fmt.Errorf("sqlite: find teams by name %q: %w", query, err)
@@ -329,7 +329,7 @@ func (s *Store) GetTeam(ctx context.Context, id string) (models.Team, error) {
 	var t models.Team
 	var founded sql.NullInt64
 	err := s.db.QueryRowContext(ctx, `
-		SELECT id, name, short_name, country, gender, founded_year, venue
+		SELECT id, name, COALESCE(short_name, ''), COALESCE(country, ''), gender, founded_year, COALESCE(venue, '')
 		FROM team WHERE id = ?`, id).
 		Scan(&t.ID, &t.Name, &t.ShortName, &t.Country, &t.Gender, &founded, &t.Venue)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -357,7 +357,7 @@ func (s *Store) GetTeams(ctx context.Context, ids []string) (map[string]models.T
 
 	placeholders, args := inClause(ids)
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, name, short_name, country, gender, founded_year, venue
+		SELECT id, name, COALESCE(short_name, ''), COALESCE(country, ''), gender, founded_year, COALESCE(venue, '')
 		FROM team WHERE id IN (`+placeholders+`)`, args...)
 	if err != nil {
 		return nil, fmt.Errorf("sqlite: get teams: %w", err)
@@ -380,7 +380,7 @@ func (s *Store) GetTeams(ctx context.Context, ids []string) (map[string]models.T
 
 func (s *Store) ListTeams(ctx context.Context) ([]models.Team, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, name, short_name, country, gender, founded_year, venue
+		SELECT id, name, COALESCE(short_name, ''), COALESCE(country, ''), gender, founded_year, COALESCE(venue, '')
 		FROM team ORDER BY id`)
 	if err != nil {
 		return nil, fmt.Errorf("sqlite: list teams: %w", err)
@@ -428,7 +428,7 @@ func (s *Store) LatestSyncRun(ctx context.Context, competitionID, seasonID strin
 			status, rows_upserted, error
 		FROM sync_log
 		WHERE competition_id = ? AND season_id = ?
-		ORDER BY finished_at DESC LIMIT 1`, competitionID, seasonID).
+		ORDER BY finished_at DESC, id DESC LIMIT 1`, competitionID, seasonID).
 		Scan(&r.ID, &r.Provider, &r.CompetitionID, &r.SeasonID, &startedAt, &finishedAt,
 			&r.Status, &r.RowsUpserted, &errText)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -657,7 +657,10 @@ func (s *Store) TeamHistory(ctx context.Context, teamID string) ([]models.TeamSe
 			source, updated_at
 		FROM team_season_stats
 		WHERE team_id = ?
-		ORDER BY season_id DESC, competition_id`, teamID)
+		-- Season IDs are "<competition>:<label>", so ordering on them would
+		-- sort by competition first. Order by the season's own label.
+		ORDER BY (SELECT se.label FROM season se WHERE se.id = team_season_stats.season_id) DESC,
+			competition_id`, teamID)
 	if err != nil {
 		return nil, fmt.Errorf("sqlite: team history %s: %w", teamID, err)
 	}
@@ -718,7 +721,7 @@ func (s *Store) UpsertPlayer(ctx context.Context, p models.Player) error {
 	return nil
 }
 
-const playerColumns = `id, name, date_of_birth, nationality, position, gender`
+const playerColumns = `id, name, date_of_birth, COALESCE(nationality, ''), COALESCE(position, ''), gender`
 
 func scanPlayer(sc interface{ Scan(...any) error }) (models.Player, error) {
 	var p models.Player
@@ -839,7 +842,8 @@ func (s *Store) PlayerHistory(ctx context.Context, playerID string) ([]models.Pl
 		SELECT `+playerStatsColumns+`
 		FROM player_season_stats
 		WHERE player_id = ?
-		ORDER BY season_id DESC, competition_id`, playerID)
+		ORDER BY (SELECT se.label FROM season se WHERE se.id = player_season_stats.season_id) DESC,
+			competition_id`, playerID)
 	if err != nil {
 		return nil, fmt.Errorf("sqlite: player history %s: %w", playerID, err)
 	}

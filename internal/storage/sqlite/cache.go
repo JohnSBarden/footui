@@ -77,7 +77,7 @@ func (s *Store) latestSyncForCompetition(ctx context.Context, competitionID stri
 		SELECT id, provider, competition_id, season_id, started_at, finished_at,
 			status, rows_upserted, error
 		FROM sync_log WHERE competition_id = ?
-		ORDER BY finished_at DESC LIMIT 1`, competitionID).
+		ORDER BY finished_at DESC, id DESC LIMIT 1`, competitionID).
 		Scan(&r.ID, &r.Provider, &r.CompetitionID, &seasonID, &startedAt, &finishedAt,
 			&r.Status, &r.RowsUpserted, &errText)
 	if errors.Is(err, sql.ErrNoRows) {
