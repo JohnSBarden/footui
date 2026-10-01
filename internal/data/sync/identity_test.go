@@ -272,6 +272,62 @@ func TestProviderColorsFillGapsButNeverReplace(t *testing.T) {
 	}
 }
 
+// understatSource plays back a table the way understat reports it.
+func understatSource(clubs ...[2]string) *nativeSource {
+	src := &nativeSource{}
+	for _, c := range clubs {
+		id := "understat:" + c[0]
+		src.teams = append(src.teams, models.Team{ID: id, Name: c[1], Country: "England", Gender: "men"})
+		src.rows = append(src.rows, models.TeamSeasonStats{TeamID: id, Points: 10, Source: "understat"})
+	}
+	return src
+}
+
+func syncUnderstat(t *testing.T, repos storage.Repositories, src Source) {
+	t.Helper()
+	comp, _ := FindCompetition("eng-premier-league")
+	s := New(src, repos).WithProviderName("understat")
+	if _, err := s.SyncCompetitionSeason(bg, comp, NewSeason("eng-premier-league", "2025")); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// Download order mustn't matter: a club ESPN cached first (from the
+// Championship) is the same club understat later reports in the Premier
+// League.
+func TestUnderstatJoinsClubsAnotherProviderCachedFirst(t *testing.T) {
+	repos := newStore(t)
+	src := &nativeSource{}
+	src.club("375", "Leicester City", "men")
+	syncOne(t, repos, src, "eng-championship")
+
+	syncUnderstat(t, repos, understatSource([2]string{"eng-leicester", "Leicester"}))
+
+	got := teamsIn(t, repos, "eng-premier-league")
+	if !got["eng-leicester-city"] || got["eng-leicester"] {
+		t.Errorf("Premier League Leicester resolved to %v, want the club ESPN created", got)
+	}
+}
+
+// For everything understat has always fetched, IDs come out exactly as
+// before — existing databases and curated seeds keep lining up.
+func TestUnderstatKeepsItsCanonicalIDs(t *testing.T) {
+	repos := newStore(t)
+	src := understatSource([2]string{"eng-arsenal", "Arsenal"}, [2]string{"eng-ipswich", "Ipswich"})
+	src.players = []models.Player{{ID: "understat:7322", Name: "Bukayo Saka", Gender: "men"}}
+	src.lines = []models.PlayerSeasonStats{{PlayerID: "understat:7322", TeamID: "understat:eng-arsenal", Source: "understat"}}
+	syncUnderstat(t, repos, src)
+	syncUnderstat(t, repos, src) // and again, over its own data
+
+	got := teamsIn(t, repos, "eng-premier-league")
+	if len(got) != 2 || !got["eng-arsenal"] || !got["eng-ipswich"] {
+		t.Errorf("teams %v, want understat's canonical IDs unchanged", got)
+	}
+	if _, err := repos.GetPlayer(bg, "understat-7322"); err != nil {
+		t.Errorf("Saka should keep understat-7322: %v", err)
+	}
+}
+
 func TestNormalizeClub(t *testing.T) {
 	for in, want := range map[string]string{
 		"Paris Saint-Germain":  "paris saint germain",

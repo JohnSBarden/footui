@@ -151,6 +151,11 @@ func distinctRefs(stats []models.TeamSeasonStats) (compIDs, seasonIDs []string) 
 // rather than following map iteration.
 func sortCompetitions(comps []models.Competition) {
 	sort.Slice(comps, func(i, j int) bool {
+		// A club's own league comes before a European competition it
+		// played in that season, so the screen opens on the league.
+		if ei, ej := comps[i].Country == "Europe", comps[j].Country == "Europe"; ei != ej {
+			return ej
+		}
 		if comps[i].Tier != comps[j].Tier {
 			// Tier 0 means "unknown" (a cup we have no metadata for) and
 			// sorts last rather than first.

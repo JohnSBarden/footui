@@ -37,6 +37,13 @@ import (
 // otherwise new. Every resolution is recorded, so later refreshes are
 // stable and never re-guess.
 
+// canonicalLocalIDs are providers whose own IDs are already footy's
+// canonical form. understat was footy's first provider, and its scheme
+// became the canonical one: a club it reports that matches nothing cached
+// keeps that ID, so every existing database and curated seed still lines
+// up.
+var canonicalLocalIDs = map[string]bool{"understat": true}
+
 // nativeID reports whether id is a provider's own, and splits it.
 func nativeID(id string) (provider, local string, ok bool) {
 	provider, local, ok = strings.Cut(id, ":")
@@ -194,6 +201,9 @@ func (r *resolver) team(ctx context.Context, provider, local string, t models.Te
 	if !ok {
 		row = t
 		row.ID = r.newTeamID(t)
+		if canonicalLocalIDs[provider] {
+			row.ID = local
+		}
 	}
 	if err := r.repos.PutExternalRef(ctx, "team", row.ID, provider, local); err != nil {
 		return models.Team{}, err

@@ -89,6 +89,11 @@ func distinctRefs(stats []models.PlayerSeasonStats) (compIDs, seasonIDs, teamIDs
 // across refreshes rather than following map iteration.
 func sortCompetitions(comps []models.Competition) {
 	sort.Slice(comps, func(i, j int) bool {
+		// Domestic competitions before European ones, as on the Team
+		// screen: a player's career reads league-first.
+		if ei, ej := comps[i].Country == "Europe", comps[j].Country == "Europe"; ei != ej {
+			return ej
+		}
 		if comps[i].Tier != comps[j].Tier {
 			if comps[i].Tier == 0 {
 				return false

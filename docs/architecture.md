@@ -28,8 +28,16 @@ a boundary is a value from `internal/data/models` (see
 `provider.PlayerRef`).
 
 Status: both boundaries are built and exercised end to end. The source
-contract has one implementation (`internal/data/provider/understat`),
-tested against a fixture, a fake source, and live data. The rendering side
+contract has two implementations: `internal/data/provider/understat` (the
+six leagues with xG) and `internal/data/provider/espn` (MLS, the women's
+leagues, the second divisions, and the European competitions). Each
+competition is routed to one of them by `sync.Coverages`. Both providers
+return their own IDs (`understat:eng-arsenal`, `espn:359`). Before anything
+is written, the sync layer resolves those to canonical team and player IDs
+(`internal/data/sync/identity.go`) and records each mapping in
+`external_ref`, so a club reached through both providers is one entity.
+understat's IDs were the original canonical scheme, so a club only
+understat knows keeps exactly the ID it always had. The rendering side
 is the full TUI — Browse, League, Team, Player — and it reaches data only
 through `storage.Repositories`, never through a provider or the database
 directly.

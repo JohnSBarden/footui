@@ -28,7 +28,7 @@ func newRefreshCmd(g *globalFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "refresh",
 		Short: "Fetch and cache the latest stats from the data provider",
-		Long: "refresh pulls team, standings, and player data from the understat.com provider " +
+		Long: "refresh pulls team, standings, and player data from the provider that covers each competition (understat.com or ESPN) " +
 			"and stores it in the local SQLite cache.\n\n" +
 			"By default it refreshes the current season of one competition. Use --all for every " +
 			"competition footy covers, and --years to go back through previous seasons. A failure " +

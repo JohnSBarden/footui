@@ -29,7 +29,7 @@ func closeTo(got, want float64) bool {
 // answers differ.
 func TestSeasonPPDASumsBeforeDividing(t *testing.T) {
 	stats := mapStandings(loadFixture(t), "eng-premier-league", "eng-premier-league:2025")
-	arsenal := findTeam(t, stats, "eng-arsenal")
+	arsenal := findTeam(t, stats, "understat:eng-arsenal")
 
 	got, ok := arsenal.Extras[models.StatPPDA]
 	if !ok {
@@ -50,7 +50,7 @@ func TestSeasonPPDASumsBeforeDividing(t *testing.T) {
 
 func TestAdvancedTeamStatsAreSummedAcrossMatches(t *testing.T) {
 	stats := mapStandings(loadFixture(t), "eng-premier-league", "eng-premier-league:2025")
-	arsenal := findTeam(t, stats, "eng-arsenal")
+	arsenal := findTeam(t, stats, "understat:eng-arsenal")
 
 	cases := map[string]float64{
 		models.StatNPxG:           2.9,  // 1.9 + 1.0
@@ -110,7 +110,7 @@ func TestPlayerAdvancedStatsAreMapped(t *testing.T) {
 
 	var striker models.PlayerSeasonStats
 	for _, p := range players {
-		if p.PlayerID == "understat-100" {
+		if p.PlayerID == "understat:100" {
 			striker = p
 		}
 	}
@@ -140,7 +140,7 @@ func TestMissingPlayerAdvancedStatsAreNilNotZero(t *testing.T) {
 
 	var sparse models.PlayerSeasonStats
 	for _, p := range players {
-		if p.PlayerID == "understat-102" {
+		if p.PlayerID == "understat:102" {
 			sparse = p
 		}
 	}

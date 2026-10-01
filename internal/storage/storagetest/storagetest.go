@@ -160,7 +160,7 @@ func SeedRoster(t *testing.T, repos storage.Repositories, teamID, competitionID,
 func ChampionsLeague() models.Competition {
 	return models.Competition{
 		ID: "uefa-champions-league", Name: "Champions League",
-		Country: "Europe", Tier: 0, Gender: "men", Format: "cup",
+		Country: "Europe", Tier: 1, Gender: "men", Format: "cup",
 	}
 }
 

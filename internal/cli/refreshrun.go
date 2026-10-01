@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/JohnSBarden/footui/internal/colors"
+	"github.com/JohnSBarden/footui/internal/data/provider/espn"
 	"github.com/JohnSBarden/footui/internal/data/provider/understat"
 	"github.com/JohnSBarden/footui/internal/data/sync"
 	"github.com/JohnSBarden/footui/internal/storage"
@@ -89,6 +90,12 @@ func newSource(provider string, ev refreshEvents) (sync.Source, error) {
 	switch provider {
 	case sync.ProviderUnderstat:
 		source := understat.New()
+		if ev.retry != nil {
+			source = source.OnRetry(ev.retry)
+		}
+		return source, nil
+	case sync.ProviderESPN:
+		source := espn.New()
 		if ev.retry != nil {
 			source = source.OnRetry(ev.retry)
 		}
@@ -181,14 +188,30 @@ func tuiRefresher(store storage.Repositories) core.Refresher {
 // refreshed, so only the cause and the attempt count are kept. Errors it
 // doesn't recognise pass through unchanged.
 func tuiError(err error) error {
-	var timeout *understat.TimeoutError
-	if !errors.As(err, &timeout) {
+	var msg string
+	var attempts int
+	var ut *understat.TimeoutError
+	var et *espn.TimeoutError
+	switch {
+	case errors.As(err, &ut):
+		msg = fmt.Sprintf("no response from %s within %s", ut.Host, ut.After)
+		var ex *understat.ExhaustedError
+		if errors.As(err, &ex) {
+			attempts = ex.Attempts
+		}
+	case errors.As(err, &et):
+		msg = fmt.Sprintf("no response from ESPN within %s", et.After)
+		var ex *espn.ExhaustedError
+		if errors.As(err, &ex) {
+			attempts = ex.Attempts
+		}
+	case errors.Is(err, espn.ErrNoTable):
+		return errors.New("ESPN has no table for that season")
+	default:
 		return err
 	}
-	msg := fmt.Sprintf("no response from %s within %s", timeout.Host, timeout.After)
-	var exhausted *understat.ExhaustedError
-	if errors.As(err, &exhausted) {
-		msg += fmt.Sprintf(" (%d attempts)", exhausted.Attempts)
+	if attempts > 0 {
+		msg += fmt.Sprintf(" (%d attempts)", attempts)
 	}
 	return errors.New(msg)
 }

@@ -8,6 +8,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/JohnSBarden/footui/internal/data/models"
 	"github.com/JohnSBarden/footui/internal/tui/components"
 )
 
@@ -39,17 +40,90 @@ func (m *Model) columns() []components.Column {
 		{Title: "Pts", Width: goalWidth, Right: true},
 	}
 
-	// Expected goals are the first thing to go on a narrow terminal, and
-	// xG/xGA go together: attacking output means little without what the
-	// team conceded. xGD is derived from the pair, so it goes first.
 	// The team column is already in base, so nothing extra is reserved.
-	return components.FitColumns(m.width, base, 0, [][]components.Column{
-		{
-			{Title: "xG", Width: xgWidth, Right: true},
-			{Title: "xGA", Width: xgWidth, Right: true},
-		},
-		{{Title: "xGD", Width: xgWidth, Right: true}},
-	})
+	var groups [][]components.Column
+	for _, g := range m.extraGroups() {
+		groups = append(groups, g.columns)
+	}
+	return components.FitColumns(m.width, base, 0, groups)
+}
+
+// extraGroup is a set of optional columns that are shown or dropped
+// together, with the cells each row contributes to them.
+type extraGroup struct {
+	columns []components.Column
+	cells   func(s models.TeamSeasonStats) []components.Cell
+}
+
+// extraGroups picks the optional columns this competition's data can
+// fill, in the order they're given up on a narrow terminal. Competitions
+// from understat have expected goals; those from ESPN have none, but may
+// have possession and shots instead. A column nobody in the table has a
+// value for is never shown: a column of dashes is just noise.
+func (m *Model) extraGroups() []extraGroup {
+	has := func(f func(models.TeamSeasonStats) bool) bool {
+		for _, r := range m.rows {
+			if f(r.Stats) {
+				return true
+			}
+		}
+		return false
+	}
+	var groups []extraGroup
+	if has(func(s models.TeamSeasonStats) bool { return s.XG != nil }) {
+		// xG and xGA go together: attacking output means little without
+		// what the team conceded. xGD is derived from the pair.
+		groups = append(groups,
+			extraGroup{
+				columns: []components.Column{
+					{Title: "xG", Width: xgWidth, Right: true},
+					{Title: "xGA", Width: xgWidth, Right: true},
+				},
+				cells: func(s models.TeamSeasonStats) []components.Cell {
+					return []components.Cell{
+						components.Text(components.Float(s.XG, 1)),
+						components.Text(components.Float(s.XGA, 1)),
+					}
+				},
+			},
+			extraGroup{
+				columns: []components.Column{{Title: "xGD", Width: xgWidth, Right: true}},
+				cells: func(s models.TeamSeasonStats) []components.Cell {
+					if s.XG == nil || s.XGA == nil {
+						return []components.Cell{components.Text(components.Missing)}
+					}
+					diff := *s.XG - *s.XGA
+					return []components.Cell{components.Styled(components.SignedFloat(diff, 1), m.deltaStyle(diff))}
+				},
+			})
+		return groups
+	}
+	if has(func(s models.TeamSeasonStats) bool { return s.PossessionAvg != nil }) {
+		groups = append(groups, extraGroup{
+			columns: []components.Column{{Title: "Poss", Width: xgWidth, Right: true}},
+			cells: func(s models.TeamSeasonStats) []components.Cell {
+				if s.PossessionAvg == nil {
+					return []components.Cell{components.Text(components.Missing)}
+				}
+				return []components.Cell{components.Text(strconv.FormatFloat(*s.PossessionAvg, 'f', 1, 64) + "%")}
+			},
+		})
+	}
+	if has(func(s models.TeamSeasonStats) bool { return s.Shots != nil }) {
+		groups = append(groups, extraGroup{
+			columns: []components.Column{
+				{Title: "Sh", Width: goalWidth, Right: true},
+				{Title: "SoT", Width: goalWidth, Right: true},
+			},
+			cells: func(s models.TeamSeasonStats) []components.Cell {
+				return []components.Cell{
+					components.Text(components.Int(s.Shots)),
+					components.Text(components.Int(s.ShotsOnTarget)),
+				}
+			},
+		})
+	}
+	return groups
 }
 
 // View implements core.Screen.
@@ -157,20 +231,11 @@ func (m *Model) table() string {
 	th := m.deps.Theme
 	rows := make([][]components.Cell, 0, len(m.rows))
 
+	extras := m.extraGroups()
 	for _, r := range m.rows {
 		s := r.Stats
 
-		xgd := ""
-		var xgdCell components.Cell
-		if s.XG != nil && s.XGA != nil {
-			diff := *s.XG - *s.XGA
-			xgd = components.SignedFloat(diff, 1)
-			xgdCell = components.Styled(xgd, m.deltaStyle(diff))
-		} else {
-			xgdCell = components.Text(components.Missing)
-		}
-
-		rows = append(rows, []components.Cell{
+		row := []components.Cell{
 			components.Text(components.Int(s.Position)),
 			components.Text(r.Team.Name),
 			components.Text(strconv.Itoa(s.MatchesPlayed)),
@@ -181,10 +246,11 @@ func (m *Model) table() string {
 			components.Text(strconv.Itoa(s.GoalsAgainst)),
 			components.Styled(components.Signed(s.GoalDiff), m.deltaStyle(float64(s.GoalDiff))),
 			components.Styled(strconv.Itoa(s.Points), th.Accent.Bold(true)),
-			components.Text(components.Float(s.XG, 1)),
-			components.Text(components.Float(s.XGA, 1)),
-			xgdCell,
-		})
+		}
+		for _, g := range extras {
+			row = append(row, g.cells(s)...)
+		}
+		rows = append(rows, row)
 	}
 
 	cols := m.columns()

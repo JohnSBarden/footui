@@ -35,7 +35,7 @@ func TestMapStandingsAggregatesAndRanks(t *testing.T) {
 		}
 	}
 
-	arsenal := stats[byTeam["eng-arsenal"]]
+	arsenal := stats[byTeam["understat:eng-arsenal"]]
 	if arsenal.Points != 4 || arsenal.MatchesPlayed != 2 || arsenal.GoalsFor != 3 || arsenal.GoalsAgainst != 1 {
 		t.Errorf("unexpected Arsenal aggregate: %+v", arsenal)
 	}
@@ -55,7 +55,7 @@ func TestMapPlayersAttributesTransferredPlayerToMostRecentClub(t *testing.T) {
 
 	var transfer *string
 	for _, p := range players {
-		if p.PlayerID == "understat-101" {
+		if p.PlayerID == "understat:101" {
 			transfer = &p.TeamID
 		}
 	}
@@ -64,7 +64,7 @@ func TestMapPlayersAttributesTransferredPlayerToMostRecentClub(t *testing.T) {
 	}
 	// team_title "Chelsea,Arsenal" -> most recent club is Arsenal, not a
 	// bogus concatenated "Chelsea,Arsenal" slug with no matching team row.
-	if *transfer != "eng-arsenal" {
+	if *transfer != "understat:eng-arsenal" {
 		t.Errorf("expected transferred player attributed to eng-arsenal, got %q", *transfer)
 	}
 }
@@ -90,7 +90,7 @@ func TestMapPlayerEntitiesExtractsIdentity(t *testing.T) {
 
 func TestTeamIDIsStableAndURLSafe(t *testing.T) {
 	got := teamID("eng-premier-league", "Manchester City")
-	want := "eng-manchester-city"
+	want := "understat:eng-manchester-city"
 	if got != want {
 		t.Errorf("teamID() = %q, want %q", got, want)
 	}

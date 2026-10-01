@@ -66,8 +66,12 @@ func TestStandingsMapGroupsAndGoalDifference(t *testing.T) {
 	if fire.GoalsFor != 68 || fire.GoalsAgainst != 60 || fire.GoalDiff != 8 || fire.Points != 53 {
 		t.Errorf("goals/points %+v", fire)
 	}
-	if fire.Position == nil || *fire.Position != 8 {
-		t.Errorf("position %v, want 8th in the Eastern Conference", fire.Position)
+	// Two conferences become one table, not two tables each numbered from
+	// 1: Columbus 54 pts, Chicago 53, Dallas 44, Colorado 41.
+	for id, want := range map[string]int{"espn:183": 1, "espn:182": 2, "espn:185": 3, "espn:184": 4} {
+		if got := find(t, rows, id).Position; got == nil || *got != want {
+			t.Errorf("%s position %v, want %d overall", id, got, want)
+		}
 	}
 	if fire.XG != nil {
 		t.Error("ESPN has no expected goals; xG must stay unset")

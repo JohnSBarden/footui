@@ -155,14 +155,18 @@ func primaryTeamTitle(teamTitle string) string {
 	return strings.TrimSpace(parts[len(parts)-1])
 }
 
-// teamID generates the canonical team ID for a team within a given
-// competition's country namespace.
+// teamID generates understat's own ID for a team: "understat:" and the
+// canonical ID footy has always derived from the club's name within its
+// competition's country namespace. The sync layer resolves it like any
+// provider's ID, so a club another provider cached first is matched
+// rather than duplicated, and a club footy hasn't seen keeps exactly the
+// canonical ID it always had.
 func teamID(compID, teamTitle string) string {
 	prefix := countryPrefix[compID]
 	if prefix == "" {
 		prefix = "team"
 	}
-	return prefix + "-" + slugify(teamTitle)
+	return "understat:" + prefix + "-" + slugify(teamTitle)
 }
 
 // mapTeamEntities extracts the Team rows (identity, not stats) referenced
@@ -276,7 +280,7 @@ func mapPlayerEntities(data *leagueData) []models.Player {
 	out := make([]models.Player, 0, len(data.Players))
 	for _, p := range data.Players {
 		out = append(out, models.Player{
-			ID:       "understat-" + p.ID,
+			ID:       "understat:" + p.ID,
 			Name:     p.PlayerName,
 			Position: p.Position,
 			Gender:   "men", // all six understat.com-covered leagues are men's competitions
@@ -300,7 +304,7 @@ func mapPlayers(data *leagueData, compID, seasonID string) []models.PlayerSeason
 		xa, _ := strconv.ParseFloat(p.XA, 64)
 
 		out = append(out, models.PlayerSeasonStats{
-			PlayerID:        "understat-" + p.ID,
+			PlayerID:        "understat:" + p.ID,
 			TeamID:          teamID(compID, primaryTeamTitle(p.TeamTitle)),
 			CompetitionID:   compID,
 			SeasonID:        seasonID,

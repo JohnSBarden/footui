@@ -1,6 +1,7 @@
 package espn
 
 import (
+	"sort"
 	"strings"
 	"time"
 
@@ -150,7 +151,32 @@ func mapStandings(resp standingsResponse, comp models.Competition, seasonID stri
 			rows = append(rows, row)
 		}
 	}
+	if len(resp.Children) > 1 {
+		rankOverall(rows)
+	}
 	return teams, rows
+}
+
+// rankOverall replaces per-group ranks with one table across every group,
+// by points, then goal difference, then goals scored. Footy shows one
+// table per competition-season; two conferences each numbered from 1
+// would interleave in it ("1, 1, 2, 2 …") and read as nonsense. For MLS
+// this is the Supporters' Shield table.
+func rankOverall(rows []models.TeamSeasonStats) {
+	sort.SliceStable(rows, func(i, j int) bool {
+		a, b := rows[i], rows[j]
+		if a.Points != b.Points {
+			return a.Points > b.Points
+		}
+		if a.GoalDiff != b.GoalDiff {
+			return a.GoalDiff > b.GoalDiff
+		}
+		return a.GoalsFor > b.GoalsFor
+	})
+	for i := range rows {
+		p := i + 1
+		rows[i].Position = &p
+	}
 }
 
 // mapTeam builds a Team. Domestic competitions give a club its country;

@@ -136,29 +136,44 @@ misspelt key is an error naming the file, not a setting silently ignored.
 
 ## What's covered
 
-**This is the part to read before relying on it.** footy's coverage is
-determined by its data source, and the gaps are real:
+**This is the part to read before relying on it.** footy draws on two
+sources, and what you get for a competition depends on which one serves it
+(`footy competitions` lists every competition with its source and how far
+back it goes):
 
-| | Covered |
-|---|---|
-| Competitions | Premier League, La Liga, Bundesliga, Serie A, Ligue 1, Russian Premier League |
-| Tiers | Top flight only — no second divisions |
-| Women's football | Not covered |
-| Continental competitions | Not covered as competitions in their own right |
-| Team stats | Results, goals, points, xG, xGA, npxG, PPDA, deep completions, expected points |
-| Player stats | Appearances, minutes, goals, assists, shots, key passes, xG, xA, npxG |
-| Missing team stats | Possession, fouls, corners, cards — the source has none |
+| | understat.com | ESPN |
+|---|---|---|
+| Competitions | Premier League, La Liga, Bundesliga, Serie A, Ligue 1, Russian Premier League | MLS, USL Championship; Championship, La Liga 2, 2. Bundesliga, Serie B, Ligue 2; Women's Super League, Liga F, Première Ligue, NWSL; Champions League, Europa League, Conference League, Women's Champions League |
+| History | 2014-15 on | 2010-11 on for most; 2016 for NWSL, 2018-19 for the WSL, 2021-22 or later for the newest competitions |
+| Team stats | Results, goals, points, xG, xGA, npxG, PPDA, deep completions, expected points | Results, goals, points, possession, shots, shots on target, corners, fouls, cards |
+| Player stats | Appearances, minutes, goals, assists, shots, key passes, xG, xA, npxG | Appearances, goals, assists, shots, cards — no minutes |
+| Not available | Possession, fouls, corners, cards | Expected goals of any kind |
 
-The original design targeted the top two divisions of six countries plus
-women's leagues. The v1 source (understat.com) doesn't reach that far. The
-gap is tracked in `internal/data/sync/scope.go` and
-[`docs/architecture.md`](docs/architecture.md), not papered over — and the
-provider boundary is designed so closing it means writing one new package.
+Not covered by either: the German and Italian women's leagues, third tiers
+and below, and domestic cups.
+
+A club or player reached through both sources is one entity: Arsenal's
+Champions League seasons sit on the same dashboard as its Premier League
+ones, and Saka has one career. footy matches clubs by name (exactly, for
+European competitions; a club following its way between divisions is also
+matched) and players within their club's squad, and remembers each match,
+so it never re-guesses. A club it can't confidently match is kept separate
+rather than merged into the wrong one. Women's sides are always separate
+from the men's club of the same name.
+
+ESPN's team figures are uneven across seasons — a season can report 0%
+possession or thousands of corners. footy checks each against the matches
+played and leaves an impossible figure blank rather than showing it.
+Tables with groups (MLS's conferences, old Champions League group stages)
+are shown as one overall table ranked by points, goal difference, then
+goals scored.
 
 Two datasets are hand-curated because no scrapeable source exists:
 
 - **Club colors** (`internal/colors/seed/teamcolors.yaml`) — used to theme a
-  club's dashboard. `footy colors` reports which cached clubs still lack them.
+  club's dashboard. ESPN supplies colors for the clubs it serves, and the
+  curated file overrides them where it has an entry. `footy colors` reports
+  which cached clubs still lack any.
 - **Honours** (`internal/trophies/seed/trophies.yaml`) — deliberately partial:
   complete European Cup lists, domestic league titles from 2000-01 onward. The
   Team screen labels the panel with that limit so a count is never mistaken for
