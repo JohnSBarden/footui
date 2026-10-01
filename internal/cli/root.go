@@ -41,6 +41,10 @@ func NewRootCmd() *cobra.Command {
 		"override the SQLite database path (default: $XDG_DATA_HOME/footui/footy.db)")
 	root.PersistentFlags().BoolVar(&g.noColor, "no-color", false,
 		"disable color output (also honours the NO_COLOR environment variable)")
+	root.PersistentFlags().StringVar(&g.theme, "theme", os.Getenv("FOOTY_THEME"),
+		"club theme: weak (club colors as highlights) or strong (screen painted in club colors); default $FOOTY_THEME or weak")
+	root.PersistentFlags().DurationVar(&g.staleAfter, "stale-after", DefaultStaleAfter,
+		"when the interface opens, refresh followed leagues whose current season is older than this (0 disables)")
 
 	root.AddCommand(newVersionCmd())
 	root.AddCommand(newRefreshCmd(g))

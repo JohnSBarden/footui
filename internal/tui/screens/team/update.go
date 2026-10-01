@@ -62,8 +62,15 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 		// The plain theme is left alone: NO_COLOR means no color, and a
 		// club's branding is not an exception to that.
 		if !m.theme.NoColor {
-			m.theme = styles.TeamTheme(msg.colors.PrimaryHex, msg.colors.SecondaryHex)
+			m.colors = &msg.colors
+			m.theme = styles.TeamThemeFor(msg.colors.PrimaryHex, msg.colors.SecondaryHex, m.deps.ThemeMode())
 			m.branded = true
+		}
+		return m, nil
+
+	case core.ThemeChangedMsg:
+		if m.colors != nil {
+			m.theme = styles.TeamThemeFor(m.colors.PrimaryHex, m.colors.SecondaryHex, msg.Mode)
 		}
 		return m, nil
 

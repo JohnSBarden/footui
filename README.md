@@ -39,8 +39,19 @@ install alongside it.
 
 ## Getting started
 
-`footy` ships with no data. Press `ctrl+r` on the first screen to fetch the
-Premier League, or fetch from the shell:
+`footy` ships with no data. The easiest start is the in-app league
+catalog: open `footy`, press `ctrl+g` (or `d` on any screen without a
+search box), pick a league, tick the seasons you want (back to 2014-15) and
+press `enter`. Downloads run in the background, one league at a time, with
+progress on the status line, so you can keep browsing while they finish.
+
+Opening the interface also brings followed leagues up to date. If a league
+you have the current season of was last refreshed more than six hours ago,
+it is refreshed in the background. Once a new season starts, a league you
+followed last season gets the new one fetched. `--stale-after 2h` changes
+the threshold and `--stale-after 0` turns this off.
+
+Or fetch from the shell:
 
 ```sh
 footy refresh                        # current season of the Premier League
@@ -82,7 +93,22 @@ to them rather than guessing.
 Every screen shows its bindings along the bottom; `?` expands the full set.
 `esc` goes back, `q` quits. `r` (or `ctrl+r` while the search box has focus)
 refreshes the competition on screen without leaving the app; progress and
-the outcome show on the status line.
+the outcome show on the status line. `d` (or `ctrl+g`) opens the league
+catalog. In it, `space` ticks a season, `a` ticks every season you don't
+have yet, `c` ticks the current one, and `enter` downloads what's ticked.
+
+### Themes
+
+A club's dashboard is drawn in its colors, in one of two modes:
+
+- **weak** (default): your terminal's own background, transparent if it is,
+  with club colors for highlights, headings and borders.
+- **strong**: the whole screen painted in the club's primary color. Text,
+  accents, and win/loss colors are chosen to meet WCAG AA contrast against
+  it, and the selected row is drawn inverse.
+
+Press `t` to switch while running, or pick one with `--theme strong`. Set
+`FOOTY_THEME=strong` in your shell profile to make it the default.
 
 ## What's covered
 
@@ -133,7 +159,9 @@ easiest way to improve coverage.
 | `footy completion <shell>` | Shell completions for bash, zsh, fish, powershell |
 
 Global flags: `--db` to point at another database, `--no-color` to disable
-color (`NO_COLOR` is honoured too).
+color (`NO_COLOR` is honoured too), `--theme weak|strong` for club screens
+(default `$FOOTY_THEME`), and `--stale-after D` for the refresh-on-open
+threshold (default `6h`, `0` disables).
 
 ## Where data lives
 

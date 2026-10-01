@@ -126,13 +126,12 @@ func (m *Model) emptyState() string {
 		lines := []string{
 			th.Empty.Render("Nothing cached yet."),
 			"",
-			th.Muted.Render("Press  ") + th.Accent.Render("ctrl+r") +
-				th.Muted.Render("  to fetch the Premier League now,"),
-			th.Muted.Render("or run  ") +
-				th.Accent.Render("footy refresh --competition "+defaultCompetition) +
-				th.Muted.Render("  from a shell"),
-			th.Muted.Render("(") + th.Accent.Render("footy competitions") +
-				th.Muted.Render("  lists everything that can be fetched)."),
+			th.Muted.Render("Press  ") + th.Accent.Render("ctrl+g") +
+				th.Muted.Render("  to choose leagues and seasons to download,"),
+			th.Muted.Render("or  ") + th.Accent.Render("ctrl+r") +
+				th.Muted.Render("  to fetch this season of the Premier League now."),
+			th.Muted.Render("From a shell:  ") +
+				th.Accent.Render("footy refresh --competition "+defaultCompetition),
 		}
 		return strings.Join(lines, "\n")
 	}

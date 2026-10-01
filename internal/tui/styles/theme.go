@@ -67,6 +67,11 @@ type Theme struct {
 	Panel      lipgloss.Style
 	PanelTitle lipgloss.Style
 
+	// Background is the color the whole screen is painted in, or nil to
+	// leave the terminal's own background showing — every theme except a
+	// strong club theme.
+	Background lipgloss.TerminalColor
+
 	// NoColor reports whether color was disabled; screens that would
 	// otherwise convey meaning through color alone add a text marker.
 	NoColor bool

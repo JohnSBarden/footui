@@ -165,6 +165,31 @@ root app in `core.Deps`. Screens only report which competition a refresh
 from them should fetch (`core.Refreshable`) and re-query when told it
 landed (`core.RefreshedMsg`).
 
+Every refresh the TUI runs goes through one queue in the root app
+(`internal/tui/refresh.go`), whatever triggered it: the refresh key, the
+league catalog (which sends a `core.RefreshRequestMsg` naming leagues and
+seasons), or the stale check on open. `internal/cli` works out which
+followed leagues have a stale current season, using only storage queries
+and the sync package's season arithmetic, and hands those to `tui.Run` as
+startup requests. The queue runs one request at a time, broadcasts
+`core.RefreshQueueMsg` so screens can mark what's in flight, and reports a
+batch once it drains. That way an early failure isn't hidden by a later
+success.
+
+Messages broadcast to the whole stack can make a buried screen issue a
+command, such as Browse re-running its search after a refresh. That
+command's reply is wrapped in a `routedMsg` addressed to the screen's
+stack id (`internal/tui/route.go`), so it reaches that screen rather than
+whichever one is on top.
+
+Club themes come in two modes (`styles.Mode`). Weak uses club colors as
+foreground accents and leaves the terminal's background alone. Strong
+(`styles.StrongTeamTheme`) solves a palette against the club's primary as
+the background, and the root app paints the whole frame in it with
+`styles.Paint`. A themed screen exposes its theme through
+`core.ThemedScreen` so the chrome matches. The mode lives in a shared
+`*styles.Appearance` so the `t` toggle reaches every screen.
+
 ### How screens are structured
 
 ```
@@ -174,7 +199,7 @@ internal/tui/
 ├── keys/             # every key binding, paired with its help text
 ├── styles/           # the theme, and team-brand theming with contrast adjustment
 ├── components/       # table, stat cards, tabs, freshness, formatting
-└── screens/{browse,league,team,player}/
+└── screens/{browse,catalog,league,team,player}/
 ```
 
 Three rules make this hold together:

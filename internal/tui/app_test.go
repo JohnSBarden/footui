@@ -82,6 +82,8 @@ func keyPress(name string) tea.KeyMsg {
 		return tea.KeyMsg{Type: tea.KeyCtrlC}
 	case "ctrl+r":
 		return tea.KeyMsg{Type: tea.KeyCtrlR}
+	case "ctrl+g":
+		return tea.KeyMsg{Type: tea.KeyCtrlG}
 	default:
 		return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(name)}
 	}
@@ -388,16 +390,23 @@ func TestUnsizedTerminalKeepsAUsableDefault(t *testing.T) {
 // scripted refresh: each progress line, then the summary or error.
 type fakeRefresher struct {
 	called   []string
+	requests []core.RefreshRequest
 	progress []string
-	summary  string
-	err      error
+	// errFor fails only the named competitions, when set.
+	errFor  map[string]error
+	summary string
+	err     error
 }
 
 func (f *fakeRefresher) fn() core.Refresher {
-	return func(ctx context.Context, competitionID string, progress func(string)) (string, error) {
-		f.called = append(f.called, competitionID)
+	return func(ctx context.Context, req core.RefreshRequest, progress func(string)) (string, error) {
+		f.called = append(f.called, req.CompetitionID)
+		f.requests = append(f.requests, req)
 		for _, p := range f.progress {
 			progress(p)
+		}
+		if err, ok := f.errFor[req.CompetitionID]; ok {
+			return "", err
 		}
 		return f.summary, f.err
 	}
@@ -410,18 +419,28 @@ func (f *fakeRefresher) fn() core.Refresher {
 func drive(t *testing.T, app *App, cmd tea.Cmd) (*App, []string) {
 	t.Helper()
 	var views []string
-	for i := 0; cmd != nil; i++ {
-		if i > 50 {
+	queue := []tea.Cmd{cmd}
+	for i := 0; len(queue) > 0; i++ {
+		if i > 200 {
 			t.Fatal("command chain did not terminate")
 		}
-		msg := cmd()
-		if msg == nil {
-			break
+		next := queue[0]
+		queue = queue[1:]
+		if next == nil {
+			continue
 		}
-		var updated tea.Model
-		updated, cmd = app.Update(msg)
+		msg := next()
+		if batch, ok := msg.(tea.BatchMsg); ok {
+			queue = append(queue, batch...)
+			continue
+		}
+		if msg == nil {
+			continue
+		}
+		updated, follow := app.Update(msg)
 		app = updated.(*App)
 		views = append(views, app.View())
+		queue = append(queue, follow)
 	}
 	return app, views
 }

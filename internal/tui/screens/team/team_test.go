@@ -304,6 +304,32 @@ func TestClubColorsThemeTheScreen(t *testing.T) {
 	}
 }
 
+func TestStrongModePaintsTheClubAndTogglesBack(t *testing.T) {
+	repos := seedTwoCompetitions(t)
+	if err := repos.UpsertTeamColors(context.Background(), models.TeamColors{
+		TeamID: arsenal.ID, PrimaryHex: "#EF0107", SecondaryHex: "#FFFFFF", Source: "test",
+	}); err != nil {
+		t.Fatalf("UpsertTeamColors: %v", err)
+	}
+
+	deps := newDeps(repos)
+	deps.Theme = styles.Default()
+	deps.Appearance = &styles.Appearance{Mode: styles.Strong}
+	s := tuitest.Settle(t, team.New(deps, arsenal, "eng-premier-league", "eng-premier-league:2025")).(*team.Model)
+
+	if s.ScreenTheme().Background == nil {
+		t.Fatal("strong mode should give the club screen a background")
+	}
+
+	s.Update(core.ThemeChangedMsg{Mode: styles.Weak})
+	if s.ScreenTheme().Background != nil {
+		t.Error("switching to weak should drop the background")
+	}
+	if !s.Themed() {
+		t.Error("weak mode is still the club's colors")
+	}
+}
+
 // Uncurated clubs are the common case and must render normally.
 func TestClubWithoutColorsStaysOnTheNeutralTheme(t *testing.T) {
 	deps := newDeps(seedTwoCompetitions(t))

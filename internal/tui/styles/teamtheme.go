@@ -59,6 +59,111 @@ func TeamTheme(primaryHex, secondaryHex string) Theme {
 	return New(TeamPalette(primaryHex, secondaryHex))
 }
 
+// TeamThemeFor builds a club's theme in the given mode.
+func TeamThemeFor(primaryHex, secondaryHex string, mode Mode) Theme {
+	if mode == Strong {
+		if t, ok := StrongTeamTheme(primaryHex, secondaryHex); ok {
+			return t
+		}
+	}
+	return TeamTheme(primaryHex, secondaryHex)
+}
+
+// StrongTeamTheme builds a theme whose background is the club's primary
+// color. Unlike the weak theme the background is known exactly, so every
+// color is solved against it once rather than adapted per terminal: text
+// is black or white, whichever contrasts more; the secondary color becomes
+// the accent if it can be made readable on the primary; and the selected
+// row and title bar are drawn inverse, the strongest contrast available.
+func StrongTeamTheme(primaryHex, secondaryHex string) (Theme, bool) {
+	bg, ok := parseHex(primaryHex)
+	if !ok {
+		return Theme{}, false
+	}
+	text := mustHex("#ffffff")
+	if contrastRatio(mustHex("#000000"), bg) > contrastRatio(text, bg) {
+		text = mustHex("#000000")
+	}
+
+	accent := text
+	if secondary, ok := parseHex(secondaryHex); ok {
+		if c := solveOn(secondary, bg, minContrast); contrastRatio(c, bg) >= minContrast {
+			accent = c
+		}
+	}
+
+	hex := func(c colorful.Color) lipgloss.Color { return lipgloss.Color(c.Hex()) }
+	p := Palette{
+		Accent:    hex(accent),
+		OnAccent:  readableTextOn(accent),
+		Text:      hex(text),
+		Muted:     hex(muted(text, bg)),
+		Border:    hex(accent),
+		Positive:  hex(solveOn(mustHex("#2ec27e"), bg, minContrast)),
+		Negative:  hex(solveOn(mustHex("#e01b24"), bg, minContrast)),
+		Highlight: hex(text),
+	}
+
+	t := New(p)
+	t.Background = hex(bg)
+	t.Title = t.Title.Foreground(hex(bg)).Background(hex(text))
+	t.TableSelected = lipgloss.NewStyle().Foreground(hex(bg)).Background(hex(text)).Bold(true)
+	return t, true
+}
+
+// solveOn adjusts c's lightness until it reads against bg, trying both
+// directions — on a mid-tone background either may be the one that works
+// — and keeping whichever gets closer.
+func solveOn(c, bg colorful.Color, threshold float64) colorful.Color {
+	if contrastRatio(c, bg) >= threshold {
+		return c
+	}
+	h, s, l := c.Hsl()
+	best, bestRatio := c, contrastRatio(c, bg)
+	for _, step := range []float64{0.02, -0.02} {
+		for v := l + step; v >= 0 && v <= 1; v += step {
+			candidate := quantize(colorful.Hsl(h, s, v))
+			r := contrastRatio(candidate, bg)
+			if r >= threshold {
+				// The first passing step in this direction is the least
+				// change; prefer it over a bigger change the other way.
+				if bestRatio < threshold || colorDistance(candidate, c) < colorDistance(best, c) {
+					best, bestRatio = candidate, r
+				}
+				break
+			}
+			if bestRatio < threshold && r > bestRatio {
+				best, bestRatio = candidate, r
+			}
+		}
+	}
+	return best
+}
+
+// quantize rounds a color to what it will actually be rendered as: an
+// in-gamut, 8-bit-per-channel hex value. Contrast is checked on this,
+// not on the float color, or a blend that clears the threshold
+// in-memory can miss it once written out.
+func quantize(c colorful.Color) colorful.Color {
+	return mustHex(c.Clamped().Hex())
+}
+
+func colorDistance(a, b colorful.Color) float64 { return a.DistanceLab(b) }
+
+// muted blends text toward the background as far as it can while staying
+// readable, giving secondary text that recedes without disappearing.
+func muted(text, bg colorful.Color) colorful.Color {
+	best := text
+	for f := 0.05; f < 1; f += 0.05 {
+		c := quantize(text.BlendLab(bg, f))
+		if contrastRatio(c, bg) < minContrast {
+			break
+		}
+		best = c
+	}
+	return best
+}
+
 // parseHex parses "#rrggbb" (or "rrggbb"), reporting false for anything
 // malformed.
 func parseHex(hex string) (colorful.Color, bool) {

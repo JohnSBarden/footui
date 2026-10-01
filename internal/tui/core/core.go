@@ -37,6 +37,33 @@ type Deps struct {
 	// host didn't wire one up (tests, mostly); the root app then tells
 	// the user to use the CLI instead of failing silently.
 	Refresh Refresher
+	// Catalog is every competition the host can fetch, for the league
+	// catalog screen. Empty means the host offered none (tests, mostly).
+	Catalog []CatalogEntry
+	// Appearance is the user's theme choice. It is a pointer shared by
+	// every screen so a runtime toggle reaches all of them; nil means
+	// the default (weak).
+	Appearance *styles.Appearance
+}
+
+// ThemeMode is the current theme mode, weak when none was configured.
+func (d Deps) ThemeMode() styles.Mode {
+	if d.Appearance == nil {
+		return styles.Weak
+	}
+	return d.Appearance.Mode
+}
+
+// ThemeChangedMsg is broadcast to every screen when the user switches
+// theme mode, so screens holding a club theme can rebuild it.
+type ThemeChangedMsg struct{ Mode styles.Mode }
+
+// ThemedScreen is implemented by screens that render in a theme of their
+// own (a club's colors). The root app draws its chrome — breadcrumb,
+// footer, status line — in that theme too, and paints the whole frame in
+// its background when it has one.
+type ThemedScreen interface {
+	ScreenTheme() styles.Theme
 }
 
 // Navigator is the set of screen constructors available for drill-down.
@@ -48,6 +75,8 @@ type Navigator struct {
 	Team   func(deps Deps, team models.Team, competitionID, seasonID string) Screen
 	Player func(deps Deps, player models.Player, teamID string) Screen
 	Browse func(deps Deps, query string) Screen
+	// Catalog opens the screen for choosing leagues and seasons to fetch.
+	Catalog func(deps Deps) Screen
 }
 
 // Screen is one view in the navigation stack. It mirrors tea.Model except

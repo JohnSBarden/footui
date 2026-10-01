@@ -10,6 +10,7 @@ package tui
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/help"
@@ -22,6 +23,7 @@ import (
 	"github.com/JohnSBarden/footui/internal/tui/core"
 	"github.com/JohnSBarden/footui/internal/tui/keys"
 	"github.com/JohnSBarden/footui/internal/tui/screens/browse"
+	"github.com/JohnSBarden/footui/internal/tui/screens/catalog"
 	"github.com/JohnSBarden/footui/internal/tui/screens/league"
 	"github.com/JohnSBarden/footui/internal/tui/screens/player"
 	"github.com/JohnSBarden/footui/internal/tui/screens/team"
@@ -32,6 +34,10 @@ import (
 type App struct {
 	deps  core.Deps
 	stack []core.Screen
+	// ids parallels stack with a unique id per entry, so a message
+	// produced by a screen beneath the top can be routed back to it.
+	ids    []int
+	nextID int
 
 	width  int
 	height int
@@ -43,8 +49,15 @@ type App struct {
 	// the status line until it finishes; empty when none is running.
 	// Unlike status it survives keystrokes, so the user can keep
 	// navigating while it runs without losing sight of it.
-	refreshing        string
-	lastRefreshTarget string
+	refreshing string
+	// active is the refresh running now, nil when idle; queue is what
+	// waits behind it. batch collects outcomes until the queue drains.
+	active *core.RefreshRequest
+	queue  []core.RefreshRequest
+	batch  refreshBatch
+	// startup is refresh work to queue as soon as the app starts — the
+	// stale current seasons the host found when it opened the database.
+	startup []core.RefreshRequest
 
 	help     help.Model
 	showFull bool
@@ -60,6 +73,8 @@ func NewApp(deps core.Deps, initial core.Screen) *App {
 	return &App{
 		deps:   deps,
 		stack:  []core.Screen{initial},
+		ids:    []int{0},
+		nextID: 1,
 		width:  100,
 		height: 30,
 		help:   h,
@@ -91,6 +106,9 @@ func navigator() core.Navigator {
 		Browse: func(deps core.Deps, query string) core.Screen {
 			return browse.New(deps, query)
 		},
+		Catalog: func(deps core.Deps) core.Screen {
+			return catalog.New(deps)
+		},
 	}
 }
 
@@ -117,9 +135,22 @@ func NewBrowseScreen(deps core.Deps, query string) core.Screen {
 	return browse.New(deps, query)
 }
 
+// QueueOnStart arranges for reqs to be refreshed as soon as the app
+// starts. It is how a stale current season gets brought up to date on
+// open without the user asking, while they carry on browsing.
+func (a *App) QueueOnStart(reqs ...core.RefreshRequest) {
+	a.startup = append(a.startup, reqs...)
+}
+
 // Init implements tea.Model.
 func (a *App) Init() tea.Cmd {
-	return a.current().Init()
+	init := a.current().Init()
+	if len(a.startup) == 0 || a.deps.Refresh == nil {
+		return init
+	}
+	reqs := a.startup
+	a.startup = nil
+	return tea.Batch(init, a.enqueue(reqs...))
 }
 
 func (a *App) current() core.Screen {
@@ -145,7 +176,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		for i, s := range a.stack {
 			updated, cmd := s.Update(a.screenSize())
 			a.stack[i] = updated
-			cmds = append(cmds, cmd)
+			cmds = append(cmds, a.routeFrom(i, cmd))
 		}
 		return a, tea.Batch(cmds...)
 
@@ -155,15 +186,23 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		a.status = ""
 		a.stack = append(a.stack, msg.Screen)
+		a.ids = append(a.ids, a.nextID)
+		a.nextID++
 		sized, sizeCmd := msg.Screen.Update(a.screenSize())
+		// A screen pushed mid-refresh learns what's in flight now rather
+		// than at the next queue change.
+		sized, queueCmd := sized.Update(core.RefreshQueueMsg{Active: a.active, Pending: slices.Clone(a.queue)})
 		a.stack[len(a.stack)-1] = sized
-		return a, tea.Batch(sizeCmd, sized.Init())
+		return a, tea.Batch(sizeCmd, queueCmd, sized.Init())
 
 	case core.PopMsg:
 		return a.pop()
 
 	case core.QuitMsg:
 		return a, tea.Quit
+
+	case routedMsg:
+		return a, a.deliver(msg)
 
 	case core.StatusMsg:
 		a.status = msg.Text
@@ -177,6 +216,9 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case refreshMsg:
 		return a, a.handleRefreshEvent(msg)
+
+	case core.RefreshRequestMsg:
+		return a, a.enqueue(msg.Requests...)
 	}
 
 	if key, ok := msg.(tea.KeyMsg); ok {
@@ -203,26 +245,88 @@ func (a *App) handleGlobalKey(key tea.KeyMsg) (bool, tea.Model, tea.Cmd) {
 		return true, model, cmd
 	case "q":
 		// A screen capturing text needs the literal character.
-		if entry, ok := a.current().(core.TextEntry); ok && entry.CapturingText() {
+		if a.capturingText() {
 			return false, a, nil
 		}
 		return true, a, tea.Quit
 	case "?":
-		if entry, ok := a.current().(core.TextEntry); ok && entry.CapturingText() {
+		if a.capturingText() {
 			return false, a, nil
 		}
 		a.showFull = !a.showFull
 		a.help.ShowAll = a.showFull
 		return true, a, nil
 	case "r":
-		if entry, ok := a.current().(core.TextEntry); ok && entry.CapturingText() {
+		if a.capturingText() {
 			return false, a, nil
 		}
 		return true, a, a.startRefresh()
 	case "ctrl+r":
 		return true, a, a.startRefresh()
+	case "d":
+		if a.capturingText() {
+			return false, a, nil
+		}
+		return true, a, a.openCatalog()
+	case "ctrl+g":
+		return true, a, a.openCatalog()
+	case "t":
+		if a.capturingText() {
+			return false, a, nil
+		}
+		return true, a, a.toggleTheme()
 	}
 	return false, a, nil
+}
+
+// theme is what the chrome is drawn in: the visible screen's own theme
+// when it has one (a club's colors), the app's otherwise.
+func (a *App) theme() styles.Theme {
+	if themed, ok := a.current().(core.ThemedScreen); ok {
+		return themed.ScreenTheme()
+	}
+	return a.deps.Theme
+}
+
+// toggleTheme switches between weak and strong club themes.
+func (a *App) toggleTheme() tea.Cmd {
+	if a.deps.Appearance == nil {
+		a.deps.Appearance = &styles.Appearance{}
+	}
+	if a.deps.Theme.NoColor {
+		a.status = "colors are off (--no-color / NO_COLOR), so there's no theme to switch"
+		return nil
+	}
+	a.deps.Appearance.Toggle()
+	mode := a.deps.Appearance.Mode
+	if mode == styles.Strong {
+		a.status = "theme: strong — club screens are painted in the club's colors"
+	} else {
+		a.status = "theme: weak — club colors as highlights on your terminal's background"
+	}
+	return a.broadcast(core.ThemeChangedMsg{Mode: mode})
+}
+
+// capturingText reports whether the visible screen wants bare letters.
+func (a *App) capturingText() bool {
+	entry, ok := a.current().(core.TextEntry)
+	return ok && entry.CapturingText()
+}
+
+// openCatalog pushes the league catalog, unless it is already showing.
+func (a *App) openCatalog() tea.Cmd {
+	if !a.catalogAvailable() {
+		a.status = "the league catalog isn't available in this view — see  footy competitions"
+		return nil
+	}
+	if a.current().Title() == catalog.Title {
+		return nil
+	}
+	return core.Push(a.deps.Nav.Catalog(a.deps))
+}
+
+func (a *App) catalogAvailable() bool {
+	return a.deps.Nav.Catalog != nil && len(a.deps.Catalog) > 0
 }
 
 // pop removes the top screen, quitting when the stack would be emptied.
@@ -231,6 +335,7 @@ func (a *App) pop() (tea.Model, tea.Cmd) {
 		return a, tea.Quit
 	}
 	a.stack = a.stack[:len(a.stack)-1]
+	a.ids = a.ids[:len(a.ids)-1]
 	a.status = ""
 	a.err = nil
 	return a, nil
@@ -265,7 +370,7 @@ func (a *App) View() string {
 		b.WriteString(line)
 	}
 
-	return b.String()
+	return styles.Paint(b.String(), a.theme(), a.width, a.height)
 }
 
 func (a *App) breadcrumb() string {
@@ -276,7 +381,7 @@ func (a *App) breadcrumb() string {
 	for _, s := range a.stack {
 		titles = append(titles, s.Title())
 	}
-	return a.deps.Theme.Breadcrumb.Render(strings.Join(titles, " › "))
+	return a.theme().Breadcrumb.Render(strings.Join(titles, " › "))
 }
 
 // footer renders the current screen's key bindings. Screens declare
@@ -287,10 +392,18 @@ func (a *App) footer() string {
 	// appended here rather than repeated in every screen's KeyMap — and
 	// to both views, or the expanded help would omit how to get out of it.
 	globals := []key.Binding{keys.Help, keys.Back, keys.Quit}
-	if entry, ok := a.current().(core.TextEntry); ok && entry.CapturingText() {
+	fullGlobals := []key.Binding{keys.Theme}
+	if a.capturingText() {
 		// "?" is also swallowed by the text box, so neither it nor "q" is
 		// offered here.
 		globals = []key.Binding{keys.Back, keys.QuitFromTextEntry}
+	}
+	if a.catalogAvailable() && a.current().Title() != catalog.Title {
+		download := keys.Catalog
+		if a.capturingText() {
+			download = keys.CatalogFromTextEntry
+		}
+		globals = append([]key.Binding{download}, globals...)
 	}
 	if refresh, ok := a.refreshBinding(); ok {
 		globals = append([]key.Binding{refresh}, globals...)
@@ -298,15 +411,18 @@ func (a *App) footer() string {
 
 	km := a.current().Keys()
 	km.Full = append(append([][]key.Binding{}, km.FullHelp()...), globals)
+	if !a.capturingText() {
+		km.Full = append(km.Full, fullGlobals)
+	}
 	km.Short = append(append([]key.Binding{}, km.Short...), globals...)
 
 	a.help.Width = a.width
-	a.help.Styles.ShortKey = a.deps.Theme.Accent
-	a.help.Styles.ShortDesc = a.deps.Theme.Help
-	a.help.Styles.ShortSeparator = a.deps.Theme.Help
-	a.help.Styles.FullKey = a.deps.Theme.Accent
-	a.help.Styles.FullDesc = a.deps.Theme.Help
-	a.help.Styles.FullSeparator = a.deps.Theme.Help
+	a.help.Styles.ShortKey = a.theme().Accent
+	a.help.Styles.ShortDesc = a.theme().Help
+	a.help.Styles.ShortSeparator = a.theme().Help
+	a.help.Styles.FullKey = a.theme().Accent
+	a.help.Styles.FullDesc = a.theme().Help
+	a.help.Styles.FullSeparator = a.theme().Help
 
 	return a.help.View(km)
 }
@@ -317,19 +433,21 @@ func (a *App) footer() string {
 func (a *App) statusLine() string {
 	switch {
 	case a.refreshing != "":
-		return a.deps.Theme.Status.Render(components.Truncate(a.refreshing, a.width))
+		return a.theme().Status.Render(components.Truncate(a.refreshing, a.width))
 	case a.status != "":
-		return a.deps.Theme.Status.Render(components.Truncate(a.status, a.width))
+		return a.theme().Status.Render(components.Truncate(a.status, a.width))
 	case a.err != nil:
-		return a.deps.Theme.Error.Render(components.Truncate("error: "+a.err.Error(), a.width))
+		return a.theme().Error.Render(components.Truncate("error: "+a.err.Error(), a.width))
 	}
 	return ""
 }
 
 // Run starts the program on the given screen and blocks until the user
-// quits.
-func Run(deps core.Deps, initial core.Screen) error {
-	p := tea.NewProgram(NewApp(deps, initial), tea.WithAltScreen())
+// quits. startup is refresh work to queue immediately.
+func Run(deps core.Deps, initial core.Screen, startup ...core.RefreshRequest) error {
+	app := NewApp(deps, initial)
+	app.QueueOnStart(startup...)
+	p := tea.NewProgram(app, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		return fmt.Errorf("tui: %w", err)
 	}

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -23,6 +24,11 @@ import (
 type globalFlags struct {
 	dbPath  string
 	noColor bool
+	// staleAfter is how old a cached current season may be before
+	// opening the TUI refreshes it; zero disables the check.
+	staleAfter time.Duration
+	// theme is the club theme mode name, "weak" or "strong".
+	theme string
 }
 
 // openStore opens (creating and migrating if needed) the local database and
@@ -53,20 +59,27 @@ func (g *globalFlags) dbPathOrDefault() string {
 // with the screen build returns. Every TUI-launching command funnels
 // through here so database lifetime and theme resolution live in one place.
 func (g *globalFlags) launchTUI(ctx context.Context, build func(core.Deps) (core.Screen, error)) error {
+	mode, err := styles.ParseMode(g.theme)
+	if err != nil {
+		return err
+	}
 	db, repos, err := g.openStore()
 	if err != nil {
 		return err
 	}
 	defer db.Close()
 
+	now := time.Now()
 	deps := tui.NewDeps(ctx, repos, styles.Resolve(g.noColor))
 	deps.Refresh = tuiRefresher(repos)
+	deps.Catalog = tuiCatalog(now)
+	deps.Appearance = &styles.Appearance{Mode: mode}
 
 	screen, err := build(deps)
 	if err != nil {
 		return err
 	}
-	return tui.Run(deps, screen)
+	return tui.Run(deps, screen, staleRefreshes(ctx, repos, now, g.staleAfter)...)
 }
 
 // resolveCompetition turns a free-text competition name into exactly one

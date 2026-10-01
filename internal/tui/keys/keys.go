@@ -43,6 +43,46 @@ var (
 		key.WithKeys("ctrl+r"),
 		key.WithHelp("ctrl+r", "refresh"),
 	)
+	// Catalog opens the league catalog, where competitions and seasons
+	// are chosen for download. ctrl+g works while a text box has focus.
+	Catalog = key.NewBinding(
+		key.WithKeys("d", "ctrl+g"),
+		key.WithHelp("d", "download leagues"),
+	)
+	// Theme switches club screens between the weak theme (club colors as
+	// highlights) and the strong one (painted in the club's colors).
+	Theme = key.NewBinding(
+		key.WithKeys("t"),
+		key.WithHelp("t", "strong/weak theme"),
+	)
+	CatalogFromTextEntry = key.NewBinding(
+		key.WithKeys("ctrl+g"),
+		key.WithHelp("ctrl+g", "download leagues"),
+	)
+)
+
+// Bindings used by the league catalog.
+var (
+	Toggle = key.NewBinding(
+		key.WithKeys(" ", "x"),
+		key.WithHelp("space", "select season"),
+	)
+	SelectMissing = key.NewBinding(
+		key.WithKeys("a"),
+		key.WithHelp("a", "select all missing"),
+	)
+	SelectCurrent = key.NewBinding(
+		key.WithKeys("c"),
+		key.WithHelp("c", "select current"),
+	)
+	Download = key.NewBinding(
+		key.WithKeys("enter"),
+		key.WithHelp("enter", "download selected"),
+	)
+	CatalogPane = key.NewBinding(
+		key.WithKeys("tab", "left", "right", "h", "l"),
+		key.WithHelp("tab/←→", "leagues/seasons"),
+	)
 )
 
 // Navigation bindings screens share. Each screen picks the ones it

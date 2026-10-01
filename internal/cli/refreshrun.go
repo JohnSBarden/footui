@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/JohnSBarden/footui/internal/colors"
@@ -70,24 +71,41 @@ func runRefresh(ctx context.Context, store storage.Repositories, comps []models.
 	return results
 }
 
-// tuiRefresher adapts runRefresh to the shape the TUI's refresh key needs:
-// one competition, the current season, progress as lines of text, and a
-// one-line summary or an error at the end.
+// tuiRefresher adapts runRefresh to the shape the TUI's refresh queue
+// needs: one competition and some of its seasons (the current one when
+// none are named), progress as lines of text, and a one-line summary or an
+// error at the end.
 func tuiRefresher(store storage.Repositories) core.Refresher {
-	return func(ctx context.Context, competitionID string, progress func(string)) (string, error) {
-		comp, ok := sync.FindCompetition(competitionID)
+	return func(ctx context.Context, req core.RefreshRequest, progress func(string)) (string, error) {
+		comp, ok := sync.FindCompetition(req.CompetitionID)
 		if !ok {
-			return "", fmt.Errorf("footy doesn't cover %q — see `footy competitions`", competitionID)
+			return "", fmt.Errorf("footy doesn't cover %q — see `footy competitions`", req.CompetitionID)
 		}
-		seasons := sync.RecentSeasonYears(time.Now(), 1)
+		seasons := req.Seasons
+		if len(seasons) == 0 {
+			seasons = sync.RecentSeasonYears(time.Now(), 1)
+		}
 
+		done := 0
 		results := runRefresh(ctx, store, []models.Competition{comp}, seasons, 0, refreshEvents{
+			unit: func(u sync.UnitResult) {
+				done++
+				if len(seasons) == 1 {
+					return
+				}
+				outcome := "ok"
+				if u.Failed() {
+					outcome = "failed"
+				}
+				progress(fmt.Sprintf("%s %s %s (%d of %d)",
+					comp.ID, seasonDisplay(u.Season.Label), outcome, done, len(seasons)))
+			},
 			retry: func(attempt, of int, err error) {
 				progress(fmt.Sprintf("retry %d of %d: %v", attempt, of, tuiError(err)))
 			},
 			note: progress,
 		})
-		summary, err := summarizeUnit(results)
+		summary, err := summarizeUnits(results)
 		return summary, tuiError(err)
 	}
 }
@@ -111,12 +129,41 @@ func tuiError(err error) error {
 	return errors.New(msg)
 }
 
-// summarizeUnit turns a single-unit refresh into the line the TUI shows.
-func summarizeUnit(results []sync.UnitResult) (string, error) {
-	if len(results) != 1 {
-		return "", fmt.Errorf("expected one competition-season, got %d", len(results))
+// summarizeUnits turns a refresh of one competition into the line the TUI
+// shows. Several seasons are summed; the refresh only errors when none of
+// them could be fetched, since a partial download is still worth keeping.
+func summarizeUnits(results []sync.UnitResult) (string, error) {
+	switch len(results) {
+	case 0:
+		return "", errors.New("nothing was refreshed")
+	case 1:
+		return summarizeUnit(results[0])
 	}
-	r := results[0]
+
+	sum := sync.Summarize(results)
+	if sum.Succeeded == 0 && sum.Fresh == 0 {
+		for _, r := range results {
+			if r.Err != nil {
+				return "", r.Err
+			}
+		}
+	}
+	line := fmt.Sprintf("%d of %d seasons — %d teams, %d players",
+		sum.Succeeded+sum.Fresh, sum.Units, sum.Totals.TeamStats, sum.Totals.PlayerStats)
+	var failed []string
+	for _, r := range results {
+		if r.Failed() {
+			failed = append(failed, seasonDisplay(r.Season.Label))
+		}
+	}
+	if len(failed) > 0 {
+		line += "; failed: " + strings.Join(failed, ", ")
+	}
+	return line, nil
+}
+
+// summarizeUnit describes one competition-season's refresh.
+func summarizeUnit(r sync.UnitResult) (string, error) {
 	switch {
 	case r.Failed():
 		return "", r.Err
