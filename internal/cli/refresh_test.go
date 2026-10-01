@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/JohnSBarden/footui/internal/data/models"
 	"github.com/JohnSBarden/footui/internal/data/sync"
 )
 
@@ -36,67 +37,88 @@ func TestResolveCompetitionsAllCoversTheWholeScope(t *testing.T) {
 }
 
 func TestUnknownCompetitionListsTheSupportedOnes(t *testing.T) {
-	f := &refreshFlags{competitionID: "eng-championship"}
+	f := &refreshFlags{competitionID: "ger-frauen-bundesliga"}
 
 	_, err := f.resolveCompetitions()
 	if err == nil {
 		t.Fatal("expected an error for an out-of-scope competition")
 	}
-	// The message has to tell the user what they can ask for; understat's
-	// coverage gap is real and this is where a user hits it.
+	// The message has to tell the user what they can ask for.
 	if !strings.Contains(err.Error(), "eng-premier-league") {
 		t.Errorf("error should list supported competitions, got: %v", err)
 	}
 }
 
-func TestResolveSeasonsDefaultsToTheCurrentSeason(t *testing.T) {
-	f := &refreshFlags{years: 1}
+func planFor(t *testing.T, f *refreshFlags, ids ...string) map[string][]string {
+	t.Helper()
+	var comps []models.Competition
+	for _, id := range ids {
+		c, ok := sync.FindCompetition(id)
+		if !ok {
+			t.Fatalf("%s not in scope", id)
+		}
+		comps = append(comps, c)
+	}
+	out := map[string][]string{}
+	for _, j := range f.plan(comps, testNow) {
+		out[j.Competition.ID] = j.Seasons
+	}
+	return out
+}
 
-	got := f.resolveSeasons(testNow)
-	if len(got) != 1 || got[0] != "2026" {
-		t.Errorf("resolveSeasons = %v, want just the 2026-27 season", got)
+func TestPlanDefaultsToEachCompetitionsCurrentSeason(t *testing.T) {
+	got := planFor(t, &refreshFlags{years: 1}, "eng-premier-league", "usa-mls")
+	if s := got["eng-premier-league"]; len(s) != 1 || s[0] != "2026" {
+		t.Errorf("premier league %v, want 2026-27", s)
+	}
+	if s := got["usa-mls"]; len(s) != 1 || s[0] != "2026" {
+		t.Errorf("MLS %v, want 2026", s)
 	}
 }
 
-func TestResolveSeasonsCountsBackWithYears(t *testing.T) {
-	f := &refreshFlags{years: 10}
-
-	got := f.resolveSeasons(testNow)
-	if len(got) != 10 {
-		t.Fatalf("resolveSeasons returned %d seasons, want 10", len(got))
+func TestPlanCountsBackWithYearsButNotPastTheProvidersHistory(t *testing.T) {
+	got := planFor(t, &refreshFlags{years: 10}, "eng-premier-league", "esp-liga-f")
+	if s := got["eng-premier-league"]; len(s) != 10 || s[0] != "2026" || s[9] != "2017" {
+		t.Errorf("ten Premier League seasons = %v", s)
 	}
-	if got[0] != "2026" || got[9] != "2017" {
-		t.Errorf("ten seasons back = %v", got)
+	// Liga F's table only goes back to 2022-23.
+	if s := got["esp-liga-f"]; len(s) != 5 || s[len(s)-1] != "2022" {
+		t.Errorf("Liga F = %v, want 2026 back to 2022 only", s)
 	}
 }
 
 // Asking for a specific season and "the N most recent" at once has no
 // coherent meaning, so the explicit season wins.
 func TestExplicitSeasonOverridesYears(t *testing.T) {
-	f := &refreshFlags{season: "2019", years: 5}
-
-	got := f.resolveSeasons(testNow)
-	if len(got) != 1 || got[0] != "2019" {
-		t.Errorf("resolveSeasons = %v, want only the explicitly requested season", got)
+	got := planFor(t, &refreshFlags{season: "2019", years: 5}, "eng-premier-league")
+	if s := got["eng-premier-league"]; len(s) != 1 || s[0] != "2019" {
+		t.Errorf("plan = %v, want only the explicitly requested season", s)
 	}
 }
 
-func TestDryRunPlanShowsDisplaySeasonLabels(t *testing.T) {
-	f := &refreshFlags{all: true, years: 2}
-	comps, _ := f.resolveCompetitions()
+func TestDryRunPlanShowsEachCompetitionsSeasonLabels(t *testing.T) {
+	f := &refreshFlags{years: 2}
+	comps := []models.Competition{}
+	for _, id := range []string{"eng-premier-league", "usa-mls"} {
+		c, _ := sync.FindCompetition(id)
+		comps = append(comps, c)
+	}
 
 	var buf bytes.Buffer
-	printPlan(&buf, comps, f.resolveSeasons(testNow), "/tmp/footy.db")
+	printPlan(&buf, f.plan(comps, testNow), "/tmp/footy.db")
 	out := buf.String()
 
-	if !strings.Contains(out, "2026-27") || !strings.Contains(out, "2025-26") {
-		t.Errorf("plan should show seasons the way the TUI does\n---\n%s", out)
+	if !strings.Contains(out, "2026-27, 2025-26") {
+		t.Errorf("split-year seasons should show as the TUI does\n---\n%s", out)
+	}
+	if !strings.Contains(out, "2026, 2025") {
+		t.Errorf("MLS seasons are calendar years\n---\n%s", out)
 	}
 	if !strings.Contains(out, "nothing will be fetched") {
 		t.Errorf("a dry run must say it isn't doing anything\n---\n%s", out)
 	}
-	if !strings.Contains(out, "12 competition-season") {
-		t.Errorf("plan should state the unit count (6 competitions x 2 seasons)\n---\n%s", out)
+	if !strings.Contains(out, "4 competition-season") {
+		t.Errorf("plan should state the unit count (2 competitions x 2 seasons)\n---\n%s", out)
 	}
 }
 

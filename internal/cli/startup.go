@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"strconv"
 	"time"
 
 	"github.com/JohnSBarden/footui/internal/data/sync"
@@ -23,10 +24,9 @@ const failureBackoff = 10 * time.Minute
 // tuiCatalog lists every competition footy can fetch, with every season
 // the provider offers, for the league catalog screen.
 func tuiCatalog(now time.Time) []core.CatalogEntry {
-	years := sync.AvailableSeasonYears(now)
-	out := make([]core.CatalogEntry, 0, len(sync.Scope))
-	for _, c := range sync.Scope {
-		out = append(out, core.CatalogEntry{Competition: c, Seasons: years})
+	out := make([]core.CatalogEntry, 0, len(sync.Coverages))
+	for _, c := range sync.Coverages {
+		out = append(out, core.CatalogEntry{Competition: c.Competition, Seasons: c.AvailableSeasons(now)})
 	}
 	return out
 }
@@ -43,9 +43,6 @@ func staleRefreshes(ctx context.Context, repos storage.Repositories, now time.Ti
 	if maxAge <= 0 {
 		return nil
 	}
-	current := sync.CurrentSeasonStartYear(now)
-	previous := sync.RecentSeasonYears(now, 2)[1]
-
 	comps, err := repos.ListCompetitions(ctx)
 	if err != nil {
 		// The TUI will surface a broken database itself; a missed
@@ -55,9 +52,14 @@ func staleRefreshes(ctx context.Context, repos storage.Repositories, now time.Ti
 
 	var out []core.RefreshRequest
 	for _, comp := range comps {
-		if _, covered := sync.FindCompetition(comp.ID); !covered {
+		cov, covered := sync.FindCoverage(comp.ID)
+		if !covered {
 			continue
 		}
+		// Each competition's own calendar: in February MLS's current
+		// season is last year's, the Premier League's is this one.
+		current := cov.CurrentSeason(now)
+		previous := previousSeason(current)
 		seasons, err := repos.ListSeasons(ctx, comp.ID)
 		if err != nil || len(seasons) == 0 {
 			continue
@@ -100,4 +102,13 @@ func currentSeasonStaleness(ctx context.Context, repos storage.Repositories, com
 		return "", false
 	}
 	return "cached " + components.Freshness(run.FinishedAt, now), true
+}
+
+// previousSeason is the start year before season.
+func previousSeason(season string) string {
+	y, err := strconv.Atoi(season)
+	if err != nil {
+		return ""
+	}
+	return strconv.Itoa(y - 1)
 }

@@ -37,20 +37,6 @@ func CurrentSeasonStartYear(now time.Time) string {
 	return strconv.Itoa(year)
 }
 
-// EarliestSeasonYear is the first season the provider has data for.
-// understat.com's coverage of all six leagues starts with 2014-15.
-const EarliestSeasonYear = 2014
-
-// AvailableSeasonYears returns every season the provider offers, current
-// first, back to EarliestSeasonYear.
-func AvailableSeasonYears(now time.Time) []string {
-	start, err := strconv.Atoi(CurrentSeasonStartYear(now))
-	if err != nil || start < EarliestSeasonYear {
-		return nil
-	}
-	return RecentSeasonYears(now, start-EarliestSeasonYear+1)
-}
-
 // RecentSeasonYears returns the start years of the n most recent seasons,
 // most recent first. n < 1 is treated as 1, so a caller passing a
 // zero-valued flag still gets the current season rather than nothing.

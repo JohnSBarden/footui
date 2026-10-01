@@ -250,7 +250,33 @@ type Progress func(UnitResult)
 // A cancelled context is the one thing that does stop the run: that is the
 // user pressing ctrl+c, not an upstream problem.
 func (s *Syncer) SyncMany(ctx context.Context, comps []models.Competition, seasonYears []string, progress Progress) []UnitResult {
-	results := make([]UnitResult, 0, len(comps)*len(seasonYears))
+	jobs := make([]Job, 0, len(comps))
+	for _, c := range comps {
+		jobs = append(jobs, Job{Competition: c, Seasons: seasonYears})
+	}
+	return s.SyncJobs(ctx, jobs, progress)
+}
+
+// Job is one competition and the season start years of it to sync.
+// Competitions differ in calendar and in how far back their provider
+// goes, so each carries its own seasons.
+type Job struct {
+	Competition models.Competition
+	Seasons     []string
+}
+
+// Units counts the competition-seasons in a set of jobs.
+func Units(jobs []Job) int {
+	n := 0
+	for _, j := range jobs {
+		n += len(j.Seasons)
+	}
+	return n
+}
+
+// SyncJobs is SyncMany for jobs whose season lists differ.
+func (s *Syncer) SyncJobs(ctx context.Context, jobs []Job, progress Progress) []UnitResult {
+	results := make([]UnitResult, 0, Units(jobs))
 
 	record := func(u UnitResult) {
 		results = append(results, u)
@@ -263,8 +289,9 @@ func (s *Syncer) SyncMany(ctx context.Context, comps []models.Competition, seaso
 	limit := s.maxConsecutiveFailures()
 	gaveUp := false
 
-	for _, comp := range comps {
-		for _, year := range seasonYears {
+	for _, job := range jobs {
+		comp := job.Competition
+		for _, year := range job.Seasons {
 			season := NewSeason(comp.ID, year)
 			season.CalendarYear = comp.CalendarYear
 

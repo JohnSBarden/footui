@@ -44,11 +44,11 @@ func newRefreshCmd(g *globalFlags) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			seasons := f.resolveSeasons(time.Now())
+			jobs := f.plan(comps, time.Now())
 
 			out := cmd.OutOrStdout()
 			if f.dryRun {
-				printPlan(out, comps, seasons, g.dbPathOrDefault())
+				printPlan(out, jobs, g.dbPathOrDefault())
 				return nil
 			}
 
@@ -58,14 +58,14 @@ func newRefreshCmd(g *globalFlags) *cobra.Command {
 			}
 			defer db.Close()
 
-			fmt.Fprintf(out, "Refreshing %d competition-season(s)…\n\n", len(comps)*len(seasons))
+			fmt.Fprintf(out, "Refreshing %d competition-season(s)…\n\n", sync.Units(jobs))
 			// Each unit and each retry is printed as it happens rather
 			// than batched into the report: a full refresh is mostly
 			// network wait, and silence for minutes — or for three
 			// 15-second timeouts in a row — is indistinguishable from a
 			// hang.
 			noted := false
-			results := runRefresh(cmdContext(cmd), store, comps, seasons, f.maxAge, refreshEvents{
+			results := runRefresh(cmdContext(cmd), store, jobs, f.maxAge, refreshEvents{
 				unit: func(u sync.UnitResult) { printUnit(out, u) },
 				retry: func(attempt, of int, err error) {
 					fmt.Fprintf(out, "  retry attempt %d of %d failed, trying again: %v\n", attempt, of, err)
@@ -119,22 +119,33 @@ func (f *refreshFlags) resolveCompetitions() ([]models.Competition, error) {
 	return []models.Competition{comp}, nil
 }
 
-// resolveSeasons turns the season flags into season start years. An
+// plan pairs each competition with the seasons to fetch for it. An
 // explicit --season pins one season and overrides --years, since asking
 // for a specific season and a count of recent seasons at once has no
-// coherent meaning.
-func (f *refreshFlags) resolveSeasons(now time.Time) []string {
-	if f.season != "" {
-		return []string{f.season}
+// coherent meaning. Otherwise each competition counts back from its own
+// current season — a calendar-year league's differs from a European
+// one's — and stops at the first season its provider has.
+func (f *refreshFlags) plan(comps []models.Competition, now time.Time) []sync.Job {
+	jobs := make([]sync.Job, 0, len(comps))
+	for _, c := range comps {
+		var seasons []string
+		if f.season != "" {
+			seasons = []string{f.season}
+		} else if cov, ok := sync.FindCoverage(c.ID); ok {
+			seasons = cov.RecentSeasons(now, f.years)
+		}
+		if len(seasons) > 0 {
+			jobs = append(jobs, sync.Job{Competition: c, Seasons: seasons})
+		}
 	}
-	return sync.RecentSeasonYears(now, f.years)
+	return jobs
 }
 
-func printPlan(out io.Writer, comps []models.Competition, seasons []string, dbPath string) {
+func printPlan(out io.Writer, jobs []sync.Job, dbPath string) {
 	fmt.Fprintf(out, "Dry run — nothing will be fetched or written.\n\n")
-	fmt.Fprintf(out, "Would refresh %d competition-season(s) into %s:\n\n", len(comps)*len(seasons), dbPath)
-	for _, c := range comps {
-		fmt.Fprintf(out, "  %-24s %s\n", c.ID, strings.Join(displaySeasons(c, seasons), ", "))
+	fmt.Fprintf(out, "Would refresh %d competition-season(s) into %s:\n\n", sync.Units(jobs), dbPath)
+	for _, j := range jobs {
+		fmt.Fprintf(out, "  %-28s %s\n", j.Competition.ID, strings.Join(displaySeasons(j.Competition, j.Seasons), ", "))
 	}
 }
 

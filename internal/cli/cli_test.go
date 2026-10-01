@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"github.com/JohnSBarden/footui/internal/data/models"
+	"github.com/JohnSBarden/footui/internal/data/sync"
 	"github.com/JohnSBarden/footui/internal/storage/sqlite"
 )
 
@@ -77,8 +79,9 @@ func TestRefreshDryRunReportsThePlanWithoutFetching(t *testing.T) {
 	if !strings.Contains(out, "nothing will be fetched") {
 		t.Errorf("a dry run must say it isn't doing anything\n---\n%s", out)
 	}
-	if !strings.Contains(out, "12 competition-season") {
-		t.Errorf("expected 6 competitions x 2 seasons\n---\n%s", out)
+	// Every covered competition has at least two seasons of history.
+	if want := fmt.Sprintf("%d competition-season", 2*len(sync.Scope)); !strings.Contains(out, want) {
+		t.Errorf("expected %q (every competition x 2 seasons)\n---\n%s", want, out)
 	}
 	// The plan is printed before the store is opened, so no file appears.
 	if _, err := sqlite.Open(db); err != nil {
@@ -87,7 +90,7 @@ func TestRefreshDryRunReportsThePlanWithoutFetching(t *testing.T) {
 }
 
 func TestRefreshRejectsAnOutOfScopeCompetition(t *testing.T) {
-	out, err := run(t, "refresh", "--competition", "eng-championship", "--dry-run", "--db", tempDB(t))
+	out, err := run(t, "refresh", "--competition", "ger-frauen-bundesliga", "--dry-run", "--db", tempDB(t))
 	if err == nil {
 		t.Fatal("expected an error for a competition footy doesn't cover")
 	}

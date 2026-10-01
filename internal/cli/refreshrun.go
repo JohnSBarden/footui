@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/JohnSBarden/footui/internal/colors"
-	"github.com/JohnSBarden/footui/internal/data/models"
 	"github.com/JohnSBarden/footui/internal/data/provider/understat"
 	"github.com/JohnSBarden/footui/internal/data/sync"
 	"github.com/JohnSBarden/footui/internal/storage"
@@ -29,27 +28,93 @@ type refreshEvents struct {
 }
 
 // runRefresh is the one refresh pipeline, shared by `footy refresh` and
-// the TUI's refresh key: fetch each competition-season from understat,
-// then re-seed curated colors and honours so a newly cached competition
-// picks up its clubs' branding and trophies with no extra step. Neither
-// seeding step may fail the refresh: the stats are the point, these are
-// decoration.
-func runRefresh(ctx context.Context, store storage.Repositories, comps []models.Competition,
-	seasons []string, maxAge time.Duration, ev refreshEvents) []sync.UnitResult {
+// the TUI's refresh key: fetch each competition-season from the provider
+// that covers it, then re-seed curated colors and honours so a newly
+// cached competition picks up its clubs' branding and trophies with no
+// extra step. Neither seeding step may fail the refresh: the stats are
+// the point, these are decoration.
+//
+// Jobs are grouped by provider, each group with its own syncer, so one
+// provider being down doesn't count against the other's failure streak.
+func runRefresh(ctx context.Context, store storage.Repositories, jobs []sync.Job,
+	maxAge time.Duration, ev refreshEvents) []sync.UnitResult {
 
-	source := understat.New()
-	if ev.retry != nil {
-		source = source.OnRetry(ev.retry)
-	}
-	syncer := sync.New(source, store).WithProviderName("understat")
-	syncer.MaxAge = maxAge
-
-	results := syncer.SyncMany(ctx, comps, seasons, func(u sync.UnitResult) {
-		if ev.unit != nil {
-			ev.unit(u)
+	var results []sync.UnitResult
+	for _, group := range groupByProvider(jobs) {
+		source, err := newSource(group.provider, ev)
+		if err != nil {
+			results = append(results, failAll(group.jobs, err, ev)...)
+			continue
 		}
-	})
+		syncer := sync.New(source, store).WithProviderName(group.provider)
+		syncer.MaxAge = maxAge
+		results = append(results, syncer.SyncJobs(ctx, group.jobs, func(u sync.UnitResult) {
+			if ev.unit != nil {
+				ev.unit(u)
+			}
+		})...)
+	}
+	reseed(ctx, store, ev)
+	return results
+}
 
+type providerJobs struct {
+	provider string
+	jobs     []sync.Job
+}
+
+// groupByProvider splits jobs by the provider covering each, keeping the
+// order competitions were asked for within and across groups.
+func groupByProvider(jobs []sync.Job) []providerJobs {
+	var groups []providerJobs
+	index := map[string]int{}
+	for _, j := range jobs {
+		provider := sync.ProviderUnderstat
+		if cov, ok := sync.FindCoverage(j.Competition.ID); ok {
+			provider = cov.Provider
+		}
+		i, ok := index[provider]
+		if !ok {
+			i = len(groups)
+			index[provider] = i
+			groups = append(groups, providerJobs{provider: provider})
+		}
+		groups[i].jobs = append(groups[i].jobs, j)
+	}
+	return groups
+}
+
+// newSource constructs the client for a provider.
+func newSource(provider string, ev refreshEvents) (sync.Source, error) {
+	switch provider {
+	case sync.ProviderUnderstat:
+		source := understat.New()
+		if ev.retry != nil {
+			source = source.OnRetry(ev.retry)
+		}
+		return source, nil
+	}
+	return nil, fmt.Errorf("no client for provider %q in this build", provider)
+}
+
+// failAll records every unit of jobs as failed with err, for a provider
+// that couldn't even be set up.
+func failAll(jobs []sync.Job, err error, ev refreshEvents) []sync.UnitResult {
+	var out []sync.UnitResult
+	for _, j := range jobs {
+		for _, y := range j.Seasons {
+			u := sync.UnitResult{Competition: j.Competition, Season: sync.NewSeason(j.Competition.ID, y), Err: err}
+			out = append(out, u)
+			if ev.unit != nil {
+				ev.unit(u)
+			}
+		}
+	}
+	return out
+}
+
+// reseed applies curated colors and honours to whatever is now cached.
+func reseed(ctx context.Context, store storage.Repositories, ev refreshEvents) {
 	note := func(text string) {
 		if ev.note != nil {
 			ev.note(text)
@@ -67,8 +132,6 @@ func runRefresh(ctx context.Context, store storage.Repositories, comps []models.
 		note(fmt.Sprintf("honours applied to %d teams (%d trophies)",
 			trophyReport.Teams, trophyReport.Trophies))
 	}
-
-	return results
 }
 
 // tuiRefresher adapts runRefresh to the shape the TUI's refresh queue
@@ -77,17 +140,18 @@ func runRefresh(ctx context.Context, store storage.Repositories, comps []models.
 // error at the end.
 func tuiRefresher(store storage.Repositories) core.Refresher {
 	return func(ctx context.Context, req core.RefreshRequest, progress func(string)) (string, error) {
-		comp, ok := sync.FindCompetition(req.CompetitionID)
+		cov, ok := sync.FindCoverage(req.CompetitionID)
 		if !ok {
 			return "", fmt.Errorf("footy doesn't cover %q — see `footy competitions`", req.CompetitionID)
 		}
+		comp := cov.Competition
 		seasons := req.Seasons
 		if len(seasons) == 0 {
-			seasons = sync.RecentSeasonYears(time.Now(), 1)
+			seasons = []string{cov.CurrentSeason(time.Now())}
 		}
 
 		done := 0
-		results := runRefresh(ctx, store, []models.Competition{comp}, seasons, 0, refreshEvents{
+		results := runRefresh(ctx, store, []sync.Job{{Competition: comp, Seasons: seasons}}, 0, refreshEvents{
 			unit: func(u sync.UnitResult) {
 				done++
 				if len(seasons) == 1 {
