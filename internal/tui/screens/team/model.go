@@ -170,7 +170,6 @@ type colorsLoadedMsg struct {
 type seasonDetailLoadedMsg struct {
 	seasonID      string
 	competitionID string
-	honours       []models.Trophy
 	// lastSync is the most recent refresh attempt for the selected
 	// competition-season, or nil when it has never been attempted.
 	lastSync *models.SyncRun

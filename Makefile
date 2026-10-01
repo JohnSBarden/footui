@@ -11,7 +11,7 @@ GOFLAGS_STATIC := CGO_ENABLED=0
 # Platforms built by `make release`.
 PLATFORMS := linux/amd64 linux/arm64 darwin/amd64 darwin/arm64
 
-.PHONY: build install static release test cover fmt vet lint check clean
+.PHONY: build install static release test race cover fmt fmtcheck vet lint tidycheck check clean
 
 build:
 	go build -ldflags "$(LDFLAGS)" -o bin/$(BINARY) ./cmd/$(BINARY)
@@ -38,21 +38,43 @@ release:
 test:
 	go test ./...
 
+# The race detector needs cgo, unlike every other target here.
+race:
+	CGO_ENABLED=1 go test -race ./...
+
 cover:
 	go test -coverprofile=coverage.out ./... && go tool cover -func=coverage.out | tail -1
 
+# Only tracked Go files: a checkout can hold untracked copies of the tree
+# (git worktrees under .claude/) that aren't this change's business.
+GOFILES = $(shell git ls-files '*.go')
+
 fmt:
-	gofmt -l -w .
+	gofmt -l -w $(GOFILES)
+
+fmtcheck:
+	@out="$$(gofmt -l $(GOFILES))"; test -z "$$out" || { echo "unformatted files:"; echo "$$out"; exit 1; }
 
 vet:
 	go vet ./...
 
-lint:
-	golangci-lint run ./...
+# staticcheck is pinned and run through `go run`, so neither a developer
+# nor CI needs it installed.
+STATICCHECK := honnef.co/go/tools/cmd/staticcheck@v0.8.1
 
-# What CI should run.
-check: vet test
-	@test -z "$$(gofmt -l .)" || { echo "unformatted files:"; gofmt -l .; exit 1; }
+lint:
+	go run $(STATICCHECK) ./...
+
+# go.mod and go.sum must already be tidy; a dependency added without
+# `go mod tidy` fails here rather than in someone else's checkout.
+tidycheck:
+	@cp go.mod go.mod.bak && cp go.sum go.sum.bak; \
+	go mod tidy; \
+	status=0; cmp -s go.mod go.mod.bak && cmp -s go.sum go.sum.bak || { echo "go.mod/go.sum not tidy — run go mod tidy"; status=1; }; \
+	mv go.mod.bak go.mod; mv go.sum.bak go.sum; exit $$status
+
+# What CI runs. Run it before pushing.
+check: fmtcheck vet lint tidycheck race
 
 clean:
 	rm -rf bin dist coverage.out

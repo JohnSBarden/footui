@@ -15,7 +15,6 @@ import (
 // flakySource fails for specific competition/season pairs, so partial
 // failure can be asserted without a network.
 type flakySource struct {
-	fakeSource
 	failOn map[string]bool
 	calls  int
 }

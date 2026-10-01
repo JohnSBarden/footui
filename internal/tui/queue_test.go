@@ -84,7 +84,7 @@ func TestStartupRefreshRunsOnInitAndExplainsItself(t *testing.T) {
 	if !strings.Contains(app.View(), "cached 13 days ago") {
 		t.Errorf("an unrequested refresh should say why it's running, got %q", app.View())
 	}
-	app, _ = drive(t, app, cmd)
+	drive(t, app, cmd)
 
 	if len(r.called) != 1 {
 		t.Fatalf("startup refresh ran %d times", len(r.called))
