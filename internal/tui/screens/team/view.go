@@ -114,7 +114,7 @@ func (m *Model) statCards() string {
 
 	gdStyle := m.deltaStyle(float64(s.GoalDiff))
 	stats := []components.Stat{
-		{Label: "Position", Value: components.Int(s.Position), Hint: components.SeasonLabel(row.Season.Label)},
+		{Label: "Position", Value: components.Int(s.Position), Hint: components.SeasonName(row.Season)},
 		{Label: "Points", Value: strconv.Itoa(s.Points), Hint: strconv.Itoa(s.MatchesPlayed) + " played"},
 		{Label: "Record", Value: strconv.Itoa(s.Wins) + "-" + strconv.Itoa(s.Draws) + "-" + strconv.Itoa(s.Losses), Hint: "W-D-L"},
 		{Label: "Goals", Value: strconv.Itoa(s.GoalsFor) + ":" + strconv.Itoa(s.GoalsAgainst), Hint: components.Signed(s.GoalDiff), Style: &gdStyle},
@@ -210,7 +210,7 @@ func (m *Model) seasonsTable() string {
 	for _, r := range rows {
 		s := r.Stats
 		cells = append(cells, []components.Cell{
-			components.Text(components.SeasonLabel(r.Season.Label)),
+			components.Text(components.SeasonName(r.Season)),
 			components.Text(components.Int(s.Position)),
 			components.Text(strconv.Itoa(s.MatchesPlayed)),
 			components.Text(strconv.Itoa(s.Wins)),
@@ -273,7 +273,7 @@ func (m *Model) squadTable() string {
 	row, hasSeason := m.CurrentSeasonRow()
 	label := ""
 	if hasSeason {
-		label = " — " + components.SeasonLabel(row.Season.Label)
+		label = " — " + components.SeasonName(row.Season)
 	}
 	title := m.paneTitle("Squad"+label, m.focus == paneSquad)
 

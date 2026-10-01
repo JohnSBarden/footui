@@ -111,7 +111,7 @@ func (m *Model) seasonTable() string {
 		}
 		rows = append(rows, []components.Cell{
 			components.Styled(box, th.Accent),
-			components.Text(components.SeasonLabel(s.Year)),
+			components.Text(components.SeasonLabelFor(l.Competition.CalendarYear, s.Year)),
 			m.seasonStatus(l.Competition.ID, s, current, now),
 		})
 	}

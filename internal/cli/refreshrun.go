@@ -98,7 +98,7 @@ func tuiRefresher(store storage.Repositories) core.Refresher {
 					outcome = "failed"
 				}
 				progress(fmt.Sprintf("%s %s %s (%d of %d)",
-					comp.ID, seasonDisplay(u.Season.Label), outcome, done, len(seasons)))
+					comp.ID, components.SeasonName(u.Season), outcome, done, len(seasons)))
 			},
 			retry: func(attempt, of int, err error) {
 				progress(fmt.Sprintf("retry %d of %d: %v", attempt, of, tuiError(err)))
@@ -153,7 +153,7 @@ func summarizeUnits(results []sync.UnitResult) (string, error) {
 	var failed []string
 	for _, r := range results {
 		if r.Failed() {
-			failed = append(failed, seasonDisplay(r.Season.Label))
+			failed = append(failed, components.SeasonName(r.Season))
 		}
 	}
 	if len(failed) > 0 {
@@ -171,6 +171,6 @@ func summarizeUnit(r sync.UnitResult) (string, error) {
 		return "already fresh, cached " + components.Freshness(r.CachedAt, time.Now()), nil
 	default:
 		return fmt.Sprintf("%s — %d teams, %d players",
-			seasonDisplay(r.Season.Label), r.Result.Teams, r.Result.PlayerStats), nil
+			components.SeasonName(r.Season), r.Result.Teams, r.Result.PlayerStats), nil
 	}
 }

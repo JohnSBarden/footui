@@ -14,6 +14,10 @@ type Competition struct {
 	Tier    int    // 1 = top flight, 2 = second division
 	Gender  string // "men" | "women"
 	Format  string // "league" | "cup", defaults to "league"
+	// CalendarYear marks a competition whose seasons fall within one
+	// calendar year (MLS, NWSL): its 2026 season is "2026", not
+	// "2026-27".
+	CalendarYear bool
 }
 
 // Season is one edition of a Competition (e.g. 2024-25).
@@ -23,6 +27,9 @@ type Season struct {
 	Label         string // "2024-25" or "2024" for calendar-year competitions
 	StartDate     *time.Time
 	EndDate       *time.Time
+	// CalendarYear is copied from the season's competition when read, so
+	// a season can be displayed without looking its competition up.
+	CalendarYear bool
 }
 
 // Team is a club side. Men's and women's sides for the same club are

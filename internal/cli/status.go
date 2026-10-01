@@ -64,9 +64,9 @@ func printStatus(out io.Writer, summary []models.CompetitionCache, dbPath string
 		if e.Seasons > 1 && e.EarliestSeason != "" {
 			// A count alone doesn't say which seasons; the range does.
 			seasons = fmt.Sprintf("%s..%s",
-				components.SeasonLabel(e.EarliestSeason), components.SeasonLabel(e.LatestSeason))
+				components.SeasonLabelFor(e.Competition.CalendarYear, e.EarliestSeason), components.SeasonLabelFor(e.Competition.CalendarYear, e.LatestSeason))
 		} else if e.Seasons == 1 && e.LatestSeason != "" {
-			seasons = components.SeasonLabel(e.LatestSeason)
+			seasons = components.SeasonLabelFor(e.Competition.CalendarYear, e.LatestSeason)
 		}
 
 		fmt.Fprintf(out, "%-22s %-16s %6d %9d  %s\n",

@@ -1,6 +1,19 @@
 package components
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/JohnSBarden/footui/internal/data/models"
+)
+
+func TestSeasonNameFollowsTheCompetitionsCalendar(t *testing.T) {
+	if got := SeasonName(models.Season{Label: "2026", CalendarYear: true}); got != "2026" {
+		t.Errorf("calendar-year season shown as %q, want 2026", got)
+	}
+	if got := SeasonName(models.Season{Label: "2026"}); got != "2026-27" {
+		t.Errorf("split-year season shown as %q, want 2026-27", got)
+	}
+}
 
 func TestSeasonLabelFormatsEuropeanSpan(t *testing.T) {
 	cases := map[string]string{

@@ -72,7 +72,7 @@ func staleRefreshes(ctx context.Context, repos storage.Repositories, now time.Ti
 			continue
 		}
 		if newest == previous {
-			why = "new season " + components.SeasonLabel(current)
+			why = "new season " + components.SeasonLabelFor(comp.CalendarYear, current)
 		}
 		out = append(out, core.RefreshRequest{CompetitionID: comp.ID, Seasons: []string{current}, Why: why})
 	}

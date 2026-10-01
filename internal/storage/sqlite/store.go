@@ -124,12 +124,12 @@ func (s *Store) UpsertCompetition(ctx context.Context, c models.Competition) err
 		format = "league"
 	}
 	_, err := s.db.ExecContext(ctx, `
-		INSERT INTO competition (id, name, name_folded, country, tier, gender, format)
-		VALUES (?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO competition (id, name, name_folded, country, tier, gender, format, calendar_year)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET name = excluded.name, name_folded = excluded.name_folded,
 			country = excluded.country, tier = excluded.tier, gender = excluded.gender,
-			format = excluded.format`,
-		c.ID, c.Name, textfold.Fold(c.Name), c.Country, c.Tier, c.Gender, format)
+			format = excluded.format, calendar_year = excluded.calendar_year`,
+		c.ID, c.Name, textfold.Fold(c.Name), c.Country, c.Tier, c.Gender, format, c.CalendarYear)
 	if err != nil {
 		return fmt.Errorf("sqlite: upsert competition %s: %w", c.ID, err)
 	}
@@ -137,7 +137,7 @@ func (s *Store) UpsertCompetition(ctx context.Context, c models.Competition) err
 }
 
 func (s *Store) ListCompetitions(ctx context.Context) ([]models.Competition, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT id, name, country, tier, gender, format FROM competition ORDER BY country, tier, name`)
+	rows, err := s.db.QueryContext(ctx, `SELECT id, name, country, tier, gender, format, calendar_year FROM competition ORDER BY country, tier, name`)
 	if err != nil {
 		return nil, fmt.Errorf("sqlite: list competitions: %w", err)
 	}
@@ -146,7 +146,7 @@ func (s *Store) ListCompetitions(ctx context.Context) ([]models.Competition, err
 	var out []models.Competition
 	for rows.Next() {
 		var c models.Competition
-		if err := rows.Scan(&c.ID, &c.Name, &c.Country, &c.Tier, &c.Gender, &c.Format); err != nil {
+		if err := rows.Scan(&c.ID, &c.Name, &c.Country, &c.Tier, &c.Gender, &c.Format, &c.CalendarYear); err != nil {
 			return nil, fmt.Errorf("sqlite: scan competition: %w", err)
 		}
 		out = append(out, c)
@@ -157,8 +157,8 @@ func (s *Store) ListCompetitions(ctx context.Context) ([]models.Competition, err
 func (s *Store) GetCompetition(ctx context.Context, id string) (models.Competition, error) {
 	var c models.Competition
 	err := s.db.QueryRowContext(ctx, `
-		SELECT id, name, country, tier, gender, format FROM competition WHERE id = ?`, id).
-		Scan(&c.ID, &c.Name, &c.Country, &c.Tier, &c.Gender, &c.Format)
+		SELECT id, name, country, tier, gender, format, calendar_year FROM competition WHERE id = ?`, id).
+		Scan(&c.ID, &c.Name, &c.Country, &c.Tier, &c.Gender, &c.Format, &c.CalendarYear)
 	if errors.Is(err, sql.ErrNoRows) {
 		return c, fmt.Errorf("sqlite: competition %s: %w", id, storage.ErrNotFound)
 	}
@@ -170,7 +170,7 @@ func (s *Store) GetCompetition(ctx context.Context, id string) (models.Competiti
 
 func (s *Store) FindCompetitionsByName(ctx context.Context, query string) ([]models.Competition, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, name, country, tier, gender, format FROM competition
+		SELECT id, name, country, tier, gender, format, calendar_year FROM competition
 		WHERE name_folded LIKE '%' || ? || '%' OR id LIKE '%' || ? || '%'
 		ORDER BY country, tier, name`, textfold.Fold(query), textfold.Fold(query))
 	if err != nil {
@@ -181,7 +181,7 @@ func (s *Store) FindCompetitionsByName(ctx context.Context, query string) ([]mod
 	var out []models.Competition
 	for rows.Next() {
 		var c models.Competition
-		if err := rows.Scan(&c.ID, &c.Name, &c.Country, &c.Tier, &c.Gender, &c.Format); err != nil {
+		if err := rows.Scan(&c.ID, &c.Name, &c.Country, &c.Tier, &c.Gender, &c.Format, &c.CalendarYear); err != nil {
 			return nil, fmt.Errorf("sqlite: scan competition: %w", err)
 		}
 		out = append(out, c)
@@ -197,7 +197,7 @@ func (s *Store) GetCompetitions(ctx context.Context, ids []string) (map[string]m
 
 	placeholders, args := inClause(ids)
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, name, country, tier, gender, format
+		SELECT id, name, country, tier, gender, format, calendar_year
 		FROM competition WHERE id IN (`+placeholders+`)`, args...)
 	if err != nil {
 		return nil, fmt.Errorf("sqlite: get competitions: %w", err)
@@ -206,7 +206,7 @@ func (s *Store) GetCompetitions(ctx context.Context, ids []string) (map[string]m
 
 	for rows.Next() {
 		var c models.Competition
-		if err := rows.Scan(&c.ID, &c.Name, &c.Country, &c.Tier, &c.Gender, &c.Format); err != nil {
+		if err := rows.Scan(&c.ID, &c.Name, &c.Country, &c.Tier, &c.Gender, &c.Format, &c.CalendarYear); err != nil {
 			return nil, fmt.Errorf("sqlite: scan competition: %w", err)
 		}
 		out[c.ID] = c
@@ -235,8 +235,10 @@ func (s *Store) UpsertSeason(ctx context.Context, se models.Season) error {
 // ordering by recency.
 func (s *Store) ListSeasons(ctx context.Context, competitionID string) ([]models.Season, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, competition_id, label, start_date, end_date
-		FROM season WHERE competition_id = ? ORDER BY label DESC`, competitionID)
+		SELECT se.id, se.competition_id, se.label, se.start_date, se.end_date,
+			COALESCE(c.calendar_year, 0)
+		FROM season se LEFT JOIN competition c ON c.id = se.competition_id
+		WHERE se.competition_id = ? ORDER BY se.label DESC`, competitionID)
 	if err != nil {
 		return nil, fmt.Errorf("sqlite: list seasons %s: %w", competitionID, err)
 	}
@@ -246,7 +248,7 @@ func (s *Store) ListSeasons(ctx context.Context, competitionID string) ([]models
 	for rows.Next() {
 		var se models.Season
 		var start, end sql.NullString
-		if err := rows.Scan(&se.ID, &se.CompetitionID, &se.Label, &start, &end); err != nil {
+		if err := rows.Scan(&se.ID, &se.CompetitionID, &se.Label, &start, &end, &se.CalendarYear); err != nil {
 			return nil, fmt.Errorf("sqlite: scan season: %w", err)
 		}
 		se.StartDate = parseDatePtr(start)
@@ -264,8 +266,10 @@ func (s *Store) GetSeasons(ctx context.Context, ids []string) (map[string]models
 
 	placeholders, args := inClause(ids)
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, competition_id, label, start_date, end_date
-		FROM season WHERE id IN (`+placeholders+`)`, args...)
+		SELECT se.id, se.competition_id, se.label, se.start_date, se.end_date,
+			COALESCE(c.calendar_year, 0)
+		FROM season se LEFT JOIN competition c ON c.id = se.competition_id
+		WHERE se.id IN (`+placeholders+`)`, args...)
 	if err != nil {
 		return nil, fmt.Errorf("sqlite: get seasons: %w", err)
 	}
@@ -274,7 +278,7 @@ func (s *Store) GetSeasons(ctx context.Context, ids []string) (map[string]models
 	for rows.Next() {
 		var se models.Season
 		var start, end sql.NullString
-		if err := rows.Scan(&se.ID, &se.CompetitionID, &se.Label, &start, &end); err != nil {
+		if err := rows.Scan(&se.ID, &se.CompetitionID, &se.Label, &start, &end, &se.CalendarYear); err != nil {
 			return nil, fmt.Errorf("sqlite: scan season: %w", err)
 		}
 		se.StartDate = parseDatePtr(start)

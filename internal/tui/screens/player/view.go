@@ -79,7 +79,7 @@ func (m *Model) statCards() string {
 	th := m.deps.Theme
 
 	stats := []components.Stat{
-		{Label: "Season", Value: components.SeasonLabel(row.Season.Label), Hint: row.Team.Name},
+		{Label: "Season", Value: components.SeasonName(row.Season), Hint: row.Team.Name},
 		{Label: "Minutes", Value: strconv.Itoa(s.Minutes), Hint: strconv.Itoa(s.Appearances) + " apps"},
 		{Label: "Goals", Value: strconv.Itoa(s.Goals), Hint: per90Hint(s.Goals, s.Minutes)},
 		{Label: "Assists", Value: strconv.Itoa(s.Assists), Hint: per90Hint(s.Assists, s.Minutes)},
@@ -143,7 +143,7 @@ func (m *Model) seasonsTable() string {
 	for _, r := range rows {
 		s := r.Stats
 		cells = append(cells, []components.Cell{
-			components.Text(components.SeasonLabel(r.Season.Label)),
+			components.Text(components.SeasonName(r.Season)),
 			components.Text(r.Team.Name),
 			components.Text(strconv.Itoa(s.Appearances)),
 			components.Text(strconv.Itoa(s.Minutes)),

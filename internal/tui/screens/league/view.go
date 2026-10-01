@@ -70,7 +70,7 @@ func (m *Model) View() string {
 	case len(m.rows) == 0:
 		season, _ := m.currentSeason()
 		b.WriteString(m.emptyState(fmt.Sprintf(
-			"No standings cached for %s.", components.SeasonLabel(season.Label))))
+			"No standings cached for %s.", components.SeasonName(season))))
 	default:
 		b.WriteString(m.table())
 	}
@@ -143,7 +143,7 @@ func (m *Model) seasonBar() string {
 
 	parts := make([]string, 0, len(m.seasons))
 	for i, s := range m.seasons {
-		label := components.SeasonLabel(s.Label)
+		label := components.SeasonName(s)
 		if i == m.seasonIdx {
 			parts = append(parts, th.Accent.Bold(true).Render("["+label+"]"))
 		} else {

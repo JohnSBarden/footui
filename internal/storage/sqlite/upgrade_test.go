@@ -190,6 +190,10 @@ func writeFixture(t *testing.T, path string) {
 	mustNoErr(t, s.RecordSyncRun(ctx, models.SyncRun{Provider: "understat", CompetitionID: "eng-premier-league",
 		SeasonID: "eng-premier-league:2025", StartedAt: fixtureTime, FinishedAt: fixtureTime, Status: models.SyncStatusOK, RowsUpserted: 2}))
 
+	// From schema 0005: a calendar-year competition.
+	mustNoErr(t, s.UpsertCompetition(ctx, models.Competition{ID: "usa-mls", Name: "MLS", Country: "USA", Tier: 1, Gender: "men", CalendarYear: true}))
+	mustNoErr(t, s.UpsertSeason(ctx, models.Season{ID: "usa-mls:2026", CompetitionID: "usa-mls", Label: "2026"}))
+
 	mustNoErr(t, os.MkdirAll(filepath.Dir(path), 0o755))
 	_ = os.Remove(path)
 	if _, err := db.Exec(`VACUUM INTO ?`, path); err != nil {
@@ -230,6 +234,19 @@ func checkFixture(t *testing.T, s *Store) {
 	run, err := s.LatestSyncRun(ctx, "eng-premier-league", "eng-premier-league:2025")
 	if err != nil || !run.Succeeded() || !run.FinishedAt.Equal(fixtureTime) {
 		t.Errorf("sync log %+v, %v", run, err)
+	}
+
+	// Competitions from before 0005 upgrade to split-year seasons.
+	pl, _ := s.GetCompetition(ctx, "eng-premier-league")
+	if pl.CalendarYear {
+		t.Error("a pre-0005 competition must default to split-year seasons")
+	}
+	// Fixtures from 0005 on carry a calendar-year competition.
+	if mls, err := s.GetCompetition(ctx, "usa-mls"); err == nil {
+		seasons, _ := s.ListSeasons(ctx, "usa-mls")
+		if !mls.CalendarYear || len(seasons) != 1 || !seasons[0].CalendarYear {
+			t.Errorf("calendar-year competition lost its flag: %+v %+v", mls, seasons)
+		}
 	}
 }
 

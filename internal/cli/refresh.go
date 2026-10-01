@@ -134,16 +134,16 @@ func printPlan(out io.Writer, comps []models.Competition, seasons []string, dbPa
 	fmt.Fprintf(out, "Dry run — nothing will be fetched or written.\n\n")
 	fmt.Fprintf(out, "Would refresh %d competition-season(s) into %s:\n\n", len(comps)*len(seasons), dbPath)
 	for _, c := range comps {
-		fmt.Fprintf(out, "  %-24s %s\n", c.ID, strings.Join(displaySeasons(seasons), ", "))
+		fmt.Fprintf(out, "  %-24s %s\n", c.ID, strings.Join(displaySeasons(c, seasons), ", "))
 	}
 }
 
 // displaySeasons renders stored start-year labels the way a user thinks of
 // them ("2025-26"), matching what the TUI shows.
-func displaySeasons(seasons []string) []string {
+func displaySeasons(c models.Competition, seasons []string) []string {
 	out := make([]string, 0, len(seasons))
 	for _, s := range seasons {
-		out = append(out, seasonDisplay(s))
+		out = append(out, components.SeasonLabelFor(c.CalendarYear, s))
 	}
 	return out
 }
@@ -153,7 +153,7 @@ func displaySeasons(seasons []string) []string {
 // more populated than it was, and exiting non-zero would misreport that to
 // a cron job.
 func printUnit(out io.Writer, r sync.UnitResult) {
-	label := fmt.Sprintf("%-24s %-8s", r.Competition.ID, seasonDisplay(r.Season.Label))
+	label := fmt.Sprintf("%-24s %-8s", r.Competition.ID, components.SeasonName(r.Season))
 	switch {
 	case r.Fresh:
 		fmt.Fprintf(out, "  fresh %s  cached %s\n", label,

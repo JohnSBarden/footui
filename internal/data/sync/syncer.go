@@ -266,6 +266,7 @@ func (s *Syncer) SyncMany(ctx context.Context, comps []models.Competition, seaso
 	for _, comp := range comps {
 		for _, year := range seasonYears {
 			season := NewSeason(comp.ID, year)
+			season.CalendarYear = comp.CalendarYear
 
 			if err := ctx.Err(); err != nil {
 				record(UnitResult{Competition: comp, Season: season, Err: err})

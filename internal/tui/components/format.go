@@ -3,6 +3,8 @@ package components
 import (
 	"fmt"
 	"strconv"
+
+	"github.com/JohnSBarden/footui/internal/data/models"
 )
 
 // Missing is what every screen prints for a stat the provider didn't
@@ -52,6 +54,21 @@ func SignedFloat(v float64, decimals int) string {
 // "2025" for a single-calendar-year league like MLS, or store "2025-26"
 // directly) is passed through untouched.
 func SeasonLabel(label string) string {
+	return SeasonLabelFor(false, label)
+}
+
+// SeasonName displays a season the way its competition counts them:
+// "2026" for a calendar-year league, "2026-27" for one that spans two.
+func SeasonName(s models.Season) string {
+	return SeasonLabelFor(s.CalendarYear, s.Label)
+}
+
+// SeasonLabelFor displays a bare start-year label for a competition that
+// does (calendar) or doesn't run within one calendar year.
+func SeasonLabelFor(calendar bool, label string) string {
+	if calendar {
+		return label
+	}
 	year, err := strconv.Atoi(label)
 	if err != nil || year < 1888 || year > 2999 {
 		return label
