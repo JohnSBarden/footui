@@ -9,10 +9,11 @@
 # understat/mapper.go). Because that spelling comes from the provider, an
 # entry only takes effect if the ID matches a team actually in the cache.
 #
-# `aliases` exist for exactly that reason. The English entries below were
-# verified against a live understat.com payload; the others are the same
-# scheme applied to that provider's usual spellings, with plausible
-# alternatives listed as aliases. An entry that matches nothing is simply
+# `aliases` exist for exactly that reason. As of 2026-09-30 every club in
+# all six leagues' 2026-27 payloads was checked against a live refresh:
+# 110 of 112 match an entry (Akron and Rodina are still uncurated). Clubs
+# from earlier seasons that aren't in the top flight now are still the
+# usual-spelling guesses, with aliases. An entry that matches nothing is simply
 # never applied — a wrong guess is inert, not harmful. Run `footy colors`
 # after refreshing a competition to see which cached clubs still lack
 # colors, then add or correct an entry here.
@@ -252,7 +253,7 @@
   secondary: "#46714D"
 - id: ger-fc-koln
   name: FC Köln
-  aliases: [ger-fc-k-ln, ger-koln, ger-cologne]
+  aliases: [ger-fc-k-ln, ger-koln, ger-cologne, ger-fc-cologne]
   primary: "#ED1C24"
   secondary: "#FFFFFF"
 - id: ger-st-pauli
@@ -323,6 +324,7 @@
   secondary: "#FFE500"
 - id: ita-parma
   name: Parma
+  aliases: [ita-parma-calcio-1913]
   primary: "#FFE500"
   secondary: "#003C7D"
 - id: ita-lecce
@@ -415,5 +417,146 @@
   secondary: "#FFFFFF"
 - id: rus-krasnodar
   name: Krasnodar
+  aliases: [rus-fc-krasnodar]
   primary: "#00A650"
   secondary: "#000000"
+
+# --- Added 2026-09-30 ---------------------------------------------------
+# Clubs that were in the six leagues' 2026-27 payloads with no entry. IDs
+# here are copied from a live understat.com refresh, not guessed, so they
+# match; the colors are each club's established shirt colors.
+- id: eng-coventry
+  name: Coventry
+  primary: "#6CB4E4"
+  secondary: "#FFFFFF"
+- id: eng-hull
+  name: Hull
+  primary: "#F5A12D"
+  secondary: "#000000"
+- id: eng-ipswich
+  name: Ipswich
+  primary: "#0033A0"
+  secondary: "#FFFFFF"
+- id: esp-alaves
+  name: Alaves
+  primary: "#0055A5"
+  secondary: "#FFFFFF"
+- id: esp-deportivo-la-coruna
+  name: Deportivo La Coruna
+  primary: "#0067B1"
+  secondary: "#FFFFFF"
+- id: esp-elche
+  name: Elche
+  primary: "#007A33"
+  secondary: "#FFFFFF"
+- id: esp-levante
+  name: Levante
+  primary: "#004B9C"
+  secondary: "#A6192E"
+- id: esp-malaga
+  name: Malaga
+  primary: "#0072CE"
+  secondary: "#FFFFFF"
+- id: esp-racing-santander
+  name: Racing Santander
+  primary: "#00A04E"
+  secondary: "#FFFFFF"
+- id: fra-angers
+  name: Angers
+  primary: "#000000"
+  secondary: "#FFFFFF"
+- id: fra-auxerre
+  name: Auxerre
+  primary: "#00529F"
+  secondary: "#FFFFFF"
+- id: fra-le-havre
+  name: Le Havre
+  primary: "#6CABDD"
+  secondary: "#0B2341"
+- id: fra-le-mans
+  name: Le Mans
+  primary: "#D2001E"
+  secondary: "#F9D616"
+- id: fra-lorient
+  name: Lorient
+  primary: "#F58220"
+  secondary: "#000000"
+- id: fra-paris-fc
+  name: Paris FC
+  primary: "#002F5F"
+  secondary: "#6CB4E4"
+- id: fra-troyes
+  name: Troyes
+  primary: "#0064B0"
+  secondary: "#FFFFFF"
+- id: ger-elversberg
+  name: Elversberg
+  primary: "#1D1D1B"
+  secondary: "#0072BB"
+- id: ger-hamburger-sv
+  name: Hamburger SV
+  primary: "#0A3F86"
+  secondary: "#E2001A"
+- id: ger-paderborn
+  name: Paderborn
+  primary: "#005CA9"
+  secondary: "#000000"
+- id: ger-schalke-04
+  name: Schalke 04
+  primary: "#004D9D"
+  secondary: "#FFFFFF"
+- id: ita-como
+  name: Como
+  primary: "#1B3A8C"
+  secondary: "#FFFFFF"
+- id: ita-frosinone
+  name: Frosinone
+  primary: "#FFDD00"
+  secondary: "#0057A8"
+- id: ita-monza
+  name: Monza
+  primary: "#D7001B"
+  secondary: "#FFFFFF"
+- id: ita-sassuolo
+  name: Sassuolo
+  primary: "#00A752"
+  secondary: "#000000"
+- id: ita-venezia
+  name: Venezia
+  primary: "#000000"
+  secondary: "#F47B20"
+- id: rus-baltika
+  name: Baltika
+  primary: "#0051A5"
+  secondary: "#FFFFFF"
+- id: rus-dynamo-makhachkala
+  name: Dynamo Makhachkala
+  primary: "#0055A4"
+  secondary: "#FFFFFF"
+- id: rus-fakel
+  name: Fakel
+  primary: "#0060A8"
+  secondary: "#FFFFFF"
+- id: rus-fc-orenburg
+  name: Orenburg
+  aliases: [rus-orenburg]
+  primary: "#0072CE"
+  secondary: "#FFFFFF"
+- id: rus-fc-rostov
+  name: Rostov
+  aliases: [rus-rostov]
+  primary: "#FFD600"
+  secondary: "#003B7B"
+- id: rus-fk-akhmat
+  name: Akhmat Grozny
+  aliases: [rus-akhmat, rus-akhmat-grozny]
+  primary: "#00843D"
+  secondary: "#FFFFFF"
+- id: rus-krylya-sovetov-samara
+  name: Krylya Sovetov
+  primary: "#0052A5"
+  secondary: "#FFFFFF"
+- id: rus-rubin-kazan
+  name: Rubin Kazan
+  primary: "#8B1A31"
+  secondary: "#006241"
