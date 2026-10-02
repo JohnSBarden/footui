@@ -208,7 +208,7 @@ func (m *Model) refreshRoster() tea.Cmd {
 }
 
 // drillDown opens the Player screen from the squad table, or the League
-// table for the selected season from the seasons table.
+// table at the selected season from the seasons table.
 func (m *Model) drillDown() tea.Cmd {
 	if m.focus == paneSquad {
 		row, ok := m.SelectedPlayer()
@@ -216,7 +216,7 @@ func (m *Model) drillDown() tea.Cmd {
 			return nil
 		}
 		if m.deps.Nav.Player == nil {
-			return core.Status("player view is not available in this build")
+			return nil
 		}
 		return core.Push(m.deps.Nav.Player(m.deps, row.Player, m.team.ID))
 	}
@@ -226,7 +226,11 @@ func (m *Model) drillDown() tea.Cmd {
 		return nil
 	}
 	if m.deps.Nav.League == nil {
-		return core.Status("league view is not available in this build")
+		return nil
 	}
-	return core.Push(m.deps.Nav.League(m.deps, comp.ID))
+	seasonID := ""
+	if row, ok := m.CurrentSeasonRow(); ok {
+		seasonID = row.Season.ID
+	}
+	return core.Push(m.deps.Nav.League(m.deps, comp.ID, seasonID))
 }

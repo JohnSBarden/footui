@@ -164,3 +164,35 @@ func TestRTargetsTheHighlightedLeague(t *testing.T) {
 		t.Errorf("refresh target %q, want esp-la-liga", id)
 	}
 }
+
+func TestShiftCSelectsTheCurrentSeasonOfEveryLeague(t *testing.T) {
+	m := newCatalog(t)
+	press(m, "C")
+	if seasons, leagues := m.SelectedCount(); seasons != 2 || leagues != 2 {
+		t.Fatalf("selected %d season(s) across %d league(s), want 2 across 2", seasons, leagues)
+	}
+	press(m, "C")
+	if seasons, _ := m.SelectedCount(); seasons != 0 {
+		t.Errorf("a second C should deselect them, %d left", seasons)
+	}
+}
+
+func TestUClearsTheSelection(t *testing.T) {
+	m := newCatalog(t)
+	press(m, "C")
+	press(m, "u")
+	if seasons, _ := m.SelectedCount(); seasons != 0 {
+		t.Errorf("u should clear the selection, %d left", seasons)
+	}
+}
+
+func TestSStopsDownloadsOnlyWhileOneIsRunning(t *testing.T) {
+	m := newCatalog(t)
+	if cmd := press(m, "s"); cmd != nil {
+		t.Error("with nothing running, s should do nothing")
+	}
+	m.Update(core.RefreshQueueMsg{Active: &core.RefreshRequest{CompetitionID: "esp-la-liga"}})
+	if _, ok := tuitest.CapturedCmd(press(m, "s")).(core.CancelRefreshMsg); !ok {
+		t.Error("s while downloading should ask the app to stop")
+	}
+}

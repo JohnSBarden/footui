@@ -177,7 +177,7 @@ func TestTabDoesNotFocusAnEmptySquad(t *testing.T) {
 
 	var openedCompetition string
 	deps := newDeps(repos)
-	deps.Nav.League = func(_ core.Deps, competitionID string) core.Screen {
+	deps.Nav.League = func(_ core.Deps, competitionID, _ string) core.Screen {
 		openedCompetition = competitionID
 		return stubScreen{}
 	}

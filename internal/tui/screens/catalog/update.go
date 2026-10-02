@@ -72,6 +72,14 @@ func (m *Model) handleKey(msg tea.KeyMsg) (core.Screen, tea.Cmd) {
 		m.selectMissing()
 	case "c":
 		m.selectCurrent()
+	case "C":
+		m.selectCurrentEverywhere()
+	case "u":
+		m.selected = map[string]map[string]bool{}
+	case "s":
+		if m.active != nil {
+			return m, core.CancelRefresh()
+		}
 	case "enter":
 		return m, m.download()
 	}
@@ -175,6 +183,24 @@ func (m *Model) selectCurrent() {
 	}
 	y := l.Seasons[0].Year
 	m.setSelected(l.Competition.ID, y, !m.isSelected(l.Competition.ID, y))
+}
+
+// selectCurrentEverywhere toggles the most recent season of every league:
+// all on, or all off if they already were. It is the catalog's
+// counterpart to  footy refresh --all.
+func (m *Model) selectCurrentEverywhere() {
+	allOn := true
+	for _, l := range m.leagues {
+		if len(l.Seasons) > 0 && !m.isSelected(l.Competition.ID, l.Seasons[0].Year) {
+			allOn = false
+			break
+		}
+	}
+	for _, l := range m.leagues {
+		if len(l.Seasons) > 0 {
+			m.setSelected(l.Competition.ID, l.Seasons[0].Year, !allOn)
+		}
+	}
 }
 
 // download queues every selected season and clears the selection. With

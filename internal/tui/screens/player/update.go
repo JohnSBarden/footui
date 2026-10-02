@@ -19,13 +19,33 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 		m.width, m.height = msg.Width, msg.Height
 		return m, nil
 
+	case core.RefreshedMsg:
+		if _, ok := m.history[msg.CompetitionID]; !ok {
+			return m, nil
+		}
+		m.loading = true
+		return m, m.loadHistory()
+
 	case historyLoadedMsg:
+		reload := m.loaded
+		prevComp, _ := m.CurrentCompetition()
+		prevCursor := m.cursor
 		m.competitions = msg.competitions
 		m.history = msg.history
 		m.loading = false
 		m.loaded = true
-		if len(m.competitions) > 0 {
-			m.selectInitial()
+		if len(m.competitions) == 0 {
+			return m, nil
+		}
+		m.selectInitial()
+		if reload {
+			// After a refresh, stay on the tab and row the user was on.
+			for i, c := range m.competitions {
+				if c.ID == prevComp.ID {
+					m.compIdx = i
+					m.cursor = min(prevCursor, len(m.CurrentRows())-1)
+				}
+			}
 		}
 		return m, nil
 
@@ -102,7 +122,7 @@ func (m *Model) openTeam() tea.Cmd {
 		return nil
 	}
 	if m.deps.Nav.Team == nil {
-		return core.Status("team view is not available in this build")
+		return nil
 	}
 	return core.Push(m.deps.Nav.Team(m.deps, row.Team, row.Stats.CompetitionID, row.Season.ID))
 }

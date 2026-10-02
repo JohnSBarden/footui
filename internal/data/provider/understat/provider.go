@@ -41,14 +41,6 @@ var _ provider.PlayerStatsProvider = (*Provider)(nil)
 var _ provider.TeamsProvider = (*Provider)(nil)
 var _ provider.LeaguePlayersProvider = (*Provider)(nil)
 
-// Covers reports whether this provider has a mapping for the given
-// competition ID at all — the sync layer uses this to decide routing
-// without needing to know understat.com's internal league keys.
-func Covers(competitionID string) bool {
-	_, ok := leagueKeys[competitionID]
-	return ok
-}
-
 func (p *Provider) fetch(ctx context.Context, comp provider.CompetitionRef, season provider.SeasonRef) (*leagueData, string, error) {
 	leagueKey, ok := leagueKeys[comp.CompetitionID]
 	if !ok {

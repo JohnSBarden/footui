@@ -178,8 +178,8 @@ func (m *Model) selectionLine() string {
 	th := m.deps.Theme
 	seasons, leagues := m.SelectedCount()
 	if seasons == 0 {
-		return th.Muted.Render("space selects a season · a selects every missing one · enter downloads")
+		return th.Muted.Render("space selects a season · a every missing one · C this season everywhere · enter downloads")
 	}
 	return th.Accent.Render(fmt.Sprintf("%d season(s) selected across %d league(s)", seasons, leagues)) +
-		th.Muted.Render(" — enter to download")
+		th.Muted.Render(" — enter to download, u to clear")
 }

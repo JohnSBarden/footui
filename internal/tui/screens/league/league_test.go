@@ -237,17 +237,11 @@ func TestSeasonSwitchLoadsThatSeasonsTable(t *testing.T) {
 	}
 }
 
-func TestEnterWithoutATeamRouteShowsStatusInsteadOfCrashing(t *testing.T) {
+func TestEnterWithoutATeamRouteDoesNothing(t *testing.T) {
 	s, _ := screen(t, storagetest.SampleStandings())
 
-	_, cmd := s.Update(enterKey())
-	msg := tuitest.CapturedCmd(cmd)
-	status, ok := msg.(core.StatusMsg)
-	if !ok {
-		t.Fatalf("expected a StatusMsg when no Team route is wired, got %#v", msg)
-	}
-	if status.Text == "" {
-		t.Error("status message should explain why nothing happened")
+	if _, cmd := s.Update(enterKey()); cmd != nil {
+		t.Errorf("with no Team route wired, enter should do nothing, got %#v", tuitest.CapturedCmd(cmd))
 	}
 }
 
@@ -447,5 +441,20 @@ func TestRefreshedMsgReloadsTheStandings(t *testing.T) {
 
 	if !strings.Contains(s.View(), "Arsenal") {
 		t.Errorf("standings should show after the refresh\n---\n%s", s.View())
+	}
+}
+
+// Drilling from a team's 2024-25 row should show the 2024-25 table, not
+// whatever season is newest.
+func TestNewAtOpensOnTheRequestedSeason(t *testing.T) {
+	repos := storagetest.New(t)
+	comp := storagetest.PremierLeague()
+	for _, label := range []string{"2025", "2024", "2023"} {
+		storagetest.SeedCompetition(t, repos, comp, label, storagetest.SampleStandings())
+	}
+	s := tuitest.Resize(t, tuitest.Settle(t, league.NewAt(newDeps(repos), comp.ID, comp.ID+":2024")), 100, 30)
+
+	if bar := seasonBar(t, s); !strings.Contains(bar, "[2024-25]") {
+		t.Errorf("expected 2024-25 selected, got %q", bar)
 	}
 }

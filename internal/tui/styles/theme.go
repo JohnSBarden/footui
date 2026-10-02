@@ -1,7 +1,7 @@
 // Package styles owns every Lip Gloss style footui renders with. Screens
 // never construct styles inline: they read them off a Theme, so that a
-// team-branded theme (Phase 7) can be swapped in wholesale and a
-// no-color mode can flatten everything in one place.
+// club's theme can be swapped in wholesale and a no-color mode can
+// flatten everything in one place.
 package styles
 
 import (

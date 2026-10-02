@@ -89,12 +89,45 @@ func New(deps core.Deps, query string) *Model {
 // Title implements core.Screen.
 func (m *Model) Title() string { return "Browse" }
 
-// Keys implements core.Screen. The search box owns most keystrokes, so
-// only the bindings that survive text entry are advertised.
+// Keys implements core.Screen. While the search box has focus it owns
+// most keystrokes, so only the bindings that survive text entry are
+// advertised; tab hands the keyboard to the results list.
 func (m *Model) Keys() core.KeyMap {
-	return core.KeyMap{
-		Short: []key.Binding{keys.Search, keys.Up, keys.Down, keys.Open},
+	if m.input.Focused() {
+		short := []key.Binding{keys.MoveInTextEntry, keys.Open, keys.ToResults}
+		if m.input.Value() != "" {
+			short = append(short, keys.ClearSearch)
+		}
+		return core.KeyMap{Short: short}
 	}
+	return core.KeyMap{
+		Short: []key.Binding{keys.Move, keys.Open, keys.Find},
+		Full: [][]key.Binding{
+			{keys.Up, keys.Down, keys.PageUp, keys.PageDown},
+			{keys.Home, keys.End, keys.Open, keys.Find},
+		},
+	}
+}
+
+// FocusSearch implements core.Searcher.
+func (m *Model) FocusSearch() tea.Cmd {
+	return m.input.Focus()
+}
+
+// Escape implements core.Escaper. esc unwinds the search before it
+// leaves the screen: from the results it returns to the box, and in the
+// box it clears a query. Only esc on an empty box goes back.
+func (m *Model) Escape() (bool, tea.Cmd) {
+	if !m.input.Focused() {
+		return true, m.input.Focus()
+	}
+	if m.input.Value() == "" {
+		return false, nil
+	}
+	m.input.SetValue("")
+	m.query = ""
+	m.loading = true
+	return true, m.search("")
 }
 
 // Init implements core.Screen.
