@@ -10,7 +10,7 @@ the others knowing:
  │   (a provider)      │  (1)   │   (SQLite store)       │  (2)   │   (CLI + TUI)        │
  │                      │ ────▶ │                        │ ────▶ │                      │
  │ internal/data/       │        │ internal/storage       │        │ internal/cli,        │
- │ provider/*           │        │ internal/storage/sqlite │        │ internal/tui (WIP)   │
+ │ provider/*           │        │ internal/storage/sqlite │        │ internal/tui         │
  └────────────────────┘        └──────────────────────┘        └───────────────────┘
         implements                    implements                    consumes only
    internal/data/provider          internal/storage.               internal/storage.
@@ -38,13 +38,9 @@ is written, the sync layer resolves those to canonical team and player IDs
 `external_ref`, so a club reached through both providers is one entity.
 understat's IDs were the original canonical scheme, so a club only
 understat knows keeps exactly the ID it always had. The rendering side
-is the full TUI — Browse, League, Team, Player — and it reaches data only
-through `storage.Repositories`, never through a provider or the database
-directly.
-
-The boundaries earned their keep: adding four screens required no changes
-to the provider or sync layers, only additional query methods on the
-storage contract.
+is the TUI — Browse, League, Team, Player, and the league catalog — and it
+reaches data only through `storage.Repositories`, never through a provider
+or the database directly.
 
 ## Boundary 1 — Source contract (`internal/data/provider`)
 
@@ -77,9 +73,8 @@ type TeamResolver interface {
     ResolveTeam(ctx context.Context, name string) ([]TeamRef, error)
 }
 
-// Bulk-fetch counterparts, added during implementation once it became
-// clear a full sync needs "every team in this league" and "every player
-// in this league" as first-class calls, not just per-team lookups:
+// Bulk-fetch counterparts: a full sync needs "every team in this league"
+// and "every player in this league" as single calls, not per-team lookups.
 
 type TeamsProvider interface {
     Teams(ctx context.Context, comp CompetitionRef, season SeasonRef) ([]models.Team, error)
@@ -91,35 +86,25 @@ type LeaguePlayersProvider interface {
 }
 ```
 
-**Current implementation:** `internal/data/provider/understat` (package
-`understat`), satisfying `StandingsProvider`, `XGProvider`,
-`PlayerStatsProvider`, `TeamsProvider`, and `LeaguePlayersProvider` — not
-`TeamStatsProvider` (understat.com has no possession/fouls/cards/shots
-data) or `TrophyProvider`/`TeamResolver` (not implemented yet).
+**Implementations:**
 
-**Why understat.com and not FBref, per the original design doc:** FBref
-sits behind a Cloudflare JS challenge that blocks plain HTTP requests
-(confirmed: even `curl` against the FBref homepage returns a 403 challenge
-page, not real content), and the environment this was built in has no
-headless-browser access to clear it. understat.com serves the same class
-of match/season data as a fetchable JSON endpoint
-(`GET /getLeagueData/{league}/{season}`, reverse-engineered from its own
-frontend JS — see `internal/data/provider/understat/client.go`). Swapping
-in an FBref provider (or a paid API) later means writing a new package that
-implements the same interfaces; nothing in `internal/data/sync` or above
-needs to change.
+- `internal/data/provider/understat` serves the six leagues with expected
+  goals. It reads understat.com's JSON endpoint
+  (`GET /getLeagueData/{league}/{season}`, the one its own frontend uses —
+  see `client.go`), and implements `StandingsProvider`, `XGProvider`,
+  `PlayerStatsProvider`, `TeamsProvider`, and `LeaguePlayersProvider`.
+- `internal/data/provider/espn` serves everything else: MLS and USL, the
+  second divisions, the women's leagues, and the European competitions.
+  It has possession, shots, corners, fouls and cards, but no expected
+  goals.
 
-**Coverage gap this creates**, tracked in `internal/data/sync/scope.go`:
-understat.com covers 6 men's top-flight leagues only (England, Spain,
-Germany, Italy, France, Russia) — no second divisions, no MLS/USL, no
-women's leagues, no continental competitions, and no fouls/possession/
-corners at all. This is a real, known gap versus the full v1 target in the
-design doc, not a hidden one. `provider.TeamsProvider`/
-`LeaguePlayersProvider`/etc. being separate interfaces from
-`TeamStatsProvider` is exactly what makes filling that gap additive: a
-future FBref-backed `TeamStatsProvider` implementation can supply
-possession/fouls for the same teams understat.com already covers, merged
-in by `internal/data/sync` rather than replacing anything.
+FBref would cover more, but it sits behind a Cloudflare JS challenge that
+plain HTTP requests can't clear. Adding a source means writing a package
+that implements these interfaces and adding its competitions to
+`sync.Coverages`; nothing in `internal/data/sync` or above changes. Because
+the interfaces are small, a provider that supplies only some stats for
+teams another already covers is additive: its rows are merged in, not
+substituted.
 
 ## Boundary 2 — Backend contract (`internal/storage`)
 
@@ -190,13 +175,22 @@ command's reply is wrapped in a `routedMsg` addressed to the screen's
 stack id (`internal/tui/route.go`), so it reaches that screen rather than
 whichever one is on top.
 
+Keyboard handling is layered so a text box never loses a keystroke and
+every action is reachable from every screen. The root app handles global
+keys first (`r`, `d`, `t`, `/`, `?`, `q`), each with a `ctrl+` twin that
+works while a screen reports `core.TextEntry`. `esc` goes to a screen that
+implements `core.Escaper` first, so clearing a search query happens before
+navigating back. `/` returns to the screen implementing `core.Searcher`
+rather than stacking a new one.
+
 Club themes come in two modes (`styles.Mode`). Weak uses club colors as
 foreground accents and leaves the terminal's background alone. Strong
 (`styles.StrongTeamTheme`) solves a palette against the club's primary as
 the background, and the root app paints the whole frame in it with
 `styles.Paint`. A themed screen exposes its theme through
 `core.ThemedScreen` so the chrome matches. The mode lives in a shared
-`*styles.Appearance` so the `t` toggle reaches every screen.
+`*styles.Appearance` so the `t` toggle reaches every screen, and the
+toggle is saved through `core.Deps.SaveTheme` so it survives a restart.
 
 ### How screens are structured
 
@@ -214,10 +208,8 @@ Three rules make this hold together:
 
 1. **Screens never import each other.** Drill-down targets arrive as
    constructors in `core.Navigator`, injected via `core.Deps`. This is what
-   lets League open Team *and* Team open League without a cycle. A route
-   that isn't wired is a nil field, and screens show a status message
-   rather than crashing — so a screen can ship before its drill-down
-   target exists.
+   lets League open Team *and* Team open League without a cycle, and lets
+   a screen's tests wire only the routes they exercise.
 
 2. **`internal/tui` is the only package that imports the screen packages.**
    It owns the stack, so "back" is always just popping; no screen has to
@@ -235,9 +227,10 @@ screen test exercises the same SQL the binary runs.
 ## Data flow for `footy refresh --all --years 3`
 
 1. `internal/cli/refresh.go` resolves the flags into a list of competitions
-   (from `sync.Scope` — the definitive list of what's syncable) and season
-   start years, opens/migrates the SQLite DB, and constructs an
-   `understat.Provider` and a `sync.Syncer`.
+   (from `sync.Coverages` — the definitive list of what's syncable) and
+   season start years, and opens/migrates the SQLite DB.
+   `internal/cli/refreshrun.go` groups the work by provider and constructs
+   one source and `sync.Syncer` per provider.
 2. `Syncer.SyncMany` walks every competition-season pair. Each unit is
    independent: a failure is recorded and the run continues, because the
    realistic failure mode across dozens of requests to a third-party
@@ -247,14 +240,14 @@ screen test exercises the same SQL the binary runs.
 3. For each unit, `SyncCompetitionSeason` upserts the `Competition` and
    `Season`, then calls the source through the `sync.Source` interface (the
    subset of the provider contract a full sync needs: `StandingsProvider` +
-   `TeamsProvider` + `LeaguePlayersProvider`) for teams, standings — with
-   xG and the long-tail stats already merged in, since understat.com
-   returns them in the same payload — and every player's season stats.
-   Each `models.*` value is upserted through `storage.Repositories`.
+   `TeamsProvider` + `LeaguePlayersProvider`) for teams, standings, and
+   every player's season stats. Provider IDs are resolved to canonical
+   ones (`identity.go`), and each `models.*` value is upserted through
+   `storage.Repositories`.
 4. Every attempt, successful or not, is written to `sync_log`. Recording
    failures is the point: "we tried an hour ago and it broke" is a
-   different fact from "we haven't tried since Tuesday", and the League
-   screen's freshness indicator distinguishes them.
+   different fact from "we haven't tried since Tuesday", and the freshness
+   shown in the TUI distinguishes them.
 5. Finally the curated club colors and honours are re-applied to whatever
    is now cached. Neither can fail the refresh — the stats are the point.
 
