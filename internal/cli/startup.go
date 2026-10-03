@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/JohnSBarden/footui/internal/data/models"
 	"github.com/JohnSBarden/footui/internal/data/sync"
 	"github.com/JohnSBarden/footui/internal/storage"
 	"github.com/JohnSBarden/footui/internal/tui/components"
@@ -38,7 +39,12 @@ func tuiCatalog(now time.Time) []core.CatalogEntry {
 // current one or the one before it. The second case is the season
 // rollover: someone who had 2025-26 in May wants 2026-27 in September
 // without being told to fetch it. A competition whose newest season is
-// years old was downloaded for its history, and is left alone.
+// years old was downloaded for its history, and is left alone — unless
+// it's a favourite league, which is always followed.
+//
+// The leagues of favourite clubs and players need no rule of their own: a
+// club with a line in this season or last is in a league whose newest
+// cached season is one of those two, which the rule above already follows.
 func staleRefreshes(ctx context.Context, repos storage.Repositories, now time.Time, maxAge time.Duration) []core.RefreshRequest {
 	if maxAge <= 0 {
 		return nil
@@ -49,6 +55,7 @@ func staleRefreshes(ctx context.Context, repos storage.Repositories, now time.Ti
 		// background refresh is not worth refusing to start over.
 		return nil
 	}
+	favorites := favoriteLeagues(ctx, repos)
 
 	var out []core.RefreshRequest
 	for _, comp := range comps {
@@ -61,11 +68,14 @@ func staleRefreshes(ctx context.Context, repos storage.Repositories, now time.Ti
 		current := cov.CurrentSeason(now)
 		previous := previousSeason(current)
 		seasons, err := repos.ListSeasons(ctx, comp.ID)
-		if err != nil || len(seasons) == 0 {
+		if err != nil {
 			continue
 		}
-		newest := seasons[0].Label
-		if newest != current && newest != previous {
+		newest := ""
+		if len(seasons) > 0 {
+			newest = seasons[0].Label
+		}
+		if newest != current && newest != previous && !favorites[comp.ID] {
 			continue
 		}
 
@@ -77,6 +87,22 @@ func staleRefreshes(ctx context.Context, repos storage.Repositories, now time.Ti
 			why = "new season " + components.SeasonLabelFor(comp.CalendarYear, current)
 		}
 		out = append(out, core.RefreshRequest{CompetitionID: comp.ID, Seasons: []string{current}, Why: why})
+	}
+	return out
+}
+
+// favoriteLeagues is the set of favourite competition IDs. An unreadable
+// favourites table means none: the stale check is best-effort.
+func favoriteLeagues(ctx context.Context, repos storage.Repositories) map[string]bool {
+	out := map[string]bool{}
+	favs, err := repos.ListFavorites(ctx)
+	if err != nil {
+		return out
+	}
+	for _, f := range favs {
+		if f.Kind == models.FavoriteCompetition {
+			out[f.ID] = true
+		}
 	}
 	return out
 }

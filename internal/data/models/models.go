@@ -214,3 +214,22 @@ type TeamColors struct {
 	TertiaryHex  string
 	Source       string
 }
+
+// FavoriteKind is the kind of entity a Favorite points at.
+type FavoriteKind string
+
+// Favorite kinds. The values are what the favorite table stores.
+const (
+	FavoriteCompetition FavoriteKind = "competition"
+	FavoriteTeam        FavoriteKind = "team"
+	FavoritePlayer      FavoriteKind = "player"
+)
+
+// Favorite is a competition, team or player the user has starred. It is
+// keyed by canonical ID, so a club favourited from its Premier League
+// page is the same favourite when reached through the Champions League.
+type Favorite struct {
+	Kind    FavoriteKind
+	ID      string
+	AddedAt time.Time
+}

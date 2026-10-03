@@ -6,6 +6,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/JohnSBarden/footui/internal/data/models"
 	"github.com/JohnSBarden/footui/internal/tui/components"
 )
 
@@ -48,7 +49,7 @@ func (m *Model) header() string {
 		meta = append(meta, m.player.Nationality)
 	}
 
-	line := th.Title.Render(m.player.Name)
+	line := th.Title.Render(m.deps.Star(models.FavoritePlayer, m.player.ID, m.player.Name))
 	if len(meta) > 0 {
 		line = lipgloss.JoinHorizontal(lipgloss.Center, line, th.Subtitle.Render("  "+strings.Join(meta, " · ")))
 	}

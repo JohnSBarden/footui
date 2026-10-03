@@ -36,11 +36,12 @@ func NewRootCmd() *cobra.Command {
 			}
 			return g.resolveSettings(cmd)
 		},
-		// Bare `footy` opens the Browse screen over whatever is cached.
+		// Bare `footy` opens the dashboard of favourites, or Browse over
+		// whatever is cached when there are none.
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmdContext(cmd)
 			return g.launchTUI(ctx, func(deps core.Deps) (core.Screen, error) {
-				return tui.NewBrowseScreen(deps, ""), nil
+				return tui.NewHomeScreen(deps), nil
 			})
 		},
 	}

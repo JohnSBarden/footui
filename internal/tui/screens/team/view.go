@@ -61,7 +61,7 @@ func (m *Model) header() string {
 		meta = append(meta, m.team.Venue)
 	}
 
-	line := th.Title.Render(m.team.Name)
+	line := th.Title.Render(m.deps.Star(models.FavoriteTeam, m.team.ID, m.team.Name))
 	if len(meta) > 0 {
 		line = lipgloss.JoinHorizontal(lipgloss.Center, line, th.Subtitle.Render("  "+strings.Join(meta, " · ")))
 	}

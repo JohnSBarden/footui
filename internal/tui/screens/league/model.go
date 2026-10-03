@@ -86,6 +86,12 @@ func (m *Model) Init() tea.Cmd {
 	return m.loadCompetition()
 }
 
+// FavoriteTarget implements core.Favoritable: the competition itself. A
+// club in the table is favourited from its own screen.
+func (m *Model) FavoriteTarget() (core.FavoriteTarget, bool) {
+	return core.FavoriteTarget{Kind: models.FavoriteCompetition, ID: m.compID, Name: m.Title()}, true
+}
+
 // RefreshTarget implements core.Refreshable: a refresh from the League
 // screen fetches the competition it is showing.
 func (m *Model) RefreshTarget() (string, bool) {

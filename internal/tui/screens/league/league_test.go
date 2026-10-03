@@ -56,6 +56,26 @@ func TestViewRendersStandingsInPositionOrder(t *testing.T) {
 	}
 }
 
+func TestAFavouriteLeagueIsStarredAndIsTheFavouriteTarget(t *testing.T) {
+	repos := storagetest.New(t)
+	storagetest.SeedCompetition(t, repos, storagetest.PremierLeague(), "2025", storagetest.SampleStandings())
+	deps := newDeps(repos)
+	deps.Favorites = core.NewFavorites(nil)
+	s := tuitest.Settle(t, league.New(deps, "eng-premier-league"))
+
+	if strings.Contains(s.View(), "★") {
+		t.Error("a league that isn't a favourite shouldn't be starred")
+	}
+	deps.Favorites.Set(models.FavoriteCompetition, "eng-premier-league", true)
+	if !strings.Contains(s.View(), "★ Premier League") {
+		t.Errorf("a favourite league should be starred:\n%s", s.View())
+	}
+	target, ok := s.(core.Favoritable).FavoriteTarget()
+	if !ok || target != (core.FavoriteTarget{Kind: models.FavoriteCompetition, ID: "eng-premier-league", Name: "Premier League"}) {
+		t.Errorf("favourite target %+v", target)
+	}
+}
+
 func TestViewShowsGoalDifferenceWithExplicitSign(t *testing.T) {
 	s, _ := screen(t, storagetest.SampleStandings())
 	out := s.View()

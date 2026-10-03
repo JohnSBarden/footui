@@ -76,7 +76,8 @@ func (a *App) deliver(r routedMsg) tea.Cmd {
 // screen.
 func isAppMsg(msg tea.Msg) bool {
 	switch msg.(type) {
-	case core.PushMsg, core.PopMsg, core.QuitMsg, core.StatusMsg, core.RefreshRequestMsg, tea.QuitMsg:
+	case core.PushMsg, core.PopMsg, core.QuitMsg, core.StatusMsg, core.RefreshRequestMsg,
+		core.FavoriteToggledMsg, tea.QuitMsg:
 		return true
 	}
 	return false

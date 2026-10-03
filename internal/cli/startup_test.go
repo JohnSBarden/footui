@@ -110,3 +110,23 @@ func TestSummarizeUnitsKeepsAPartialDownload(t *testing.T) {
 		t.Error("every season failing should be an error")
 	}
 }
+
+// A favourite league is followed even when only old seasons are cached:
+// starring it says "keep this current", whatever was downloaded before.
+func TestStaleRefreshesFollowsFavouriteLeagues(t *testing.T) {
+	repos := storagetest.New(t)
+	seedSeason(t, repos, "ita-serie-a", "2016", september.Add(-24*time.Hour), models.SyncStatusOK)
+	seedSeason(t, repos, "fra-ligue-1", "2015", september.Add(-24*time.Hour), models.SyncStatusOK)
+	if err := repos.AddFavorite(context.Background(), models.Favorite{
+		Kind: models.FavoriteCompetition, ID: "ita-serie-a", AddedAt: september}); err != nil {
+		t.Fatal(err)
+	}
+
+	reqs := staleRefreshes(context.Background(), repos, september, 6*time.Hour)
+	if len(reqs) != 1 || reqs[0].CompetitionID != "ita-serie-a" || reqs[0].Seasons[0] != "2026" {
+		t.Fatalf("got %+v, want the favourite's current season only", reqs)
+	}
+	if reqs[0].Why != "not cached yet" {
+		t.Errorf("reason %q", reqs[0].Why)
+	}
+}

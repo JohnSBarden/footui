@@ -77,7 +77,7 @@ footy status
 Then explore:
 
 ```sh
-footy                          # browse everything cached
+footy                          # your favourites, or browse everything cached
 footy league "premier"         # standings table
 footy team "Arsenal"           # club dashboard
 footy player "Saka"            # player career
@@ -96,6 +96,33 @@ refreshes the competition on screen without leaving the app; progress and
 the outcome show on the status line. `d` (or `ctrl+g`) opens the league
 catalog. In it, `space` ticks a season, `a` ticks every season you don't
 have yet, `c` ticks the current one, and `enter` downloads what's ticked.
+`f` (or `ctrl+f` while the search box has focus) stars or un-stars the
+league, club or player on screen, or the highlighted search result or
+dashboard card.
+
+### Favourites and the dashboard
+
+Star the leagues, clubs and players you follow with `f`. Once anything is
+starred, `footy` opens on a dashboard of them instead of the search box:
+
+- **League cards** show the top of the current table, with any club you've
+  starred picked out, even if it's further down.
+- **Club cards** show league position, points, the season's record, and xG
+  against goals where understat covers the league.
+- **Player cards** show the season's goals and assists, plus xG and xA
+  where available, for the club and competition they've played most in.
+
+Cards are grouped leagues, clubs, then players, in the order you starred
+them, and stack into one column on a narrow terminal. Arrow keys (or
+`hjkl`) move between cards, `enter` opens one, `/` searches, and `f`
+un-stars the selected card. Each card says how fresh its numbers are, and
+when a refresh of them is running or queued. A starred league is always
+kept up to date when footy opens, even if you'd only downloaded old
+seasons of it before.
+
+Favourites are kept in the database and survive refreshes. They're keyed by
+footy's own IDs, so a club starred from its Premier League page is the same
+favourite when you reach it through the Champions League.
 
 ### Themes
 
@@ -189,7 +216,7 @@ easiest way to improve coverage.
 
 | Command | What it does |
 |---|---|
-| `footy` | Browse everything cached |
+| `footy` | Open the dashboard of favourites, or browse everything cached when there are none |
 | `footy league <name>` | Open a competition's standings |
 | `footy team <name>` | Open a club's dashboard |
 | `footy player <name>` | Open a player's career dashboard |

@@ -1,0 +1,168 @@
+package dashboard
+
+import (
+	tea "github.com/charmbracelet/bubbletea"
+
+	"github.com/JohnSBarden/footui/internal/data/models"
+	"github.com/JohnSBarden/footui/internal/tui/core"
+)
+
+// Update implements core.Screen.
+func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
+	switch msg := msg.(type) {
+	case core.ThemeChangedMsg:
+		m.deps.Theme = msg.Theme
+		return m, nil
+
+	case tea.WindowSizeMsg:
+		m.width, m.height = msg.Width, msg.Height
+		return m, nil
+
+	case core.RefreshedMsg, core.FavoritesChangedMsg:
+		// New numbers, or a card added or removed.
+		return m, m.load()
+
+	case core.RefreshQueueMsg:
+		m.active = ""
+		if msg.Active != nil {
+			m.active = msg.Active.CompetitionID
+		}
+		m.pending = map[string]bool{}
+		for _, r := range msg.Pending {
+			m.pending[r.CompetitionID] = true
+		}
+		return m, nil
+
+	case cardsLoadedMsg:
+		m.cards = msg.cards
+		m.loading = false
+		m.err = nil
+		if m.cursor >= len(m.cards) {
+			m.cursor = len(m.cards) - 1
+		}
+		if m.cursor < 0 {
+			m.cursor = 0
+		}
+		return m, nil
+
+	case core.ErrMsg:
+		m.err = msg.Err
+		m.loading = false
+		return m, nil
+
+	case tea.KeyMsg:
+		return m.handleKey(msg)
+	}
+	return m, nil
+}
+
+func (m *Model) handleKey(msg tea.KeyMsg) (core.Screen, tea.Cmd) {
+	switch msg.String() {
+	case "left", "h":
+		m.move(0, -1)
+	case "right", "l":
+		m.move(0, 1)
+	case "up", "k":
+		m.move(-1, 0)
+	case "down", "j":
+		m.move(1, 0)
+	case "home", "g":
+		m.cursor = 0
+	case "end", "G":
+		if len(m.cards) > 0 {
+			m.cursor = len(m.cards) - 1
+		}
+	case "enter":
+		return m, m.open()
+	case "/":
+		if m.deps.Nav.Browse == nil {
+			return m, core.Status("search is not available in this build")
+		}
+		return m, core.Push(m.deps.Nav.Browse(m.deps, ""))
+	}
+	return m, nil
+}
+
+// grid lays the cards out as rows of indexes into m.cards, each group
+// starting a new row.
+func (m *Model) grid() [][]int {
+	cols := m.columns()
+	var rows [][]int
+	for i := range m.cards {
+		newGroup := i == 0 || m.cards[i].Kind != m.cards[i-1].Kind
+		if newGroup || len(rows[len(rows)-1]) == cols {
+			rows = append(rows, nil)
+		}
+		rows[len(rows)-1] = append(rows[len(rows)-1], i)
+	}
+	return rows
+}
+
+// move shifts the cursor by whole rows or single cards. Moving up or down
+// keeps the column where the next row has one, and lands on its last card
+// where it's shorter.
+func (m *Model) move(dRow, dCol int) {
+	if len(m.cards) == 0 {
+		return
+	}
+	if dCol != 0 {
+		m.cursor = clamp(m.cursor+dCol, 0, len(m.cards)-1)
+		return
+	}
+	rows := m.grid()
+	r, c := position(rows, m.cursor)
+	r = clamp(r+dRow, 0, len(rows)-1)
+	m.cursor = rows[r][clamp(c, 0, len(rows[r])-1)]
+}
+
+// position finds a card's row and column in the grid.
+func position(rows [][]int, card int) (int, int) {
+	for r, row := range rows {
+		for c, i := range row {
+			if i == card {
+				return r, c
+			}
+		}
+	}
+	return 0, 0
+}
+
+func clamp(v, lo, hi int) int {
+	if v < lo {
+		return lo
+	}
+	if v > hi {
+		return hi
+	}
+	return v
+}
+
+// open drills into the selected card: the same screen Browse would open,
+// with the card's season as context.
+func (m *Model) open() tea.Cmd {
+	c, ok := m.Selected()
+	if !ok {
+		return nil
+	}
+	if c.Missing {
+		return core.Status(c.ID + " isn't cached — press d to download its league, or f to remove it")
+	}
+	nav := m.deps.Nav
+	switch c.Kind {
+	case models.FavoriteCompetition:
+		if nav.League == nil {
+			return core.Status("league view is not available in this build")
+		}
+		return core.Push(nav.League(m.deps, c.ID))
+	case models.FavoriteTeam:
+		if nav.Team == nil {
+			return core.Status("team view is not available in this build")
+		}
+		return core.Push(nav.Team(m.deps, c.Team, c.Competition.ID, c.Season.ID))
+	default:
+		if nav.Player == nil {
+			return core.Status("player view is not available in this build")
+		}
+		return core.Push(nav.Player(m.deps, c.Player, c.Team.ID))
+	}
+}

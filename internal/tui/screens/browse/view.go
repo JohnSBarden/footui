@@ -35,9 +35,10 @@ func (m *Model) View() string {
 func (m *Model) resultsTable() string {
 	rows := make([][]components.Cell, 0, len(m.results))
 	for _, r := range m.results {
+		kind, id := r.favoriteKey()
 		rows = append(rows, []components.Cell{
 			components.Styled(kindLabel(r.Kind), m.deps.Theme.Muted),
-			components.Text(r.Name()),
+			components.Text(m.deps.Star(kind, id, r.Name())),
 			components.Styled(m.context(r), m.deps.Theme.Muted),
 		})
 	}

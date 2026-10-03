@@ -44,6 +44,9 @@ type Deps struct {
 	// every screen so a runtime toggle reaches all of them; nil means
 	// the default (weak).
 	Appearance *styles.Appearance
+	// Favorites are the user's starred entities, shared by every screen
+	// so a toggle shows everywhere at once.
+	Favorites *Favorites
 }
 
 // ThemeMode is the current theme mode, weak when none was configured.

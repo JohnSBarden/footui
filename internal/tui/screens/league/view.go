@@ -159,7 +159,7 @@ func (m *Model) header() string {
 	if name == "" {
 		name = m.compID
 	}
-	title := th.Title.Render(name)
+	title := th.Title.Render(m.deps.Star(models.FavoriteCompetition, m.compID, name))
 
 	var meta []string
 	if m.comp.Country != "" {

@@ -70,6 +70,11 @@ func (g *globalFlags) launchTUI(ctx context.Context, build func(core.Deps) (core
 	deps.Refresh = tuiRefresher(repos)
 	deps.Catalog = tuiCatalog(now)
 	deps.Appearance = &styles.Appearance{Mode: g.settings.theme}
+	favs, err := repos.ListFavorites(ctx)
+	if err != nil {
+		return err
+	}
+	deps.Favorites = core.NewFavorites(favs)
 
 	screen, err := build(deps)
 	if err != nil {

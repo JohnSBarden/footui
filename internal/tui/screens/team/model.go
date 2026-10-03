@@ -134,6 +134,12 @@ func (m *Model) Init() tea.Cmd {
 	return tea.Batch(m.loadHistory(), m.loadColors(), m.loadHonours())
 }
 
+// FavoriteTarget implements core.Favoritable: the club, whichever pane has
+// the cursor. A player is favourited from their own screen.
+func (m *Model) FavoriteTarget() (core.FavoriteTarget, bool) {
+	return core.FavoriteTarget{Kind: models.FavoriteTeam, ID: m.team.ID, Name: m.team.Name}, true
+}
+
 // RefreshTarget implements core.Refreshable: the selected competition tab,
 // or — when nothing is cached yet so there are no tabs — the competition
 // the team was opened from. A team opened by name with no history has no

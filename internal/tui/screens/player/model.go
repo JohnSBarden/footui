@@ -79,6 +79,11 @@ func (m *Model) Keys() core.KeyMap {
 // Init implements core.Screen.
 func (m *Model) Init() tea.Cmd { return m.loadHistory() }
 
+// FavoriteTarget implements core.Favoritable.
+func (m *Model) FavoriteTarget() (core.FavoriteTarget, bool) {
+	return core.FavoriteTarget{Kind: models.FavoritePlayer, ID: m.player.ID, Name: m.player.Name}, true
+}
+
 type historyLoadedMsg struct {
 	competitions []models.Competition
 	history      map[string][]SeasonRow

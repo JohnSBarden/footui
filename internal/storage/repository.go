@@ -152,6 +152,18 @@ type ExternalRefRepo interface {
 	TeamPlayers(ctx context.Context, teamID string) ([]models.Player, error)
 }
 
+// FavoritesRepo persists the entities the user has starred.
+type FavoritesRepo interface {
+	// AddFavorite stars an entity; starring an existing favourite is a
+	// no-op that keeps its original AddedAt.
+	AddFavorite(ctx context.Context, f models.Favorite) error
+	// RemoveFavorite un-stars an entity; removing a non-favourite is not
+	// an error.
+	RemoveFavorite(ctx context.Context, kind models.FavoriteKind, id string) error
+	// ListFavorites returns every favourite, oldest first.
+	ListFavorites(ctx context.Context) ([]models.Favorite, error)
+}
+
 // Repositories bundles every repo interface — the shape the sync layer and
 // CLI/TUI construction code depend on, so wiring up storage is passing one
 // value rather than six.
@@ -167,4 +179,5 @@ type Repositories interface {
 	SyncLogRepo
 	CacheRepo
 	ExternalRefRepo
+	FavoritesRepo
 }

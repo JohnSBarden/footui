@@ -207,7 +207,7 @@ internal/tui/
 ├── keys/             # every key binding, paired with its help text
 ├── styles/           # the theme, and team-brand theming with contrast adjustment
 ├── components/       # table, stat cards, tabs, freshness, formatting
-└── screens/{browse,catalog,league,team,player}/
+└── screens/{dashboard,browse,catalog,league,team,player}/
 ```
 
 Three rules make this hold together:

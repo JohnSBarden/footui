@@ -194,6 +194,9 @@ func writeFixture(t *testing.T, path string) {
 	mustNoErr(t, s.UpsertCompetition(ctx, models.Competition{ID: "usa-mls", Name: "MLS", Country: "USA", Tier: 1, Gender: "men", CalendarYear: true}))
 	mustNoErr(t, s.UpsertSeason(ctx, models.Season{ID: "usa-mls:2026", CompetitionID: "usa-mls", Label: "2026"}))
 
+	// From schema 0007: favourites.
+	mustNoErr(t, s.AddFavorite(ctx, models.Favorite{Kind: models.FavoriteTeam, ID: "eng-arsenal", AddedAt: fixtureTime}))
+
 	mustNoErr(t, os.MkdirAll(filepath.Dir(path), 0o755))
 	_ = os.Remove(path)
 	if _, err := db.Exec(`VACUUM INTO ?`, path); err != nil {
@@ -248,6 +251,17 @@ func checkFixture(t *testing.T, s *Store) {
 			t.Errorf("calendar-year competition lost its flag: %+v %+v", mls, seasons)
 		}
 	}
+
+	// Every fixture can hold favourites once upgraded; those from 0007 on
+	// carry one, which must survive.
+	favs, err := s.ListFavorites(ctx)
+	if err != nil {
+		t.Fatalf("favorites: %v", err)
+	}
+	if len(favs) > 0 && (len(favs) != 1 || favs[0].ID != "eng-arsenal" || !favs[0].AddedAt.Equal(fixtureTime)) {
+		t.Errorf("favorites %+v", favs)
+	}
+	mustNoErr(t, s.AddFavorite(ctx, models.Favorite{Kind: models.FavoritePlayer, ID: "p-saka", AddedAt: fixtureTime.Add(time.Hour)}))
 }
 
 // A database folded by the old rules (which left Ø alone) is refolded on

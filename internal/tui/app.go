@@ -24,6 +24,7 @@ import (
 	"github.com/JohnSBarden/footui/internal/tui/keys"
 	"github.com/JohnSBarden/footui/internal/tui/screens/browse"
 	"github.com/JohnSBarden/footui/internal/tui/screens/catalog"
+	"github.com/JohnSBarden/footui/internal/tui/screens/dashboard"
 	"github.com/JohnSBarden/footui/internal/tui/screens/league"
 	"github.com/JohnSBarden/footui/internal/tui/screens/player"
 	"github.com/JohnSBarden/footui/internal/tui/screens/team"
@@ -84,7 +85,7 @@ func NewApp(deps core.Deps, initial core.Screen) *App {
 // NewDeps builds the dependency bundle every screen is constructed with,
 // including the Navigator that wires screen-to-screen drill-down.
 func NewDeps(ctx context.Context, repos storage.Repositories, theme styles.Theme) core.Deps {
-	deps := core.Deps{Ctx: ctx, Repos: repos, Theme: theme}
+	deps := core.Deps{Ctx: ctx, Repos: repos, Theme: theme, Favorites: core.NewFavorites(nil)}
 	deps.Nav = navigator()
 	return deps
 }
@@ -129,10 +130,19 @@ func NewPlayerScreen(deps core.Deps, p models.Player) core.Screen {
 }
 
 // NewBrowseScreen constructs the Browse screen, optionally pre-filled with
-// a search query. It is what bare `footy` opens, and where an ambiguous
-// `footy team <name>` lands.
+// a search query. It is where an ambiguous `footy team <name>` lands, and
+// what bare `footy` opens before anything is favourited.
 func NewBrowseScreen(deps core.Deps, query string) core.Screen {
 	return browse.New(deps, query)
+}
+
+// NewHomeScreen is what bare `footy` opens: the dashboard once anything is
+// favourited, Browse until then.
+func NewHomeScreen(deps core.Deps) core.Screen {
+	if deps.Favorites.Len() > 0 {
+		return dashboard.New(deps)
+	}
+	return browse.New(deps, "")
 }
 
 // QueueOnStart arranges for reqs to be refreshed as soon as the app
@@ -219,6 +229,9 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case core.RefreshRequestMsg:
 		return a, a.enqueue(msg.Requests...)
+
+	case core.FavoriteToggledMsg:
+		return a, a.favoriteToggled(msg)
 	}
 
 	if key, ok := msg.(tea.KeyMsg); ok {
@@ -277,6 +290,13 @@ func (a *App) handleGlobalKey(key tea.KeyMsg) (bool, tea.Model, tea.Cmd) {
 		return true, a, a.toggleTheme()
 	case "ctrl+t":
 		return true, a, a.toggleTheme()
+	case "f":
+		if a.capturingText() {
+			return false, a, nil
+		}
+		return true, a, a.toggleFavorite()
+	case "ctrl+f":
+		return true, a, a.toggleFavorite()
 	}
 	return false, a, nil
 }
@@ -411,6 +431,9 @@ func (a *App) footer() string {
 	}
 	if refresh, ok := a.refreshBinding(); ok {
 		globals = append([]key.Binding{refresh}, globals...)
+	}
+	if favorite, ok := a.favoriteBinding(); ok {
+		globals = append([]key.Binding{favorite}, globals...)
 	}
 
 	km := a.current().Keys()

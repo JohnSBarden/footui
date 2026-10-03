@@ -64,6 +64,31 @@ var (
 		key.WithKeys("ctrl+g"),
 		key.WithHelp("ctrl+g", "download leagues"),
 	)
+	// Favorite stars or un-stars the league, club or player on screen (or
+	// the highlighted search result or dashboard card). ctrl+f works while
+	// a text box has focus.
+	Favorite = key.NewBinding(
+		key.WithKeys("f", "ctrl+f"),
+		key.WithHelp("f", "★ favourite"),
+	)
+	FavoriteFromTextEntry = key.NewBinding(
+		key.WithKeys("ctrl+f"),
+		key.WithHelp("ctrl+f", "★ favourite"),
+	)
+)
+
+// Bindings used by the dashboard.
+var (
+	// SearchFromDashboard opens Browse, the dashboard's way to everything
+	// that isn't a favourite.
+	SearchFromDashboard = key.NewBinding(
+		key.WithKeys("/"),
+		key.WithHelp("/", "search"),
+	)
+	Move = key.NewBinding(
+		key.WithKeys("up", "down", "left", "right", "h", "j", "k", "l"),
+		key.WithHelp("←↑↓→", "move"),
+	)
 )
 
 // Bindings used by the league catalog.

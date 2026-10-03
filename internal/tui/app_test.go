@@ -86,6 +86,8 @@ func keyPress(name string) tea.KeyMsg {
 		return tea.KeyMsg{Type: tea.KeyCtrlG}
 	case "ctrl+t":
 		return tea.KeyMsg{Type: tea.KeyCtrlT}
+	case "ctrl+f":
+		return tea.KeyMsg{Type: tea.KeyCtrlF}
 	default:
 		return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(name)}
 	}

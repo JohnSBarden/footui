@@ -123,6 +123,28 @@ func (m *Model) RefreshTarget() (string, bool) {
 	return "", false
 }
 
+// FavoriteTarget implements core.Favoritable: the highlighted result.
+func (m *Model) FavoriteTarget() (core.FavoriteTarget, bool) {
+	r, ok := m.SelectedResult()
+	if !ok {
+		return core.FavoriteTarget{}, false
+	}
+	kind, id := r.favoriteKey()
+	return core.FavoriteTarget{Kind: kind, ID: id, Name: r.Name()}, true
+}
+
+// favoriteKey is the result's identity as a favourite.
+func (r Result) favoriteKey() (models.FavoriteKind, string) {
+	switch r.Kind {
+	case KindCompetition:
+		return models.FavoriteCompetition, r.Competition.ID
+	case KindTeam:
+		return models.FavoriteTeam, r.Team.ID
+	default:
+		return models.FavoritePlayer, r.Player.ID
+	}
+}
+
 // firstRun reports whether the cache is empty: a blank query returned
 // nothing, and even the loading spinner has settled.
 func (m *Model) firstRun() bool {

@@ -201,6 +201,16 @@ something hypothetical: the design doc calls for a staleness indicator in
 the TUI and for provider routing to be config-driven, and both depend on
 these tables actually being populated.
 
+## favorite
+
+The leagues, clubs and players the user has starred (schema 0007), keyed
+by `(entity_type, entity_id)` with `entity_type` one of `competition`,
+`team` or `player`. IDs are canonical, so a favourite follows a club
+across providers. There are deliberately no foreign keys: a favourite
+whose entity isn't cached any more stays, and the dashboard shows it as
+not cached so it can still be un-starred. `added_at` orders cards within
+each dashboard group.
+
 ## A SQLite driver caveat worth knowing
 
 `modernc.org/sqlite` stores `time.Time` values as TEXT but does not scan
