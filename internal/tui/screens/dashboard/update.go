@@ -74,11 +74,6 @@ func (m *Model) handleKey(msg tea.KeyMsg) (core.Screen, tea.Cmd) {
 		}
 	case "enter":
 		return m, m.open()
-	case "/":
-		if m.deps.Nav.Browse == nil {
-			return m, core.Status("search is not available in this build")
-		}
-		return m, core.Push(m.deps.Nav.Browse(m.deps, ""))
 	}
 	return m, nil
 }
@@ -151,17 +146,17 @@ func (m *Model) open() tea.Cmd {
 	switch c.Kind {
 	case models.FavoriteCompetition:
 		if nav.League == nil {
-			return core.Status("league view is not available in this build")
+			return nil
 		}
-		return core.Push(nav.League(m.deps, c.ID))
+		return core.Push(nav.League(m.deps, c.ID, c.Season.ID))
 	case models.FavoriteTeam:
 		if nav.Team == nil {
-			return core.Status("team view is not available in this build")
+			return nil
 		}
 		return core.Push(nav.Team(m.deps, c.Team, c.Competition.ID, c.Season.ID))
 	default:
 		if nav.Player == nil {
-			return core.Status("player view is not available in this build")
+			return nil
 		}
 		return core.Push(nav.Player(m.deps, c.Player, c.Team.ID))
 	}

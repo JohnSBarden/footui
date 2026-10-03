@@ -230,3 +230,26 @@ func TestNarrowTerminalsKeepClubNamesIntact(t *testing.T) {
 		}
 	}
 }
+
+func TestRefreshTargetIsTheSelectedCompetition(t *testing.T) {
+	s := settled(t, newDeps(seedTwoCompetitions(t)), "")
+	first, _ := s.(core.Refreshable).RefreshTarget()
+
+	s = tuitest.Key(t, s, "right")
+	second, ok := s.(core.Refreshable).RefreshTarget()
+	if !ok || second == first {
+		t.Errorf("refresh targets %q then %q; r should follow the selected tab", first, second)
+	}
+}
+
+func TestRefreshReloadsAndKeepsTheSelectedTab(t *testing.T) {
+	s := tuitest.Key(t, settled(t, newDeps(seedTwoCompetitions(t)), ""), "right")
+	want, _ := s.(*player.Model).CurrentCompetition()
+
+	updated, cmd := s.Update(core.RefreshedMsg{CompetitionID: want.ID})
+	s = tuitest.Drive(t, updated, cmd)
+
+	if got, _ := s.(*player.Model).CurrentCompetition(); got.ID != want.ID {
+		t.Errorf("after refresh the tab is %q, want %q", got.ID, want.ID)
+	}
+}

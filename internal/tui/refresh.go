@@ -158,7 +158,28 @@ func (a *App) startNext() tea.Cmd {
 	a.queue = a.queue[1:]
 	a.active = &req
 	a.refreshing = a.describe(req, "")
-	return tea.Batch(a.broadcastQueue(), runRefresh(a.deps.Ctx, a.deps.Refresh, req))
+	parent := a.deps.Ctx
+	if parent == nil {
+		parent = context.Background()
+	}
+	ctx, cancel := context.WithCancel(parent)
+	a.stopActive = cancel
+	return tea.Batch(a.broadcastQueue(), runRefresh(ctx, a.deps.Refresh, req))
+}
+
+// cancelRefresh drops everything queued and stops the running refresh.
+// The running one winds down on its own goroutine; its final event is
+// what returns the app to idle.
+func (a *App) cancelRefresh() tea.Cmd {
+	if a.active == nil {
+		a.status = "nothing is downloading"
+		return nil
+	}
+	a.queue = nil
+	a.stopping = true
+	a.stopActive()
+	a.refreshing = "Stopping " + a.active.CompetitionID + "…"
+	return a.broadcastQueue()
 }
 
 // describe is the status line for the active request: what is being
@@ -207,11 +228,23 @@ func (a *App) handleRefreshEvent(msg refreshMsg) tea.Cmd {
 	}
 	req := *a.active
 	if !ev.done {
-		a.refreshing = a.describe(req, ev.progress)
+		if !a.stopping {
+			a.refreshing = a.describe(req, ev.progress)
+		}
 		return awaitRefresh(msg.events)
 	}
 
 	a.refreshing = ""
+	a.stopActive()
+	if a.stopping {
+		// What finished before the stop is cached and worth showing; the
+		// error the cancellation caused is not news.
+		a.stopping = false
+		a.batch = refreshBatch{}
+		a.active = nil
+		a.status = "Downloads stopped."
+		return tea.Batch(a.broadcast(core.RefreshedMsg{CompetitionID: req.CompetitionID}), a.broadcastQueue())
+	}
 	var reload tea.Cmd
 	if ev.err != nil {
 		a.batch.failed = append(a.batch.failed, fmt.Sprintf("%s (%v)", req.CompetitionID, ev.err))

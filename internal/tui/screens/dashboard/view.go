@@ -312,7 +312,7 @@ func (m *Model) playerLines(c Card, inner int) []string {
 	}
 	played := fmt.Sprintf("%d apps", s.Appearances)
 	if s.Minutes > 0 {
-		played += " · " + components.Minutes(s.Minutes)
+		played += " · " + strconv.Itoa(s.Minutes) + " min"
 	}
 	lines = append(lines, th.TableCell.Render(components.Truncate(played, inner)))
 	for len(lines) < cardLines-1 {

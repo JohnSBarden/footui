@@ -1,5 +1,7 @@
 # footui
 
+[![CI](https://github.com/JohnSBarden/footui/actions/workflows/ci.yml/badge.svg)](https://github.com/JohnSBarden/footui/actions/workflows/ci.yml)
+
 A terminal dashboard for drillable football statistics.
 
 `footui` (binary: `footy`) fetches league, team, and player data into a local
@@ -91,14 +93,31 @@ to them rather than guessing.
 ### Keys
 
 Every screen shows its bindings along the bottom; `?` expands the full set.
-`esc` goes back, `q` quits. `r` (or `ctrl+r` while the search box has focus)
-refreshes the competition on screen without leaving the app; progress and
-the outcome show on the status line. `d` (or `ctrl+g`) opens the league
-catalog. In it, `space` ticks a season, `a` ticks every season you don't
-have yet, `c` ticks the current one, and `enter` downloads what's ticked.
-`f` (or `ctrl+f` while the search box has focus) stars or un-stars the
-league, club or player on screen, or the highlighted search result or
-dashboard card.
+
+| Key | Anywhere |
+|---|---|
+| `/` | Search, from any screen |
+| `enter` | Open the highlighted league, club, player, season or card |
+| `esc` | Back (clears a search query first) |
+| `f` | Star or un-star the league, club or player on screen, or the highlighted result or card |
+| `r` | Refresh the competition on screen; progress shows on the status line |
+| `d` | Open the league catalog to download leagues and seasons |
+| `t` | Switch theme, and remember the choice |
+| `?` | Show every key |
+| `q` | Quit |
+
+The search box takes letters as text, so while you type there use `ctrl+f`,
+`ctrl+r`, `ctrl+g`, `ctrl+t` and `ctrl+c` instead, or press `tab` to move
+into the results, where `j`/`k` and the plain keys work again.
+
+On the dashboard the arrow keys (or `hjkl`) move between cards. On the
+League screen `←`/`→` change season. On Team and Player they change
+competition, and on Team `tab` moves between the seasons and the squad.
+
+In the league catalog, `space` ticks a season, `a` ticks every season of the
+league you don't have, `c` its current season, `C` the current season of
+every league, and `u` clears the ticks. `enter` downloads what's ticked, and
+`s` stops downloads in progress.
 
 ### Favourites and the dashboard
 
@@ -134,11 +153,11 @@ A club's dashboard is drawn in its colors, in one of two modes:
   accents, and win/loss colors are chosen to meet WCAG AA contrast against
   it, and the selected row is drawn inverse.
 
-Press `t` (or `ctrl+t`, which also works while typing in search) to switch
-while running, or pick one with `--theme strong`. Strong mode paints every
-screen: a club's pages in its colors, everything else in footy's blue. To
-make it the default, set `theme: strong` in the settings file (below) or
-`FOOTY_THEME=strong` in your shell profile.
+Press `t` (or `ctrl+t` while typing in search) to switch while running.
+The choice is saved to the settings file (below), so it sticks. Strong
+mode paints every screen: a club's pages in its colors, everything else in
+footy's blue. `--theme` and `FOOTY_THEME` still override the saved choice
+for a single run.
 
 ### Settings
 
@@ -265,8 +284,14 @@ version: providers return canonical `models` types and never touch SQL; the
 TUI queries `storage.Repositories` and never calls a provider; screens reach
 each other through injected constructors so no screen imports another.
 
-## Data source
+## Data sources
 
-Data comes from [understat.com](https://understat.com)'s public endpoint.
-footy is not affiliated with it. Requests are throttled and retried
-conservatively; please don't reconfigure it to hammer them.
+Data comes from [understat.com](https://understat.com) and ESPN's public
+endpoints. footy is not affiliated with either, and the endpoints are
+undocumented, so they can change without notice. Requests are throttled and
+retried conservatively; please don't reconfigure footy to hammer them.
+
+## License
+
+[MIT](LICENSE). The data footy fetches belongs to its providers and is not
+covered by this license.

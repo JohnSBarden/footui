@@ -1,11 +1,10 @@
 package team
 
 import (
-	"sort"
-
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/JohnSBarden/footui/internal/data/models"
+	"github.com/JohnSBarden/footui/internal/tui/components"
 	"github.com/JohnSBarden/footui/internal/tui/core"
 )
 
@@ -48,7 +47,7 @@ func (m *Model) loadHistory() tea.Cmd {
 			}
 			ordered = append(ordered, comp)
 		}
-		sortCompetitions(ordered)
+		components.SortCompetitions(ordered)
 
 		return historyLoadedMsg{competitions: ordered, history: history}
 	}
@@ -144,31 +143,6 @@ func distinctRefs(stats []models.TeamSeasonStats) (compIDs, seasonIDs []string) 
 		}
 	}
 	return compIDs, seasonIDs
-}
-
-// sortCompetitions puts a team's league first (lowest tier number), then
-// orders the rest by name, so the tab order is stable across refreshes
-// rather than following map iteration.
-func sortCompetitions(comps []models.Competition) {
-	sort.Slice(comps, func(i, j int) bool {
-		// A club's own league comes before a European competition it
-		// played in that season, so the screen opens on the league.
-		if ei, ej := comps[i].Country == "Europe", comps[j].Country == "Europe"; ei != ej {
-			return ej
-		}
-		if comps[i].Tier != comps[j].Tier {
-			// Tier 0 means "unknown" (a cup we have no metadata for) and
-			// sorts last rather than first.
-			if comps[i].Tier == 0 {
-				return false
-			}
-			if comps[j].Tier == 0 {
-				return true
-			}
-			return comps[i].Tier < comps[j].Tier
-		}
-		return comps[i].Name < comps[j].Name
-	})
 }
 
 // selectInitial picks the tab and season row the screen opens on: the ones

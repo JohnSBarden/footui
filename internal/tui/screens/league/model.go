@@ -1,9 +1,5 @@
-// Package league renders a competition's standings table for its two most
-// recent cached seasons.
-//
-// The two-season cap is a product requirement, not a performance
-// workaround: a league view is for "how does this season look", and deeper
-// history belongs on the Team screen, which slices by competition.
+// Package league renders a competition's standings table, one cached
+// season at a time, with every cached season selectable from a tab bar.
 package league
 
 import (
@@ -27,6 +23,9 @@ type Row struct {
 type Model struct {
 	deps   core.Deps
 	compID string
+	// fromSeasonID is the season to open on, when the user drilled in
+	// from a particular one; empty opens the most recent.
+	fromSeasonID string
 
 	comp      models.Competition
 	seasons   []models.Season
@@ -53,12 +52,19 @@ type Model struct {
 // happens in Init, so constructing a screen is cheap and never blocks the
 // event loop.
 func New(deps core.Deps, competitionID string) *Model {
+	return NewAt(deps, competitionID, "")
+}
+
+// NewAt constructs the League screen opened on seasonID, falling back to
+// the most recent cached season when that one isn't cached.
+func NewAt(deps core.Deps, competitionID, seasonID string) *Model {
 	return &Model{
-		deps:    deps,
-		compID:  competitionID,
-		loading: true,
-		width:   100,
-		height:  30,
+		deps:         deps,
+		compID:       competitionID,
+		fromSeasonID: seasonID,
+		loading:      true,
+		width:        100,
+		height:       30,
 	}
 }
 
@@ -73,7 +79,7 @@ func (m *Model) Title() string {
 // Keys implements core.Screen.
 func (m *Model) Keys() core.KeyMap {
 	return core.KeyMap{
-		Short: []key.Binding{keys.Up, keys.Down, keys.Season, keys.Open},
+		Short: []key.Binding{keys.Move, keys.Season, keys.Open},
 		Full: [][]key.Binding{
 			{keys.Up, keys.Down, keys.PageUp, keys.PageDown},
 			{keys.Home, keys.End, keys.Season, keys.Open},

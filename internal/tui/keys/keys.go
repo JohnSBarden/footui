@@ -47,7 +47,7 @@ var (
 	// are chosen for download. ctrl+g works while a text box has focus.
 	Catalog = key.NewBinding(
 		key.WithKeys("d", "ctrl+g"),
-		key.WithHelp("d", "download leagues"),
+		key.WithHelp("d", "download"),
 	)
 	// Theme switches club screens between the weak theme (club colors as
 	// highlights) and the strong one (painted in the club's colors).
@@ -60,9 +60,14 @@ var (
 		key.WithKeys("ctrl+t"),
 		key.WithHelp("ctrl+t", "theme"),
 	)
+	// Find returns to the search box from any screen.
+	Find = key.NewBinding(
+		key.WithKeys("/"),
+		key.WithHelp("/", "search"),
+	)
 	CatalogFromTextEntry = key.NewBinding(
 		key.WithKeys("ctrl+g"),
-		key.WithHelp("ctrl+g", "download leagues"),
+		key.WithHelp("ctrl+g", "download"),
 	)
 	// Favorite stars or un-stars the league, club or player on screen (or
 	// the highlighted search result or dashboard card). ctrl+f works while
@@ -77,25 +82,17 @@ var (
 	)
 )
 
-// Bindings used by the dashboard.
-var (
-	// SearchFromDashboard opens Browse, the dashboard's way to everything
-	// that isn't a favourite.
-	SearchFromDashboard = key.NewBinding(
-		key.WithKeys("/"),
-		key.WithHelp("/", "search"),
-	)
-	Move = key.NewBinding(
-		key.WithKeys("up", "down", "left", "right", "h", "j", "k", "l"),
-		key.WithHelp("←↑↓→", "move"),
-	)
+// MoveCard moves between dashboard cards, in two dimensions.
+var MoveCard = key.NewBinding(
+	key.WithKeys("up", "down", "left", "right", "h", "j", "k", "l"),
+	key.WithHelp("←↑↓→", "move"),
 )
 
 // Bindings used by the league catalog.
 var (
 	Toggle = key.NewBinding(
 		key.WithKeys(" ", "x"),
-		key.WithHelp("space", "select season"),
+		key.WithHelp("space", "select"),
 	)
 	SelectMissing = key.NewBinding(
 		key.WithKeys("a"),
@@ -105,13 +102,26 @@ var (
 		key.WithKeys("c"),
 		key.WithHelp("c", "select current"),
 	)
+	SelectCurrentEverywhere = key.NewBinding(
+		key.WithKeys("C"),
+		key.WithHelp("C", "select current, every league"),
+	)
+	ClearSelection = key.NewBinding(
+		key.WithKeys("u"),
+		key.WithHelp("u", "clear selection"),
+	)
+	// StopDownloads cancels the running download and empties the queue.
+	StopDownloads = key.NewBinding(
+		key.WithKeys("s"),
+		key.WithHelp("s", "stop downloads"),
+	)
 	Download = key.NewBinding(
 		key.WithKeys("enter"),
-		key.WithHelp("enter", "download selected"),
+		key.WithHelp("enter", "download"),
 	)
 	CatalogPane = key.NewBinding(
 		key.WithKeys("tab", "left", "right", "h", "l"),
-		key.WithHelp("tab/←→", "leagues/seasons"),
+		key.WithHelp("tab/←→", "switch list"),
 	)
 )
 
@@ -125,6 +135,12 @@ var (
 	Down = key.NewBinding(
 		key.WithKeys("down", "j"),
 		key.WithHelp("↓/j", "down"),
+	)
+	// Move is Up and Down as one footer item; the full help lists them
+	// separately with their vim keys.
+	Move = key.NewBinding(
+		key.WithKeys("up", "down", "k", "j"),
+		key.WithHelp("↑/↓", "move"),
 	)
 	PageUp = key.NewBinding(
 		key.WithKeys("pgup"),
@@ -158,8 +174,21 @@ var (
 		key.WithKeys("tab"),
 		key.WithHelp("tab", "seasons/squad"),
 	)
-	Search = key.NewBinding(
-		key.WithKeys("ctrl+n", "ctrl+p"),
-		key.WithHelp("type", "search"),
+	// MoveInTextEntry is cursor movement while a text box has focus, where
+	// j and k are letters rather than movement.
+	MoveInTextEntry = key.NewBinding(
+		key.WithKeys("up", "down", "ctrl+p", "ctrl+n"),
+		key.WithHelp("↑/↓", "move"),
+	)
+	// ToResults moves focus from the search box to its results, where
+	// bare-letter shortcuts work again.
+	ToResults = key.NewBinding(
+		key.WithKeys("tab"),
+		key.WithHelp("tab", "results"),
+	)
+	// ClearSearch empties a search box that has text in it.
+	ClearSearch = key.NewBinding(
+		key.WithKeys("esc"),
+		key.WithHelp("esc", "clear"),
 	)
 )

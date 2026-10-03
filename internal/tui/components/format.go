@@ -75,9 +75,3 @@ func SeasonLabelFor(calendar bool, label string) string {
 	}
 	return fmt.Sprintf("%d-%02d", year, (year+1)%100)
 }
-
-// Minutes renders a minutes-played total as-is; kept as a named helper so
-// the unit suffix is defined in one place.
-func Minutes(m int) string {
-	return strconv.Itoa(m) + "'"
-}

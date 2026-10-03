@@ -112,7 +112,7 @@ func TestTypingNarrowsResults(t *testing.T) {
 func TestEnterOpensACompetition(t *testing.T) {
 	var opened string
 	deps := newDeps(seeded(t))
-	deps.Nav.League = func(_ core.Deps, id string) core.Screen { opened = id; return stubScreen{} }
+	deps.Nav.League = func(_ core.Deps, id, _ string) core.Screen { opened = id; return stubScreen{} }
 
 	s := open(t, deps, "premier")
 	_, cmd := s.Update(tea.KeyMsg{Type: tea.KeyEnter})
@@ -246,5 +246,56 @@ func TestRefreshedMsgRerunsTheSearch(t *testing.T) {
 
 	if !strings.Contains(s.View(), "Premier League") {
 		t.Errorf("the newly cached competition should be listed\n---\n%s", s.View())
+	}
+}
+
+// tab hands the keyboard to the results, where bare letters are
+// shortcuts again — otherwise q, ? and r could never be pressed on the
+// screen footy opens on.
+func TestTabMovesFocusToTheResults(t *testing.T) {
+	s := tuitest.Key(t, open(t, newDeps(seeded(t)), "manchester"), "tab")
+
+	if s.(core.TextEntry).CapturingText() {
+		t.Fatal("after tab the search box should have let go of the keyboard")
+	}
+	before, _ := s.(*browse.Model).SelectedResult()
+	s = tuitest.Key(t, s, "j")
+	after, _ := s.(*browse.Model).SelectedResult()
+	if before.Name() == after.Name() {
+		t.Error("j should move down the results once they have focus")
+	}
+
+	s = tuitest.Key(t, s, "/")
+	if !s.(core.TextEntry).CapturingText() {
+		t.Error("/ should return focus to the search box")
+	}
+}
+
+func TestEscClearsTheQueryBeforeLeaving(t *testing.T) {
+	s := open(t, newDeps(seeded(t)), "manchester")
+	esc := s.(core.Escaper)
+
+	handled, cmd := esc.Escape()
+	if !handled {
+		t.Fatal("esc with a query should clear it, not leave the screen")
+	}
+	s = tuitest.Drive(t, s, cmd)
+	if !strings.Contains(s.View(), "Premier League") {
+		t.Errorf("clearing the query should list competitions again\n---\n%s", s.View())
+	}
+
+	if handled, _ := s.(core.Escaper).Escape(); handled {
+		t.Error("esc on an empty search box should go back")
+	}
+}
+
+func TestEscFromTheResultsReturnsToTheSearchBox(t *testing.T) {
+	s := tuitest.Key(t, open(t, newDeps(seeded(t)), "manchester"), "tab")
+
+	if handled, _ := s.(core.Escaper).Escape(); !handled {
+		t.Fatal("esc from the results should return to the box")
+	}
+	if !s.(core.TextEntry).CapturingText() {
+		t.Error("the search box should have focus again")
 	}
 }

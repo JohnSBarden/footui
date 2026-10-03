@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -70,6 +71,7 @@ func (g *globalFlags) launchTUI(ctx context.Context, build func(core.Deps) (core
 	deps.Refresh = tuiRefresher(repos)
 	deps.Catalog = tuiCatalog(now)
 	deps.Appearance = &styles.Appearance{Mode: g.settings.theme}
+	deps.SaveTheme = g.saveTheme
 	favs, err := repos.ListFavorites(ctx)
 	if err != nil {
 		return err
@@ -81,6 +83,19 @@ func (g *globalFlags) launchTUI(ctx context.Context, build func(core.Deps) (core
 		return err
 	}
 	return tui.Run(deps, screen, staleRefreshes(ctx, repos, now, g.settings.staleAfter)...)
+}
+
+// saveTheme makes a theme chosen in the interface the default for next
+// time. A theme set by flag or environment would override the file, so
+// writing it there would look saved and then not stick.
+func (g *globalFlags) saveTheme(mode styles.Mode) error {
+	switch g.settings.sources["theme"] {
+	case fromFlag:
+		return errors.New("--theme overrides the settings file")
+	case fromEnv:
+		return errors.New("FOOTY_THEME overrides the settings file")
+	}
+	return config.SetTheme(configPath(), mode.String())
 }
 
 // resolveCompetition turns a free-text competition name into exactly one

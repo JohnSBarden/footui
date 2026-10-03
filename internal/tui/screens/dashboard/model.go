@@ -113,7 +113,7 @@ func (m *Model) Title() string { return Title }
 // Keys implements core.Screen.
 func (m *Model) Keys() core.KeyMap {
 	return core.KeyMap{
-		Short: []key.Binding{keys.Move, keys.Open, keys.SearchFromDashboard},
+		Short: []key.Binding{keys.MoveCard, keys.Open},
 	}
 }
 

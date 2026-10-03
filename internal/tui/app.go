@@ -16,6 +16,7 @@ import (
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/JohnSBarden/footui/internal/data/models"
 	"github.com/JohnSBarden/footui/internal/storage"
@@ -56,6 +57,10 @@ type App struct {
 	active *core.RefreshRequest
 	queue  []core.RefreshRequest
 	batch  refreshBatch
+	// stopActive cancels the running refresh; stopping is set once the
+	// user has asked it to stop, until it reports back.
+	stopActive context.CancelFunc
+	stopping   bool
 	// startup is refresh work to queue as soon as the app starts — the
 	// stale current seasons the host found when it opened the database.
 	startup []core.RefreshRequest
@@ -91,12 +96,11 @@ func NewDeps(ctx context.Context, repos storage.Repositories, theme styles.Theme
 }
 
 // navigator maps each drill-down route to the screen package that
-// implements it. Routes not yet built are left nil; screens check for nil
-// and show a status message rather than crashing.
+// implements it.
 func navigator() core.Navigator {
 	return core.Navigator{
-		League: func(deps core.Deps, competitionID string) core.Screen {
-			return league.New(deps, competitionID)
+		League: func(deps core.Deps, competitionID, seasonID string) core.Screen {
+			return league.NewAt(deps, competitionID, seasonID)
 		},
 		Team: func(deps core.Deps, t models.Team, competitionID, seasonID string) core.Screen {
 			return team.New(deps, t, competitionID, seasonID)
@@ -208,9 +212,6 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case core.PopMsg:
 		return a.pop()
 
-	case core.QuitMsg:
-		return a, tea.Quit
-
 	case routedMsg:
 		return a, a.deliver(msg)
 
@@ -229,6 +230,9 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case core.RefreshRequestMsg:
 		return a, a.enqueue(msg.Requests...)
+
+	case core.CancelRefreshMsg:
+		return a, a.cancelRefresh()
 
 	case core.FavoriteToggledMsg:
 		return a, a.favoriteToggled(msg)
@@ -254,8 +258,18 @@ func (a *App) handleGlobalKey(key tea.KeyMsg) (bool, tea.Model, tea.Cmd) {
 	case "ctrl+c":
 		return true, a, tea.Quit
 	case "esc":
+		if esc, ok := a.current().(core.Escaper); ok {
+			if handled, cmd := esc.Escape(); handled {
+				return true, a, cmd
+			}
+		}
 		model, cmd := a.pop()
 		return true, model, cmd
+	case "/":
+		if a.capturingText() {
+			return false, a, nil
+		}
+		return true, a, a.openSearch()
 	case "q":
 		// A screen capturing text needs the literal character.
 		if a.capturingText() {
@@ -326,10 +340,38 @@ func (a *App) toggleTheme() tea.Cmd {
 	} else {
 		a.status = "theme: weak — your terminal's background, club colors as highlights"
 	}
+	if a.deps.SaveTheme != nil {
+		if err := a.deps.SaveTheme(mode); err != nil {
+			a.status += " (not saved: " + err.Error() + ")"
+		} else {
+			a.status += " (saved as default)"
+		}
+	}
 	// Screens pushed later are built from a.deps, so they start in the
 	// new mode too.
 	a.deps.Theme = styles.BaseFor(mode, false)
 	return a.broadcast(core.ThemeChangedMsg{Mode: mode, Theme: a.deps.Theme})
+}
+
+// openSearch returns to the search screen with its box focused: popping
+// back to it when it is already on the stack, pushing one when it isn't
+// (the app was opened straight onto a team, say).
+func (a *App) openSearch() tea.Cmd {
+	for i := len(a.stack) - 1; i >= 0; i-- {
+		searcher, ok := a.stack[i].(core.Searcher)
+		if !ok {
+			continue
+		}
+		a.stack = a.stack[:i+1]
+		a.ids = a.ids[:i+1]
+		a.status = ""
+		a.err = nil
+		return searcher.FocusSearch()
+	}
+	if a.deps.Nav.Browse == nil {
+		return nil
+	}
+	return core.Push(a.deps.Nav.Browse(a.deps, ""))
 }
 
 // capturingText reports whether the visible screen wants bare letters.
@@ -414,31 +456,66 @@ func (a *App) breadcrumb() string {
 // what the screen actually handles.
 func (a *App) footer() string {
 	// The global bindings are the app's, not the screen's, so they're
-	// appended here rather than repeated in every screen's KeyMap — and
-	// to both views, or the expanded help would omit how to get out of it.
-	globals := []key.Binding{keys.Theme, keys.Help, keys.Back, keys.Quit}
+	// appended here rather than repeated in every screen's KeyMap.
+	//
+	// The expanded help lists every one. The one-line footer can't fit
+	// them all beside a screen's own keys, so it keeps what gets a user
+	// around and out, ordered so a narrow terminal cuts the least
+	// essential first; the rest are one "?" away.
+	var short, full []key.Binding
+	refresh, canRefresh := a.refreshBinding()
+	download := keys.Catalog
+	canDownload := a.catalogAvailable() && a.current().Title() != catalog.Title
+	_, isSearch := a.current().(core.Searcher)
+
 	if a.capturingText() {
-		// "?" is also swallowed by the text box, so neither it nor "q" is
-		// offered here.
-		globals = []key.Binding{keys.ThemeFromTextEntry, keys.Back, keys.QuitFromTextEntry}
-	}
-	if a.catalogAvailable() && a.current().Title() != catalog.Title {
-		download := keys.Catalog
-		if a.capturingText() {
-			download = keys.CatalogFromTextEntry
+		// The text box takes "?" and every bare letter, so there is no
+		// expanded help to defer to: the ctrl keys are all listed.
+		download = keys.CatalogFromTextEntry
+		short = []key.Binding{keys.Back, keys.QuitFromTextEntry}
+		if canRefresh {
+			short = append(short, refresh)
 		}
-		globals = append([]key.Binding{download}, globals...)
+		if canDownload {
+			short = append(short, download)
+		}
+		short = append(short, keys.ThemeFromTextEntry)
+		full = short
+	} else {
+		short = []key.Binding{keys.Back, keys.Help, keys.Quit, keys.Theme}
+		if !isSearch {
+			short = append(short, keys.Find)
+		}
+		if canRefresh {
+			short = append(short, refresh)
+			full = append(full, refresh)
+		}
+		if canDownload {
+			full = append(full, download)
+		}
+		if !isSearch {
+			full = append(full, keys.Find)
+		}
+		full = append(full, keys.Theme, keys.Help, keys.Back, keys.Quit)
 	}
-	if refresh, ok := a.refreshBinding(); ok {
-		globals = append([]key.Binding{refresh}, globals...)
-	}
+	// The favourite key goes first in both views: it's the one action
+	// that depends on what's on screen, so the user can't know it's there
+	// without being told.
 	if favorite, ok := a.favoriteBinding(); ok {
-		globals = append([]key.Binding{favorite}, globals...)
+		short = append([]key.Binding{favorite}, short...)
+		full = append([]key.Binding{favorite}, full...)
 	}
 
 	km := a.current().Keys()
-	km.Full = append(append([][]key.Binding{}, km.FullHelp()...), globals)
-	km.Short = append(append([]key.Binding{}, km.Short...), globals...)
+	if slices.ContainsFunc(km.Short, func(b key.Binding) bool { return b.Help().Key == "esc" }) {
+		// The screen has its own use for esc right now (clearing a
+		// query), and advertising "esc back" alongside it would be wrong.
+		isEsc := func(b key.Binding) bool { return b.Help().Key == "esc" }
+		short = slices.DeleteFunc(slices.Clone(short), isEsc)
+		full = slices.DeleteFunc(slices.Clone(full), isEsc)
+	}
+	km.Full = append(append([][]key.Binding{}, km.FullHelp()...), full)
+	km.Short = append(append([]key.Binding{}, km.Short...), short...)
 
 	a.help.Width = a.width
 	a.help.Styles.ShortKey = a.theme().Accent
@@ -448,7 +525,13 @@ func (a *App) footer() string {
 	a.help.Styles.FullDesc = a.theme().Help
 	a.help.Styles.FullSeparator = a.theme().Help
 
-	return a.help.View(km)
+	// help.Model's own width limit lets the last item through when the
+	// ellipsis doesn't quite fit, so every line is clipped here as well.
+	lines := strings.Split(a.help.View(km), "\n")
+	for i, line := range lines {
+		lines[i] = ansi.Truncate(line, a.width, "…")
+	}
+	return strings.Join(lines, "\n")
 }
 
 // statusLine is the single row beneath the footer. Messages are cut to the

@@ -98,13 +98,19 @@ func (m *Model) Title() string { return Title }
 
 // Keys implements core.Screen.
 func (m *Model) Keys() core.KeyMap {
-	return core.KeyMap{
-		Short: []key.Binding{keys.Up, keys.Down, keys.CatalogPane, keys.Toggle, keys.Download},
+	km := core.KeyMap{
+		Short: []key.Binding{keys.Move, keys.CatalogPane, keys.Toggle, keys.Download},
 		Full: [][]key.Binding{
 			{keys.Up, keys.Down, keys.CatalogPane},
-			{keys.Toggle, keys.SelectMissing, keys.SelectCurrent, keys.Download},
+			{keys.Toggle, keys.SelectMissing, keys.SelectCurrent, keys.SelectCurrentEverywhere},
+			{keys.ClearSelection, keys.Download},
 		},
 	}
+	if m.active != nil {
+		km.Short = append(km.Short, keys.StopDownloads)
+		km.Full[2] = append(km.Full[2], keys.StopDownloads)
+	}
+	return km
 }
 
 // Init implements core.Screen.

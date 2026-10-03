@@ -9,10 +9,9 @@ import (
 // routedMsg carries a message produced by a command that a screen beneath
 // the top of the stack issued, addressed back to that screen.
 //
-// Without it, a buried screen's reply goes to whichever screen is on top.
-// That is how Browse used to hang on "Searching…": a refresh finished
-// while the catalog was open, Browse re-ran its search, and the results
-// were handed to the catalog, which ignored them.
+// Without it, a buried screen's reply goes to whichever screen is on top:
+// Browse re-running its search after a refresh, say, would have its
+// results handed to the catalog on top of it and sit on "Searching…".
 type routedMsg struct {
 	id  int
 	msg tea.Msg
@@ -76,7 +75,7 @@ func (a *App) deliver(r routedMsg) tea.Cmd {
 // screen.
 func isAppMsg(msg tea.Msg) bool {
 	switch msg.(type) {
-	case core.PushMsg, core.PopMsg, core.QuitMsg, core.StatusMsg, core.RefreshRequestMsg,
+	case core.PushMsg, core.PopMsg, core.StatusMsg, core.RefreshRequestMsg,
 		core.FavoriteToggledMsg, tea.QuitMsg:
 		return true
 	}

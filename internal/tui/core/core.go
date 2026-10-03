@@ -44,6 +44,10 @@ type Deps struct {
 	// every screen so a runtime toggle reaches all of them; nil means
 	// the default (weak).
 	Appearance *styles.Appearance
+	// SaveTheme records a theme chosen at runtime as the user's default.
+	// Nil means the host can't persist settings, and the toggle only
+	// lasts for the session.
+	SaveTheme func(styles.Mode) error
 	// Favorites are the user's starred entities, shared by every screen
 	// so a toggle shows everywhere at once.
 	Favorites *Favorites
@@ -77,10 +81,12 @@ type ThemedScreen interface {
 
 // Navigator is the set of screen constructors available for drill-down.
 // The root app (internal/tui) populates it once at startup; tests fill in
-// only the fields the screen under test actually uses, and a nil field
-// simply means that route isn't wired yet.
+// only the fields the screen under test actually uses, and screens treat
+// a nil field as a drill-down that does nothing.
 type Navigator struct {
-	League func(deps Deps, competitionID string) Screen
+	// League opens a competition's standings at seasonID, or at its most
+	// recent cached season when seasonID is empty.
+	League func(deps Deps, competitionID, seasonID string) Screen
 	Team   func(deps Deps, team models.Team, competitionID, seasonID string) Screen
 	Player func(deps Deps, player models.Player, teamID string) Screen
 	Browse func(deps Deps, query string) Screen
@@ -153,15 +159,6 @@ func Pop() tea.Cmd {
 	return func() tea.Msg { return PopMsg{} }
 }
 
-// Fail returns a command that surfaces err in the UI. A nil err produces no
-// message, so callers can pass a query error through unconditionally.
-func Fail(err error) tea.Cmd {
-	if err == nil {
-		return nil
-	}
-	return func() tea.Msg { return ErrMsg{Err: err} }
-}
-
 // Status returns a command that sets the footer status line.
 func Status(text string) tea.Cmd {
 	return func() tea.Msg { return StatusMsg{Text: text} }
@@ -175,10 +172,16 @@ type TextEntry interface {
 	CapturingText() bool
 }
 
-// QuitMsg asks the root model to exit the program.
-type QuitMsg struct{}
+// Escaper is implemented by screens with state that esc should unwind
+// before it navigates back — a search query to clear, say. Escape reports
+// whether the screen consumed the key.
+type Escaper interface {
+	Escape() (handled bool, cmd tea.Cmd)
+}
 
-// Quit returns a command that exits the program.
-func Quit() tea.Cmd {
-	return func() tea.Msg { return QuitMsg{} }
+// Searcher is implemented by the screen that hosts the search box. The
+// root app's search key returns to it, rather than stacking up a new
+// search screen every time it is pressed.
+type Searcher interface {
+	FocusSearch() tea.Cmd
 }

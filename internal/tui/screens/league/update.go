@@ -24,7 +24,11 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 			return m, nil
 		}
 		// Reload from the top: the refresh may have added a season, not
-		// just rows to the one already shown.
+		// just rows to the one already shown. The season on screen is
+		// kept rather than snapping back to the newest.
+		if season, ok := m.currentSeason(); ok {
+			m.fromSeasonID = season.ID
+		}
 		m.loading = true
 		return m, m.loadCompetition()
 
@@ -32,6 +36,12 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 		m.comp = msg.comp
 		m.seasons = msg.seasons
 		m.seasonIdx = 0
+		for i, season := range m.seasons {
+			if season.ID == m.fromSeasonID {
+				m.seasonIdx = i
+				break
+			}
+		}
 		if len(m.seasons) == 0 {
 			// No seasons cached at all: nothing left to fetch, so settle
 			// into the empty state rather than spinning forever.
@@ -39,7 +49,7 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 			m.loaded = true
 			return m, nil
 		}
-		return m, m.loadStandings(m.seasons[0].ID)
+		return m, m.loadStandings(m.seasons[m.seasonIdx].ID)
 
 	case standingsLoadedMsg:
 		// A stale response for a season the user has already navigated
@@ -133,7 +143,7 @@ func (m *Model) drillDown() tea.Cmd {
 		return nil
 	}
 	if m.deps.Nav.Team == nil {
-		return core.Status("team view is not available in this build")
+		return nil
 	}
 	return core.Push(m.deps.Nav.Team(m.deps, row.Team, m.compID, season.ID))
 }

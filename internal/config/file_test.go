@@ -103,3 +103,50 @@ func TestDefaultPathFollowsXDG(t *testing.T) {
 		t.Errorf("got %q", got)
 	}
 }
+
+func TestSetThemeUncommentsTheTemplateLine(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	if err := SetTheme(path, "strong"); err != nil {
+		t.Fatal(err)
+	}
+	f, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.Theme == nil || *f.Theme != "strong" {
+		t.Fatalf("theme = %v, want strong", f.Theme)
+	}
+	data, _ := os.ReadFile(path)
+	if !strings.Contains(string(data), "# stale_after: 6h") {
+		t.Error("the rest of the template's comments should survive")
+	}
+}
+
+func TestSetThemeReplacesAnExistingValueAndKeepsComments(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	orig := "# mine\ntheme: strong\nstale_after: 2h\n"
+	if err := os.WriteFile(path, []byte(orig), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := SetTheme(path, "weak"); err != nil {
+		t.Fatal(err)
+	}
+	data, _ := os.ReadFile(path)
+	if want := "# mine\ntheme: weak\nstale_after: 2h\n"; string(data) != want {
+		t.Errorf("got %q, want %q", data, want)
+	}
+}
+
+func TestSetThemeAppendsWhenAbsent(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	if err := os.WriteFile(path, []byte("no_color: false\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := SetTheme(path, "strong"); err != nil {
+		t.Fatal(err)
+	}
+	data, _ := os.ReadFile(path)
+	if want := "no_color: false\ntheme: strong\n"; string(data) != want {
+		t.Errorf("got %q, want %q", data, want)
+	}
+}

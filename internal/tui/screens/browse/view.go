@@ -137,6 +137,6 @@ func (m *Model) emptyState() string {
 		return strings.Join(lines, "\n")
 	}
 	return th.Empty.Render("No cached competition, team, or player matches that.") + "\n\n" +
-		th.Muted.Render("Only refreshed competitions are searchable — try  ") +
-		th.Accent.Render("footy refresh")
+		th.Muted.Render("Only downloaded competitions are searchable — press  ") +
+		th.Accent.Render("ctrl+g") + th.Muted.Render("  to download more.")
 }

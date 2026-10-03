@@ -68,7 +68,7 @@ func (m *Model) Title() string { return m.player.Name }
 func (m *Model) Keys() core.KeyMap {
 	openClub := key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "open club"))
 	return core.KeyMap{
-		Short: []key.Binding{keys.Up, keys.Down, keys.Competition, openClub},
+		Short: []key.Binding{keys.Move, keys.Competition, openClub},
 		Full: [][]key.Binding{
 			{keys.Up, keys.Down, keys.PageUp, keys.PageDown},
 			{keys.Home, keys.End, keys.Competition, openClub},
@@ -82,6 +82,13 @@ func (m *Model) Init() tea.Cmd { return m.loadHistory() }
 // FavoriteTarget implements core.Favoritable.
 func (m *Model) FavoriteTarget() (core.FavoriteTarget, bool) {
 	return core.FavoriteTarget{Kind: models.FavoritePlayer, ID: m.player.ID, Name: m.player.Name}, true
+}
+
+// RefreshTarget implements core.Refreshable: the competition whose tab is
+// selected.
+func (m *Model) RefreshTarget() (string, bool) {
+	comp, ok := m.CurrentCompetition()
+	return comp.ID, ok
 }
 
 type historyLoadedMsg struct {

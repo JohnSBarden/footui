@@ -58,6 +58,15 @@ func RequestRefresh(reqs ...RefreshRequest) tea.Cmd {
 	return func() tea.Msg { return RefreshRequestMsg{Requests: reqs} }
 }
 
+// CancelRefreshMsg asks the root app to stop the running refresh and drop
+// everything queued behind it.
+type CancelRefreshMsg struct{}
+
+// CancelRefresh returns a command that cancels all refresh work.
+func CancelRefresh() tea.Cmd {
+	return func() tea.Msg { return CancelRefreshMsg{} }
+}
+
 // RefreshQueueMsg is broadcast to every screen whenever the refresh queue
 // changes, so a screen can mark what is waiting or in flight. Active is
 // nil when nothing is running.

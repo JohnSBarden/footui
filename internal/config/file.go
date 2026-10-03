@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -107,7 +108,8 @@ const Template = `# footy settings. Every line is optional; a flag on the comman
 
 # Club theme: weak keeps your terminal's background and uses club colors
 # for highlights; strong paints club screens in the club's colors.
-# Environment: FOOTY_THEME. Flag: --theme. Toggle while running: t.
+# Environment: FOOTY_THEME. Flag: --theme. Pressing t while running
+# switches theme and saves the choice here.
 # theme: weak
 
 # When the interface opens, leagues you follow whose current season is
@@ -132,4 +134,49 @@ func WriteTemplate(path string) error {
 		return fmt.Errorf("config: %w", err)
 	}
 	return os.WriteFile(path, []byte(Template), 0o644)
+}
+
+// SetTheme records theme as the theme setting in the file at path,
+// creating the file from Template if there is none. It edits the one line
+// rather than re-encoding the file, so the user's comments and layout
+// survive: an existing theme line is replaced, a commented-out one is
+// uncommented, and failing both the setting is appended.
+func SetTheme(path, theme string) error {
+	data, err := os.ReadFile(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		data, err = []byte(Template), nil
+	}
+	if err != nil {
+		return fmt.Errorf("config: %w", err)
+	}
+
+	line := "theme: " + theme
+	lines := strings.Split(string(data), "\n")
+	commented := -1
+	set := false
+	for i, l := range lines {
+		trimmed := strings.TrimSpace(l)
+		switch {
+		case strings.HasPrefix(trimmed, "theme:"):
+			lines[i] = line
+			set = true
+		case commented < 0 && strings.HasPrefix(trimmed, "# theme:"):
+			commented = i
+		}
+	}
+	switch {
+	case set:
+	case commented >= 0:
+		lines[commented] = line
+	default:
+		if n := len(lines); n > 0 && lines[n-1] == "" {
+			lines = lines[:n-1]
+		}
+		lines = append(lines, line, "")
+	}
+
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return fmt.Errorf("config: %w", err)
+	}
+	return os.WriteFile(path, []byte(strings.Join(lines, "\n")), 0o644)
 }

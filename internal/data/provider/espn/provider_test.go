@@ -21,9 +21,11 @@ var (
 	ctxBkgnd = context.Background()
 )
 
-// fixtureServer serves the captured payloads in testdata for the URLs the
-// provider builds, and 404s anything else (including rosters and stats for
-// clubs that weren't captured, which the provider must tolerate).
+// fixtureServer serves the payloads in testdata for the URLs the provider
+// builds, and 404s anything else (including rosters and stats for the
+// clubs that have none there, which the provider must tolerate). The
+// payloads are hand-written in ESPN's shape, with fictional clubs and
+// players, and carry only the fields the provider reads.
 func fixtureServer(t *testing.T) (*Provider, *int32) {
 	t.Helper()
 	var requests int32
@@ -59,21 +61,21 @@ func TestStandingsMapGroupsAndGoalDifference(t *testing.T) {
 	if len(rows) != 4 {
 		t.Fatalf("got %d rows, want both conferences' clubs", len(rows))
 	}
-	fire := find(t, rows, "espn:182")
-	if fire.MatchesPlayed != 34 || fire.Wins != 15 || fire.Draws != 8 || fire.Losses != 11 {
-		t.Errorf("record %d-%d-%d in %d", fire.Wins, fire.Draws, fire.Losses, fire.MatchesPlayed)
+	lakeshore := find(t, rows, "espn:182")
+	if lakeshore.MatchesPlayed != 34 || lakeshore.Wins != 15 || lakeshore.Draws != 8 || lakeshore.Losses != 11 {
+		t.Errorf("record %d-%d-%d in %d", lakeshore.Wins, lakeshore.Draws, lakeshore.Losses, lakeshore.MatchesPlayed)
 	}
-	if fire.GoalsFor != 68 || fire.GoalsAgainst != 60 || fire.GoalDiff != 8 || fire.Points != 53 {
-		t.Errorf("goals/points %+v", fire)
+	if lakeshore.GoalsFor != 68 || lakeshore.GoalsAgainst != 60 || lakeshore.GoalDiff != 8 || lakeshore.Points != 53 {
+		t.Errorf("goals/points %+v", lakeshore)
 	}
 	// Two conferences become one table, not two tables each numbered from
-	// 1: Columbus 54 pts, Chicago 53, Dallas 44, Colorado 41.
+	// 1: Riverside 54 pts, Lakeshore 53, Prairie City 44, Highland 41.
 	for id, want := range map[string]int{"espn:183": 1, "espn:182": 2, "espn:185": 3, "espn:184": 4} {
 		if got := find(t, rows, id).Position; got == nil || *got != want {
 			t.Errorf("%s position %v, want %d overall", id, got, want)
 		}
 	}
-	if fire.XG != nil {
+	if lakeshore.XG != nil {
 		t.Error("ESPN has no expected goals; xG must stay unset")
 	}
 }
@@ -89,30 +91,30 @@ func find(t *testing.T, rows []models.TeamSeasonStats, id string) models.TeamSea
 	return models.TeamSeasonStats{}
 }
 
-// The captured Chicago Fire season reports 0% possession and 1,856
-// corners in 34 matches. Neither can be true, so neither is stored; the
-// plausible figures beside them are.
+// The fixture's Lakeshore season reports 0% possession and 1,856 corners
+// in 34 matches, as real ESPN seasons sometimes do. Neither can be true,
+// so neither is stored; the plausible figures beside them are.
 func TestTeamStatsKeepThePlausibleAndDropTheImpossible(t *testing.T) {
 	p, _ := fixtureServer(t)
 	rows, _ := p.Standings(ctxBkgnd, mls, mls2025)
-	fire := find(t, rows, "espn:182")
+	club := find(t, rows, "espn:182")
 
-	if fire.PossessionAvg != nil {
-		t.Errorf("possession %v: 0%% means unknown, not zero", *fire.PossessionAvg)
+	if club.PossessionAvg != nil {
+		t.Errorf("possession %v: 0%% means unknown, not zero", *club.PossessionAvg)
 	}
-	if fire.Corners != nil {
-		t.Errorf("corners %d in 34 matches is not plausible", *fire.Corners)
+	if club.Corners != nil {
+		t.Errorf("corners %d in 34 matches is not plausible", *club.Corners)
 	}
-	for name, got := range map[string]*int{"fouls": fire.FoulsCommitted, "shots": fire.Shots, "on target": fire.ShotsOnTarget, "yellows": fire.YellowCards, "reds": fire.RedCards} {
+	for name, got := range map[string]*int{"fouls": club.FoulsCommitted, "shots": club.Shots, "on target": club.ShotsOnTarget, "yellows": club.YellowCards, "reds": club.RedCards} {
 		if got == nil {
 			t.Errorf("%s should be kept", name)
 		}
 	}
-	if *fire.Shots != 512 || *fire.ShotsOnTarget != 208 {
-		t.Errorf("shots %d/%d", *fire.Shots, *fire.ShotsOnTarget)
+	if *club.Shots != 512 || *club.ShotsOnTarget != 208 {
+		t.Errorf("shots %d/%d", *club.Shots, *club.ShotsOnTarget)
 	}
-	// A club whose statistics weren't captured (404) simply has none.
-	if crew := find(t, rows, "espn:183"); crew.Shots != nil {
+	// A club whose statistics 404 simply has none.
+	if riverside := find(t, rows, "espn:183"); riverside.Shots != nil {
 		t.Error("missing statistics should leave the columns unset")
 	}
 }
@@ -127,11 +129,11 @@ func TestRostersKeepOnlyPlayersWhoAppeared(t *testing.T) {
 	if len(players) != 3 || len(lines) != 3 {
 		t.Fatalf("got %d players, %d lines", len(players), len(lines))
 	}
-	cuypers := players[0]
-	if cuypers.ID != "espn:235511" || cuypers.Name != "Hugo Cuypers" || cuypers.Position != "F" || cuypers.Gender != "men" {
-		t.Errorf("player %+v", cuypers)
+	striker := players[0]
+	if striker.ID != "espn:900001" || striker.Name != "Pim Vandersloot" || striker.Position != "F" || striker.Gender != "men" {
+		t.Errorf("player %+v", striker)
 	}
-	if cuypers.DateOfBirth == nil {
+	if striker.DateOfBirth == nil {
 		t.Error("date of birth should parse")
 	}
 	l := lines[0]
@@ -149,14 +151,14 @@ func TestColorsAreNormalisedHex(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var fire models.TeamColors
+	var lakeshore models.TeamColors
 	for _, c := range colors {
 		if c.TeamID == "espn:182" {
-			fire = c
+			lakeshore = c
 		}
 	}
-	if fire.PrimaryHex != "#7CCDEF" || fire.SecondaryHex != "#FF0000" || fire.Source != "espn" {
-		t.Errorf("colors %+v", fire)
+	if lakeshore.PrimaryHex != "#7CCDEF" || lakeshore.SecondaryHex != "#FF0000" || lakeshore.Source != "espn" {
+		t.Errorf("colors %+v", lakeshore)
 	}
 }
 

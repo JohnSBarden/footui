@@ -120,7 +120,7 @@ func (m *Model) Title() string { return m.team.Name }
 // Keys implements core.Screen.
 func (m *Model) Keys() core.KeyMap {
 	return core.KeyMap{
-		Short: []key.Binding{keys.Up, keys.Down, keys.Competition, keys.Pane, keys.Open},
+		Short: []key.Binding{keys.Move, keys.Competition, keys.Pane, keys.Open},
 		Full: [][]key.Binding{
 			{keys.Up, keys.Down, keys.PageUp, keys.PageDown},
 			{keys.Home, keys.End, keys.Competition},

@@ -47,7 +47,15 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 }
 
 func (m *Model) handleKey(msg tea.KeyMsg) (core.Screen, tea.Cmd) {
+	if !m.input.Focused() {
+		return m.handleListKey(msg)
+	}
 	switch msg.String() {
+	case "tab":
+		if len(m.results) > 0 {
+			m.input.Blur()
+		}
+		return m, nil
 	case "up", "ctrl+p":
 		m.moveCursor(-1)
 		return m, nil
@@ -79,6 +87,30 @@ func (m *Model) handleKey(msg tea.KeyMsg) (core.Screen, tea.Cmd) {
 	return m, inputCmd
 }
 
+// handleListKey handles keys while the results list has focus. The search
+// box isn't listening, so vim-style movement is safe here.
+func (m *Model) handleListKey(msg tea.KeyMsg) (core.Screen, tea.Cmd) {
+	switch msg.String() {
+	case "up", "k", "ctrl+p":
+		m.moveCursor(-1)
+	case "down", "j", "ctrl+n":
+		m.moveCursor(1)
+	case "pgup":
+		m.moveCursor(-10)
+	case "pgdown":
+		m.moveCursor(10)
+	case "home", "g":
+		m.cursor = 0
+	case "end", "G":
+		m.moveCursor(len(m.results))
+	case "tab", "/":
+		return m, m.input.Focus()
+	case "enter":
+		return m, m.open()
+	}
+	return m, nil
+}
+
 func (m *Model) moveCursor(delta int) {
 	if len(m.results) == 0 {
 		return
@@ -102,13 +134,13 @@ func (m *Model) open() tea.Cmd {
 	switch result.Kind {
 	case KindCompetition:
 		if m.deps.Nav.League == nil {
-			return core.Status("league view is not available in this build")
+			return nil
 		}
-		return core.Push(m.deps.Nav.League(m.deps, result.Competition.ID))
+		return core.Push(m.deps.Nav.League(m.deps, result.Competition.ID, ""))
 
 	case KindTeam:
 		if m.deps.Nav.Team == nil {
-			return core.Status("team view is not available in this build")
+			return nil
 		}
 		// Browse has no competition/season context to pass on; the Team
 		// screen defaults to the most recent season of the club's own
@@ -117,7 +149,7 @@ func (m *Model) open() tea.Cmd {
 
 	default:
 		if m.deps.Nav.Player == nil {
-			return core.Status("player view is not available in this build")
+			return nil
 		}
 		return core.Push(m.deps.Nav.Player(m.deps, result.Player, ""))
 	}

@@ -64,8 +64,8 @@ func seed(t *testing.T) (storage.Repositories, core.Deps, *opened) {
 	got := &opened{}
 	deps := core.Deps{Ctx: ctx, Repos: repos, Theme: styles.Plain(), Favorites: core.NewFavorites(favs)}
 	deps.Nav = core.Navigator{
-		League: func(_ core.Deps, id string) core.Screen {
-			*got = opened{kind: "league", id: id}
+		League: func(_ core.Deps, id, season string) core.Screen {
+			*got = opened{kind: "league", id: id, season: season}
 			return stub{"league"}
 		},
 		Team: func(_ core.Deps, team models.Team, comp, season string) core.Screen {
@@ -178,16 +178,6 @@ func TestEnterOpensTheCardsScreenWithItsSeason(t *testing.T) {
 	_, cmd = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	if msg, ok := tuitest.CapturedCmd(cmd).(core.StatusMsg); !ok || !strings.Contains(msg.Text, "isn't cached") {
 		t.Errorf("enter on a missing card gave %#v", msg)
-	}
-}
-
-func TestSlashOpensSearch(t *testing.T) {
-	_, deps, _ := seed(t)
-	m := load(t, deps, 120)
-	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("/")})
-	push, ok := tuitest.CapturedCmd(cmd).(core.PushMsg)
-	if !ok || push.Screen.Title() != "browse" {
-		t.Errorf("/ gave %#v, want Browse pushed", tuitest.CapturedCmd(cmd))
 	}
 }
 
