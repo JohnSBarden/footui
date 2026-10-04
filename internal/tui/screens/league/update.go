@@ -57,9 +57,19 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 		if season, ok := m.currentSeason(); !ok || season.ID != msg.seasonID {
 			return m, nil
 		}
+		// A refresh reloads the same season: keep the cursor on the same
+		// club, wherever it now sits, rather than throwing the user back
+		// to the header.
+		selected, hadSelection := m.SelectedRow()
 		m.rows = msg.rows
 		m.lastSync = msg.lastSync
-		m.cursor = 0
+		m.cursor = headerRow
+		for i, r := range m.rows {
+			if hadSelection && r.Team.ID == selected.Team.ID {
+				m.cursor = i
+				break
+			}
+		}
 		m.loading = false
 		m.loaded = true
 		return m, nil
@@ -84,12 +94,9 @@ func (m *Model) handleKey(msg tea.KeyMsg) (core.Screen, tea.Cmd) {
 	case "down", "j":
 		m.moveCursor(1)
 	case "home", "g":
-		m.cursor = 0
+		m.cursor = headerRow
 	case "end", "G":
 		m.cursor = len(m.rows) - 1
-		if m.cursor < 0 {
-			m.cursor = 0
-		}
 	case "pgup":
 		m.moveCursor(-10)
 	case "pgdown":
@@ -108,9 +115,10 @@ func (m *Model) moveCursor(delta int) {
 	if len(m.rows) == 0 {
 		return
 	}
+	// The header sits one step above the first club.
 	m.cursor += delta
-	if m.cursor < 0 {
-		m.cursor = 0
+	if m.cursor < headerRow {
+		m.cursor = headerRow
 	}
 	if m.cursor >= len(m.rows) {
 		m.cursor = len(m.rows) - 1
@@ -127,7 +135,7 @@ func (m *Model) selectSeason(idx int) tea.Cmd {
 	m.loading = true
 	m.rows = nil
 	m.lastSync = nil
-	m.cursor = 0
+	m.cursor = headerRow
 	return m.loadStandings(m.seasons[idx].ID)
 }
 

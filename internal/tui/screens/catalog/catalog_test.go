@@ -165,6 +165,21 @@ func TestRTargetsTheHighlightedLeague(t *testing.T) {
 	}
 }
 
+func TestFavouriteTargetIsTheHighlightedLeague(t *testing.T) {
+	m := newCatalog(t)
+	press(m, "down")
+	press(m, "tab") // the seasons pane still belongs to La Liga
+	want := core.FavoriteTarget{Kind: models.FavoriteCompetition, ID: "esp-la-liga", Name: "La Liga"}
+	if got, ok := m.FavoriteTarget(); !ok || got != want {
+		t.Errorf("favourite target %+v, want %+v", got, want)
+	}
+
+	m.deps.Favorites = core.NewFavorites([]models.Favorite{{Kind: models.FavoriteCompetition, ID: "esp-la-liga"}})
+	if out := m.View(); !strings.Contains(out, "★ La Liga") {
+		t.Errorf("a favourite league should be starred in the list:\n%s", out)
+	}
+}
+
 func TestShiftCSelectsTheCurrentSeasonOfEveryLeague(t *testing.T) {
 	m := newCatalog(t)
 	press(m, "C")

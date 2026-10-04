@@ -7,6 +7,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/JohnSBarden/footui/internal/data/models"
 	"github.com/JohnSBarden/footui/internal/tui/components"
 )
 
@@ -60,7 +61,7 @@ func (m *Model) leagueTable() string {
 			cached = fmt.Sprintf("%d of %d", n, len(l.Seasons))
 		}
 		rows = append(rows, []components.Cell{
-			components.Text(l.Competition.Name),
+			components.Text(m.deps.Star(models.FavoriteCompetition, l.Competition.ID, l.Competition.Name)),
 			components.Styled(l.Competition.Country, th.Muted),
 			components.Text(cached),
 			components.Styled(lastRefreshed(l, now), th.Muted),

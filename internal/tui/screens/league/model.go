@@ -31,7 +31,9 @@ type Model struct {
 	seasons   []models.Season
 	seasonIdx int
 
-	rows   []Row
+	rows []Row
+	// cursor is the highlighted standings row, or headerRow when the
+	// league's own header is highlighted.
 	cursor int
 
 	// lastSync is the most recent refresh attempt for the displayed
@@ -48,6 +50,11 @@ type Model struct {
 	err    error
 }
 
+// headerRow is the cursor position of the league header, one step above
+// the first club. The screen opens on it, so the favourite key stars the
+// league until the user moves down into the table.
+const headerRow = -1
+
 // New constructs the League screen for a competition ID. Data loading
 // happens in Init, so constructing a screen is cheap and never blocks the
 // event loop.
@@ -62,6 +69,7 @@ func NewAt(deps core.Deps, competitionID, seasonID string) *Model {
 		deps:         deps,
 		compID:       competitionID,
 		fromSeasonID: seasonID,
+		cursor:       headerRow,
 		loading:      true,
 		width:        100,
 		height:       30,
@@ -92,10 +100,19 @@ func (m *Model) Init() tea.Cmd {
 	return m.loadCompetition()
 }
 
-// FavoriteTarget implements core.Favoritable: the competition itself. A
-// club in the table is favourited from its own screen.
+// FavoriteTarget implements core.Favoritable: the highlighted club, or the
+// competition itself while the header is highlighted.
 func (m *Model) FavoriteTarget() (core.FavoriteTarget, bool) {
+	if row, ok := m.SelectedRow(); ok {
+		return core.FavoriteTarget{Kind: models.FavoriteTeam, ID: row.Team.ID, Name: row.Team.Name}, true
+	}
 	return core.FavoriteTarget{Kind: models.FavoriteCompetition, ID: m.compID, Name: m.Title()}, true
+}
+
+// HeaderSelected reports whether the cursor is on the league header
+// rather than a club.
+func (m *Model) HeaderSelected() bool {
+	return m.cursor == headerRow
 }
 
 // RefreshTarget implements core.Refreshable: a refresh from the League
@@ -188,7 +205,8 @@ func (m *Model) currentSeason() (models.Season, bool) {
 	return m.seasons[m.seasonIdx], true
 }
 
-// SelectedRow returns the row under the cursor, for drill-down.
+// SelectedRow returns the row under the cursor, for drill-down. It is
+// false while the header is highlighted.
 func (m *Model) SelectedRow() (Row, bool) {
 	if m.cursor < 0 || m.cursor >= len(m.rows) {
 		return Row{}, false

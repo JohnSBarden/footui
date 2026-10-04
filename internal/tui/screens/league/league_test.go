@@ -133,15 +133,22 @@ func TestUnknownCompetitionSurfacesAnError(t *testing.T) {
 func TestCursorMovesAndClampsAtBothEnds(t *testing.T) {
 	s, _ := screen(t, storagetest.SampleStandings())
 
-	// Up from the first row must stay on the first row, not wrap or panic.
+	// The screen opens on the league header, one step above the table.
+	if !s.(*league.Model).HeaderSelected() {
+		t.Fatal("the screen should open with the header highlighted")
+	}
 	s = tuitest.Key(t, s, "up")
-	if got := selectedName(t, s); got != "Arsenal" {
-		t.Errorf("cursor at top moved to %q, want it to stay on Arsenal", got)
+	if !s.(*league.Model).HeaderSelected() {
+		t.Error("up from the header must stay on the header, not wrap or panic")
 	}
 
 	s = tuitest.Key(t, s, "down")
-	if got := selectedName(t, s); got != "Manchester City" {
-		t.Errorf("after one down, selection = %q", got)
+	if got := selectedName(t, s); got != "Arsenal" {
+		t.Errorf("after one down, selection = %q, want the first club", got)
+	}
+	s = tuitest.Key(t, s, "up")
+	if !s.(*league.Model).HeaderSelected() {
+		t.Error("up from the first club should return to the header")
 	}
 
 	for i := 0; i < 10; i++ {
@@ -149,6 +156,60 @@ func TestCursorMovesAndClampsAtBothEnds(t *testing.T) {
 	}
 	if got := selectedName(t, s); got != "Luton Town" {
 		t.Errorf("cursor past the end = %q, want it clamped to Luton Town", got)
+	}
+}
+
+func TestFavouriteTargetFollowsTheCursor(t *testing.T) {
+	s, _ := screen(t, storagetest.SampleStandings())
+	target := func() core.FavoriteTarget {
+		t.Helper()
+		got, ok := s.(core.Favoritable).FavoriteTarget()
+		if !ok {
+			t.Fatal("the League screen always has a favourite target")
+		}
+		return got
+	}
+
+	if got := target(); got.Kind != models.FavoriteCompetition || got.ID != "eng-premier-league" {
+		t.Errorf("on the header, target = %+v, want the league", got)
+	}
+	s = tuitest.Key(t, s, "down")
+	s = tuitest.Key(t, s, "down")
+	if got := target(); got.Kind != models.FavoriteTeam || got.Name != "Manchester City" {
+		t.Errorf("on a club, target = %+v, want Manchester City", got)
+	}
+	s = tuitest.Key(t, s, "home")
+	if got := target(); got.Kind != models.FavoriteCompetition {
+		t.Errorf("home should return to the header, target = %+v", got)
+	}
+}
+
+func TestAFavouriteClubIsStarredInTheTable(t *testing.T) {
+	repos := storagetest.New(t)
+	storagetest.SeedCompetition(t, repos, storagetest.PremierLeague(), "2025", storagetest.SampleStandings())
+	deps := newDeps(repos)
+	deps.Favorites = core.NewFavorites([]models.Favorite{{Kind: models.FavoriteTeam, ID: "eng-arsenal"}})
+	s := tuitest.Resize(t, tuitest.Settle(t, league.New(deps, "eng-premier-league")), 100, 30)
+
+	out := s.View()
+	if !strings.Contains(out, "★ Arsenal") {
+		t.Errorf("a favourite club should be starred in the table:\n%s", out)
+	}
+	if strings.Contains(out, "★ Manchester City") {
+		t.Errorf("only favourite clubs should be starred:\n%s", out)
+	}
+}
+
+func TestRefreshKeepsTheCursorOnTheSameClub(t *testing.T) {
+	s, _ := screen(t, storagetest.SampleStandings())
+	s = tuitest.Key(t, s, "down")
+	s = tuitest.Key(t, s, "down")
+	want := selectedName(t, s)
+
+	s, cmd := s.Update(core.RefreshedMsg{CompetitionID: "eng-premier-league"})
+	s = tuitest.Drive(t, s, cmd)
+	if got := selectedName(t, s); got != want {
+		t.Errorf("after a refresh the cursor is on %q, want it to stay on %q", got, want)
 	}
 }
 
@@ -278,6 +339,7 @@ func TestEnterPushesTheTeamScreenForTheSelectedRow(t *testing.T) {
 	}
 
 	s := tuitest.Resize(t, tuitest.Settle(t, league.New(deps, "eng-premier-league")), 100, 30)
+	s = tuitest.Key(t, s, "down") // off the header onto Arsenal
 	s = tuitest.Key(t, s, "down") // select Manchester City
 
 	_, cmd := s.Update(enterKey())

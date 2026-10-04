@@ -121,7 +121,11 @@ every league, and `u` clears the ticks. `enter` downloads what's ticked, and
 
 ### Favourites and the dashboard
 
-Star the leagues, clubs and players you follow with `f`. Once anything is
+Star the leagues, clubs and players you follow with `f`. It stars whatever
+is highlighted: on a league table, that's the league while the cursor is on
+its header (where the screen opens) and the club once you move down into
+the table. In the league catalog it's the highlighted league, and in search
+results the highlighted result. Starred names carry a ★. Once anything is
 starred, `footy` opens on a dashboard of them instead of the search box:
 
 - **League cards** show the top of the current table, with any club you've

@@ -159,7 +159,16 @@ func (m *Model) header() string {
 	if name == "" {
 		name = m.compID
 	}
-	title := th.Title.Render(m.deps.Star(models.FavoriteCompetition, m.compID, name))
+	// The header is one more stop for the cursor above the first club,
+	// marked the way the catalog and Team screens mark the focused pane.
+	// The title is already drawn like a selected row, so a highlight
+	// alone wouldn't show; the gutter is kept when it's not selected so
+	// the title doesn't shift as the cursor moves.
+	marker := "  "
+	if m.HeaderSelected() {
+		marker = th.PanelTitle.Render("▸ ")
+	}
+	title := marker + th.Title.Render(m.deps.Star(models.FavoriteCompetition, m.compID, name))
 
 	var meta []string
 	if m.comp.Country != "" {
@@ -292,7 +301,7 @@ func (m *Model) table() string {
 
 		row := []components.Cell{
 			components.Text(components.Int(s.Position)),
-			components.Text(r.Team.Name),
+			components.Text(m.deps.Star(models.FavoriteTeam, r.Team.ID, r.Team.Name)),
 			components.Text(strconv.Itoa(s.MatchesPlayed)),
 			components.Text(strconv.Itoa(s.Wins)),
 			components.Text(strconv.Itoa(s.Draws)),

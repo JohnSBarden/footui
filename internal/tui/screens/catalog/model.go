@@ -126,6 +126,17 @@ func (m *Model) RefreshTarget() (string, bool) {
 	return l.Competition.ID, true
 }
 
+// FavoriteTarget implements core.Favoritable: the highlighted league,
+// whichever pane has focus — the seasons pane belongs to it too.
+func (m *Model) FavoriteTarget() (core.FavoriteTarget, bool) {
+	l, ok := m.currentLeague()
+	if !ok {
+		return core.FavoriteTarget{}, false
+	}
+	c := l.Competition
+	return core.FavoriteTarget{Kind: models.FavoriteCompetition, ID: c.ID, Name: c.Name}, true
+}
+
 func (m *Model) currentLeague() (League, bool) {
 	if m.league < 0 || m.league >= len(m.leagues) {
 		return League{}, false
