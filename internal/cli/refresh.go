@@ -246,7 +246,7 @@ func (f *refreshFlags) runTeam(cmd *cobra.Command, g *globalFlags) error {
 	}
 	units := sync.NationUnits(team.Gender, years)
 	fmt.Fprintf(out, "Refreshing %s's matches: %d competition-year(s), shared with every %s's national team…\n\n",
-		team.Name, len(units), team.Gender)
+		team.Label(), len(units), team.Gender)
 	results := runNations(ctx, store, team.Gender, years, f.maxAge, ev)
 	return report(out, results, g.dbPathOrDefault())
 }

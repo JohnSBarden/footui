@@ -37,7 +37,9 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 		return m, m.loadMeta()
 
 	case metaLoadedMsg:
-		wasAll := m.loaded && m.yearIdx == len(m.years)
+		// With no years before, "All years" was the only stop, not a
+		// choice: matches arriving for the first time open on the newest.
+		wasAll := m.loaded && len(m.years) > 0 && m.yearIdx == len(m.years)
 		prev, hadYear := m.year()
 		m.team = msg.team
 		m.years = msg.years

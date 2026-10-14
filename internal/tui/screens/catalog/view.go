@@ -93,10 +93,21 @@ func (m *Model) leagueTable() string {
 			{Title: "Seasons", Width: 8},
 			{Title: "Refreshed", Width: 13},
 		},
-		Rows:   rows,
-		Cursor: cursor,
-		Theme:  th,
+		Rows:    rows,
+		Cursor:  cursor,
+		MaxRows: m.leagueRows(),
+		Theme:   th,
 	})
+}
+
+// leagueRows caps the league list so it fits the terminal: beside the
+// season list it gets the full height, above it about half.
+func (m *Model) leagueRows() int {
+	h := m.height - 8
+	if m.width < sideBySideWidth {
+		h = (m.height - 14) / 2
+	}
+	return max(h, 5)
 }
 
 // lastRefreshed is the newest successful refresh across a league's seasons.
@@ -184,7 +195,7 @@ func (m *Model) paneTitle(text string, p pane) string {
 func (m *Model) seasonRows() int {
 	chrome := 8
 	if m.width < sideBySideWidth {
-		chrome += len(m.leagues) + 5
+		chrome += min(len(m.leagues)+1, m.leagueRows()) + 5
 	}
 	h := m.height - chrome
 	if h < 4 {

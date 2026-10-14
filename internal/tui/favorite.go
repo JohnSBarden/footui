@@ -66,7 +66,7 @@ func (a *App) favoriteToggled(msg core.FavoriteToggledMsg) tea.Cmd {
 		// another nation of its gender already brought them in.
 		if t, err := a.deps.Repos.GetTeam(a.deps.Ctx, msg.Target.ID); err == nil && t.National {
 			status := a.status
-			cmd := a.enqueue(core.RefreshRequest{TeamID: t.ID, Name: t.Name})
+			cmd := a.enqueue(core.RefreshRequest{TeamID: t.ID, Name: t.Label()})
 			a.status = status
 			return tea.Batch(changed, cmd)
 		}

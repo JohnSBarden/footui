@@ -160,6 +160,23 @@ func TestRefreshAsksForTheNationsMatches(t *testing.T) {
 	}
 }
 
+// Matches arriving for a nation that had none open on the newest year,
+// not on "All years" (which was only the empty screen's sole stop).
+func TestFirstMatchesOpenOnTheNewestYear(t *testing.T) {
+	repos := storagetest.New(t)
+	deps := core.Deps{Ctx: context.Background(), Repos: repos, Theme: styles.Plain()}
+	if err := repos.UpsertTeam(context.Background(), arcadia); err != nil {
+		t.Fatal(err)
+	}
+	s := tuitest.Settle(t, nation.New(deps, arcadia))
+	storagetest.SeedInternational(t, repos)
+	updated, cmd := s.Update(core.RefreshedMsg{International: true})
+	s = tuitest.Drive(t, updated, cmd)
+	if !strings.Contains(s.View(), "[2026]") {
+		t.Errorf("want the newest year selected:\n%s", s.View())
+	}
+}
+
 func TestANationWithNoMatchesSaysHowToGetThem(t *testing.T) {
 	repos := storagetest.New(t)
 	deps := core.Deps{Ctx: context.Background(), Repos: repos, Theme: styles.Plain()}

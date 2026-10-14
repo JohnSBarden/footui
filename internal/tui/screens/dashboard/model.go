@@ -192,7 +192,7 @@ func (m *Model) RefreshRequest() (core.RefreshRequest, bool) {
 	if !ok || c.Missing || c.Group != GroupNations {
 		return core.RefreshRequest{}, false
 	}
-	return core.RefreshRequest{TeamID: c.Team.ID, Name: c.Team.Name}, true
+	return core.RefreshRequest{TeamID: c.Team.ID, Name: c.Team.Label()}, true
 }
 
 type cardsLoadedMsg struct{ cards []Card }

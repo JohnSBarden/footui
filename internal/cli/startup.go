@@ -190,7 +190,7 @@ func internationalRefreshes(ctx context.Context, repos storage.Repositories, now
 			}
 			req := core.RefreshRequest{Nations: gender, Seasons: labels, Why: why, Automatic: true}
 			if len(teams) == 1 {
-				req = core.RefreshRequest{TeamID: teams[0].ID, Name: teams[0].Name, Seasons: labels, Why: why, Automatic: true}
+				req = core.RefreshRequest{TeamID: teams[0].ID, Name: teams[0].Label(), Seasons: labels, Why: why, Automatic: true}
 			}
 			out = append(out, req)
 			break

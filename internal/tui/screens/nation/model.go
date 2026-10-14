@@ -127,13 +127,13 @@ func (m *Model) FavoriteTarget() (core.FavoriteTarget, bool) {
 		c := m.competition(match.CompetitionID)
 		return core.FavoriteTarget{Kind: models.FavoriteCompetition, ID: c.ID, Name: c.Name}, true
 	}
-	return core.FavoriteTarget{Kind: models.FavoriteTeam, ID: m.team.ID, Name: m.team.Name}, true
+	return core.FavoriteTarget{Kind: models.FavoriteTeam, ID: m.team.ID, Name: m.team.Label()}, true
 }
 
 // RefreshRequest implements core.RefreshRequester: the nation's matches,
 // for the year on screen, or this year and last.
 func (m *Model) RefreshRequest() (core.RefreshRequest, bool) {
-	req := core.RefreshRequest{TeamID: m.team.ID, Name: m.team.Name}
+	req := core.RefreshRequest{TeamID: m.team.ID, Name: m.team.Label()}
 	if y, ok := m.year(); ok {
 		req.Seasons = []string{strconv.Itoa(y)}
 	}

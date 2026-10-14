@@ -82,6 +82,15 @@ type Team struct {
 	National bool
 }
 
+// Label is how a sentence refers to the team: its name, with "(women)"
+// for a women's national team, whose name is just the country's.
+func (t Team) Label() string {
+	if t.National && t.Gender == "women" {
+		return t.Name + " (women)"
+	}
+	return t.Name
+}
+
 // TeamSeasonStats is a team's aggregate performance in one Competition in
 // one Season. This is the row-per-(team,competition,season) grain that
 // keeps a team's numbers sliceable by competition instead of blended.
