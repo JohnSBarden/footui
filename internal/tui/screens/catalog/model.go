@@ -10,6 +10,9 @@
 package catalog
 
 import (
+	"slices"
+	"strconv"
+
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 
@@ -43,7 +46,14 @@ type SeasonState struct {
 type League struct {
 	Competition models.Competition
 	Seasons     []SeasonState
+	// Nations is set on a national teams line: its seasons are calendar
+	// years of every international competition of that gender.
+	Nations string
 }
+
+// international reports whether the entry belongs under the catalog's
+// International heading.
+func (l League) international() bool { return l.Nations != "" || l.Competition.International() }
 
 // cachedCount is how many of the league's seasons are in the cache.
 func (l League) cachedCount() int {
@@ -120,17 +130,27 @@ func (m *Model) Init() tea.Cmd { return m.load() }
 // season of the highlighted league, as it does on the League screen.
 func (m *Model) RefreshTarget() (string, bool) {
 	l, ok := m.currentLeague()
-	if !ok {
+	if !ok || l.Nations != "" {
 		return "", false
 	}
 	return l.Competition.ID, true
+}
+
+// RefreshRequest implements core.RefreshRequester: on the national teams
+// line, r fetches this year's and last year's match lists.
+func (m *Model) RefreshRequest() (core.RefreshRequest, bool) {
+	l, ok := m.currentLeague()
+	if !ok || l.Nations == "" {
+		return core.RefreshRequest{}, false
+	}
+	return core.RefreshRequest{Nations: l.Nations, Name: l.Competition.Name}, true
 }
 
 // FavoriteTarget implements core.Favoritable: the highlighted league,
 // whichever pane has focus — the seasons pane belongs to it too.
 func (m *Model) FavoriteTarget() (core.FavoriteTarget, bool) {
 	l, ok := m.currentLeague()
-	if !ok {
+	if !ok || l.Nations != "" {
 		return core.FavoriteTarget{}, false
 	}
 	c := l.Competition
@@ -163,8 +183,20 @@ type loadedMsg struct{ leagues []League }
 func (m *Model) load() tea.Cmd {
 	deps := m.deps
 	return func() tea.Msg {
+		// International match lists are fetched by the year, shared by
+		// every competition-season and nation; their runs are read once.
+		yearRuns := map[string]models.SyncRun{}
+		if runs, err := deps.Repos.LatestYearRuns(deps.Ctx); err == nil {
+			for _, r := range runs {
+				yearRuns[r.CompetitionID+"/"+strconv.Itoa(r.Year)] = r
+			}
+		}
 		leagues := make([]League, 0, len(deps.Catalog))
 		for _, entry := range deps.Catalog {
+			if entry.Nations != "" || entry.ByYear {
+				leagues = append(leagues, byYear(entry, yearRuns))
+				continue
+			}
 			cached, err := deps.Repos.ListSeasons(deps.Ctx, entry.Competition.ID)
 			if err != nil {
 				return core.ErrMsg{Err: err}
@@ -189,11 +221,46 @@ func (m *Model) load() tea.Cmd {
 	}
 }
 
+// byYear is the local state of an entry whose seasons are calendar years
+// of match lists: a year is cached once every list it needs was fetched,
+// and its last run is the newest of theirs — or a failure, if one failed.
+func byYear(entry core.CatalogEntry, runs map[string]models.SyncRun) League {
+	l := League{Competition: entry.Competition, Nations: entry.Nations}
+	for _, year := range entry.Seasons {
+		comps := entry.Units[year]
+		if entry.Nations == "" {
+			comps = []string{entry.Competition.ID}
+		}
+		st := SeasonState{Year: year, Cached: len(comps) > 0}
+		for _, c := range comps {
+			run, ok := runs[c+"/"+year]
+			if !ok || !run.Succeeded() {
+				st.Cached = false
+			}
+			if !ok {
+				continue
+			}
+			switch {
+			case st.LastRun == nil, !run.Succeeded() && st.LastRun.Succeeded(),
+				run.Succeeded() == st.LastRun.Succeeded() && run.FinishedAt.After(st.LastRun.FinishedAt):
+				r := run
+				st.LastRun = &r
+			}
+		}
+		l.Seasons = append(l.Seasons, st)
+	}
+	return l
+}
+
 // queued reports whether a season is waiting in, or running on, the
 // app's refresh queue. An empty season list in a request is the current
 // season, which is the first one the catalog lists.
-func (m *Model) queued(compID, year string, current string) (running, waiting bool) {
+func (m *Model) queued(l League, year string, current string) (running, waiting bool) {
+	compID := l.Competition.ID
 	matches := func(r core.RefreshRequest) bool {
+		if l.Nations != "" {
+			return r.Nations == l.Nations && slices.Contains(r.Seasons, year)
+		}
 		if r.CompetitionID != compID {
 			return false
 		}

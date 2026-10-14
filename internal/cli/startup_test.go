@@ -9,6 +9,7 @@ import (
 	"github.com/JohnSBarden/footui/internal/data/sync"
 	"github.com/JohnSBarden/footui/internal/storage"
 	"github.com/JohnSBarden/footui/internal/storage/storagetest"
+	"github.com/JohnSBarden/footui/internal/tui/core"
 )
 
 // september is inside the 2026-27 season.
@@ -84,8 +85,27 @@ func TestStaleRefreshesCanBeDisabled(t *testing.T) {
 
 func TestCatalogOffersEverySeasonBackTo2014(t *testing.T) {
 	cat := tuiCatalog(september)
-	if len(cat) != len(sync.Coverages) {
-		t.Fatalf("catalog has %d entries, want every covered competition", len(cat))
+	// Every competition but the two friendlies, and a national teams line
+	// per gender.
+	if len(cat) != len(sync.Coverages)-2+2 {
+		t.Fatalf("catalog has %d entries", len(cat))
+	}
+	byID := map[string]core.CatalogEntry{}
+	for _, e := range cat {
+		byID[e.Competition.ID] = e
+	}
+	if _, ok := byID["int-friendly"]; ok {
+		t.Error("friendlies aren't offered on their own")
+	}
+	if wc := byID["world-cup"]; wc.ByYear || wc.Seasons[0] != "2026" || wc.Seasons[1] != "2022" {
+		t.Errorf("world cup entry %+v, want editions", wc)
+	}
+	if q := byID["wcq-uefa"]; !q.ByYear {
+		t.Error("qualifying is offered by year")
+	}
+	men := byID["national-teams-men"]
+	if men.Nations != "men" || men.Seasons[0] != "2026" || men.Seasons[len(men.Seasons)-1] != "2010" || len(men.Units["2026"]) == 0 {
+		t.Errorf("national teams line %+v", men)
 	}
 	seasons := cat[0].Seasons
 	if seasons[0] != "2026" || seasons[len(seasons)-1] != "2014" || len(seasons) != 13 {

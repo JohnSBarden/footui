@@ -24,10 +24,44 @@ const failureBackoff = 10 * time.Minute
 
 // tuiCatalog lists every competition footy can fetch, with every season
 // the provider offers, for the league catalog screen.
+//
+// International competitions follow the clubs: tournaments by edition,
+// qualifiers and nations leagues by calendar year. Friendlies aren't
+// offered on their own — they come with a nation — but each gender gets a
+// national teams line, whose years are every international competition's
+// match lists for that year.
 func tuiCatalog(now time.Time) []core.CatalogEntry {
-	out := make([]core.CatalogEntry, 0, len(sync.Coverages))
+	out := make([]core.CatalogEntry, 0, len(sync.Coverages)+2)
 	for _, c := range sync.Coverages {
-		out = append(out, core.CatalogEntry{Competition: c.Competition, Seasons: c.AvailableSeasons(now)})
+		if c.Competition.Category == models.CategoryFriendly {
+			continue
+		}
+		out = append(out, core.CatalogEntry{Competition: c.Competition, Seasons: c.AvailableSeasons(now),
+			ByYear: c.Competition.International() && c.Editions == nil})
+	}
+	for _, gender := range []string{"men", "women"} {
+		entry := core.CatalogEntry{
+			Competition: models.Competition{ID: "national-teams-" + gender, Name: "National teams (" + gender + ")",
+				Country: "International", Gender: gender, CalendarYear: true},
+			Nations: gender,
+			Units:   map[string][]string{},
+		}
+		first := now.Year()
+		for _, c := range sync.InternationalCoverages(gender) {
+			first = min(first, c.FirstSeason)
+		}
+		for y := now.Year(); y >= first; y-- {
+			units := sync.NationUnits(gender, []int{y})
+			if len(units) == 0 {
+				continue
+			}
+			label := strconv.Itoa(y)
+			entry.Seasons = append(entry.Seasons, label)
+			for _, u := range units {
+				entry.Units[label] = append(entry.Units[label], u.Competition.ID)
+			}
+		}
+		out = append(out, entry)
 	}
 	return out
 }

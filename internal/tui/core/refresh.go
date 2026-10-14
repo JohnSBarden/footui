@@ -151,4 +151,17 @@ type CatalogEntry struct {
 	Competition models.Competition
 	// Seasons are bare start years, most recent first.
 	Seasons []string
+	// ByYear marks an international competition offered by calendar
+	// year (a qualifier, a nations league): each season is one of its
+	// shared yearly match lists, rather than an edition.
+	ByYear bool
+	// Nations, "men" or "women", marks the national teams line: each
+	// season is a calendar year of every international competition of
+	// that gender — what every nation's matches that year come from.
+	// Competition is then only a label.
+	Nations string
+	// Units lists, for the national teams line, the competitions whose
+	// match lists make up each year, so the catalog can tell which years
+	// are already fetched.
+	Units map[string][]string
 }

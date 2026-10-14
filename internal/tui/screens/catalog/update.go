@@ -189,15 +189,17 @@ func (m *Model) selectCurrent() {
 // all on, or all off if they already were. It is the catalog's
 // counterpart to  footy refresh --all.
 func (m *Model) selectCurrentEverywhere() {
+	// Club leagues only: international football is fetched for the
+	// nations and tournaments someone follows.
 	allOn := true
 	for _, l := range m.leagues {
-		if len(l.Seasons) > 0 && !m.isSelected(l.Competition.ID, l.Seasons[0].Year) {
+		if !l.international() && len(l.Seasons) > 0 && !m.isSelected(l.Competition.ID, l.Seasons[0].Year) {
 			allOn = false
 			break
 		}
 	}
 	for _, l := range m.leagues {
-		if len(l.Seasons) > 0 {
+		if !l.international() && len(l.Seasons) > 0 {
 			m.setSelected(l.Competition.ID, l.Seasons[0].Year, !allOn)
 		}
 	}
@@ -231,10 +233,15 @@ func (m *Model) download() tea.Cmd {
 				years = append(years, s.Year)
 			}
 		}
-		if len(years) > 0 {
-			reqs = append(reqs, core.RefreshRequest{CompetitionID: l.Competition.ID, Seasons: years})
-			seasons += len(years)
+		if len(years) == 0 {
+			continue
 		}
+		req := core.RefreshRequest{CompetitionID: l.Competition.ID, Seasons: years}
+		if l.Nations != "" {
+			req = core.RefreshRequest{Nations: l.Nations, Seasons: years, Name: l.Competition.Name}
+		}
+		reqs = append(reqs, req)
+		seasons += len(years)
 	}
 	m.selected = map[string]map[string]bool{}
 

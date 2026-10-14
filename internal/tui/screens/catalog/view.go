@@ -13,7 +13,7 @@ import (
 
 // sideBySideWidth is the narrowest terminal that fits both lists next to
 // each other; below it the season list goes underneath.
-const sideBySideWidth = 96
+const sideBySideWidth = 98
 
 // View implements core.Screen.
 func (m *Model) View() string {
@@ -54,23 +54,41 @@ func (m *Model) View() string {
 func (m *Model) leagueTable() string {
 	th := m.deps.Theme
 	now := time.Now()
-	rows := make([][]components.Cell, 0, len(m.leagues))
-	for _, l := range m.leagues {
+	rows := make([][]components.Cell, 0, len(m.leagues)+1)
+	cursor := m.league
+	headed := false
+	for i, l := range m.leagues {
+		// International entries sit under a heading of their own, below
+		// the club leagues; the heading row isn't a stop for the cursor.
+		if l.international() && !headed {
+			headed = true
+			rows = append(rows, []components.Cell{components.Styled("International", th.PanelTitle)})
+			if i <= m.league {
+				cursor++
+			}
+		}
 		cached := th.Muted.Render("—")
 		if n := l.cachedCount(); n > 0 {
 			cached = fmt.Sprintf("%d of %d", n, len(l.Seasons))
 		}
+		name := l.Competition.Name
+		if l.Nations == "" {
+			name = m.deps.Star(models.FavoriteCompetition, l.Competition.ID, name)
+		}
+		country := l.Competition.Country
+		if l.international() {
+			country = l.Competition.Gender
+		}
 		rows = append(rows, []components.Cell{
-			components.Text(m.deps.Star(models.FavoriteCompetition, l.Competition.ID, l.Competition.Name)),
-			components.Styled(l.Competition.Country, th.Muted),
+			components.Text(name),
+			components.Styled(country, th.Muted),
 			components.Text(cached),
 			components.Styled(lastRefreshed(l, now), th.Muted),
 		})
 	}
-	cursor := m.league
 	return m.paneTitle("Leagues", paneLeagues) + "\n" + components.Table(components.TableOpts{
 		Columns: []components.Column{
-			{Title: "League", Width: 22},
+			{Title: "League", Width: 24},
 			{Title: "Country", Width: 8},
 			{Title: "Seasons", Width: 8},
 			{Title: "Refreshed", Width: 13},
@@ -113,7 +131,7 @@ func (m *Model) seasonTable() string {
 		rows = append(rows, []components.Cell{
 			components.Styled(box, th.Accent),
 			components.Text(components.SeasonLabelFor(l.Competition.CalendarYear, s.Year)),
-			m.seasonStatus(l.Competition.ID, s, current, now),
+			m.seasonStatus(l, s, current, now),
 		})
 	}
 
@@ -136,9 +154,9 @@ func (m *Model) seasonTable() string {
 
 // seasonStatus says what's known about one season, most urgent first: in
 // flight beats cached beats a past failure.
-func (m *Model) seasonStatus(compID string, s SeasonState, current string, now time.Time) components.Cell {
+func (m *Model) seasonStatus(l League, s SeasonState, current string, now time.Time) components.Cell {
 	th := m.deps.Theme
-	running, waiting := m.queued(compID, s.Year, current)
+	running, waiting := m.queued(l, s.Year, current)
 	switch {
 	case running:
 		return components.Styled("downloading…", th.Accent)
@@ -166,7 +184,7 @@ func (m *Model) paneTitle(text string, p pane) string {
 func (m *Model) seasonRows() int {
 	chrome := 8
 	if m.width < sideBySideWidth {
-		chrome += len(m.leagues) + 4
+		chrome += len(m.leagues) + 5
 	}
 	h := m.height - chrome
 	if h < 4 {
