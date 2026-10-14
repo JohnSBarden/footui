@@ -88,6 +88,9 @@ type Navigator struct {
 	// recent cached season when seasonID is empty.
 	League func(deps Deps, competitionID, seasonID string) Screen
 	Team   func(deps Deps, team models.Team, competitionID, seasonID string) Screen
+	// Nation opens a national team's matches. (Team does too, for a team
+	// that is national.)
+	Nation func(deps Deps, team models.Team) Screen
 	Player func(deps Deps, player models.Player, teamID string) Screen
 	Browse func(deps Deps, query string) Screen
 	// Catalog opens the screen for choosing leagues and seasons to fetch.

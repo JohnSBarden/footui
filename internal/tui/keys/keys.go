@@ -125,6 +125,52 @@ var (
 	)
 )
 
+// Bindings used by the nation screen and tournaments.
+var (
+	Year = key.NewBinding(
+		key.WithKeys("left", "right", "h", "l"),
+		key.WithHelp("←/→", "year"),
+	)
+	// FilterBar moves into, and back out of, a nation's competition
+	// filter.
+	FilterBar = key.NewBinding(
+		key.WithKeys("tab", "shift+tab"),
+		key.WithHelp("tab", "filter"),
+	)
+	FilterDone = key.NewBinding(
+		key.WithKeys("tab", "shift+tab", "esc"),
+		key.WithHelp("tab", "back to matches"),
+	)
+	FilterChoose = key.NewBinding(
+		key.WithKeys("left", "right", "h", "l"),
+		key.WithHelp("←/→", "choose"),
+	)
+	FilterToggle = key.NewBinding(
+		key.WithKeys(" ", "x", "enter"),
+		key.WithHelp("space", "toggle"),
+	)
+	// BoxScore expands the highlighted match's team stats in place.
+	BoxScore = key.NewBinding(
+		key.WithKeys("enter"),
+		key.WithHelp("enter", "box score"),
+	)
+	// Group steps through a tournament's group tables.
+	Group = key.NewBinding(
+		key.WithKeys("[", "]"),
+		key.WithHelp("[/]", "group"),
+	)
+	// Matches switches a tournament between its tables and every fixture
+	// by round.
+	Matches = key.NewBinding(
+		key.WithKeys("m"),
+		key.WithHelp("m", "matches"),
+	)
+	Tables = key.NewBinding(
+		key.WithKeys("m"),
+		key.WithHelp("m", "tables"),
+	)
+)
+
 // Navigation bindings screens share. Each screen picks the ones it
 // actually responds to; a binding a screen doesn't declare is not shown.
 var (

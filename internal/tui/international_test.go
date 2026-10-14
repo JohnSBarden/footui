@@ -1,12 +1,15 @@
 package tui
 
 import (
+	"context"
 	"fmt"
 	"slices"
 	"strings"
 	"testing"
 
+	"github.com/JohnSBarden/footui/internal/data/models"
 	"github.com/JohnSBarden/footui/internal/tui/core"
+	"github.com/JohnSBarden/footui/internal/tui/styles"
 )
 
 // Being rate-limited drops everything queued behind the refused request,
@@ -44,6 +47,43 @@ func TestNationRequestsMergeByWhatTheyFetch(t *testing.T) {
 	}
 	if !slices.Equal(q[1].Seasons, []string{"2026", "2025"}) {
 		t.Errorf("England's years %v", q[1].Seasons)
+	}
+}
+
+// Starring a nation fetches its matches (free when another nation of its
+// gender already did); starring a club fetches nothing, as before.
+func TestStarringANationQueuesItsMatches(t *testing.T) {
+	app, repos, screen := favApp(t, false)
+	r := &fakeRefresher{summary: "already up to date"}
+	app.deps.Refresh = r.fn()
+	if err := repos.UpsertTeam(context.Background(), models.Team{ID: "nat-arcadia", Name: "Arcadia", Gender: "men", National: true}); err != nil {
+		t.Fatal(err)
+	}
+
+	pressAndSettle(app, "f") // the club
+	if len(r.requests) != 0 || app.active != nil {
+		t.Errorf("starring a club queued %+v", r.requests)
+	}
+
+	screen.target = core.FavoriteTarget{Kind: models.FavoriteTeam, ID: "nat-arcadia", Name: "Arcadia"}
+	app.stack[0] = screen
+	_, cmd := app.Update(keyPress("f"))
+	drive(t, app, cmd)
+	if len(r.requests) != 1 || r.requests[0].TeamID != "nat-arcadia" {
+		t.Errorf("requests %+v, want Arcadia's matches", r.requests)
+	}
+}
+
+func TestTheTeamRouteOpensANationForANationalTeam(t *testing.T) {
+	deps := NewDeps(context.Background(), nil, styles.Plain())
+	if got := deps.Nav.Team(deps, models.Team{ID: "nat-arcadia", Name: "Arcadia", National: true}, "", ""); got.Title() != "Arcadia" {
+		t.Fatalf("got %T", got)
+	}
+	if _, ok := deps.Nav.Team(deps, models.Team{ID: "nat-arcadia", Name: "Arcadia", National: true}, "", "").(core.RefreshRequester); !ok {
+		t.Error("a national team should open the nation screen")
+	}
+	if _, ok := NewTeamScreen(deps, models.Team{ID: "eng-arsenal", Name: "Arsenal"}).(core.RefreshRequester); ok {
+		t.Error("a club should open the team screen")
 	}
 }
 

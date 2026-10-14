@@ -27,6 +27,7 @@ import (
 	"github.com/JohnSBarden/footui/internal/tui/screens/catalog"
 	"github.com/JohnSBarden/footui/internal/tui/screens/dashboard"
 	"github.com/JohnSBarden/footui/internal/tui/screens/league"
+	"github.com/JohnSBarden/footui/internal/tui/screens/nation"
 	"github.com/JohnSBarden/footui/internal/tui/screens/player"
 	"github.com/JohnSBarden/footui/internal/tui/screens/team"
 	"github.com/JohnSBarden/footui/internal/tui/styles"
@@ -103,7 +104,15 @@ func navigator() core.Navigator {
 			return league.NewAt(deps, competitionID, seasonID)
 		},
 		Team: func(deps core.Deps, t models.Team, competitionID, seasonID string) core.Screen {
+			// Every route to a team — a table row, a search result, a
+			// card — lands on the nation screen for a national team.
+			if t.National {
+				return nation.New(deps, t)
+			}
 			return team.New(deps, t, competitionID, seasonID)
+		},
+		Nation: func(deps core.Deps, t models.Team) core.Screen {
+			return nation.New(deps, t)
 		},
 		Player: func(deps core.Deps, p models.Player, teamID string) core.Screen {
 			return player.New(deps, p, teamID)
@@ -123,8 +132,12 @@ func NewLeagueScreen(deps core.Deps, competitionID string) core.Screen {
 	return league.New(deps, competitionID)
 }
 
-// NewTeamScreen constructs the Team screen, for `footy team <name>`.
+// NewTeamScreen constructs the Team screen, for `footy team <name>` — or
+// the nation screen, for a national team.
 func NewTeamScreen(deps core.Deps, t models.Team) core.Screen {
+	if t.National {
+		return nation.New(deps, t)
+	}
 	return team.New(deps, t, "", "")
 }
 

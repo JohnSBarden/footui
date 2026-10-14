@@ -6,6 +6,7 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/JohnSBarden/footui/internal/data/models"
 	"github.com/JohnSBarden/footui/internal/tui/core"
 	"github.com/JohnSBarden/footui/internal/tui/keys"
 )
@@ -58,5 +59,17 @@ func (a *App) favoriteToggled(msg core.FavoriteToggledMsg) tea.Cmd {
 	} else {
 		a.status = msg.Target.Name + " removed from favourites"
 	}
-	return a.broadcast(core.FavoritesChangedMsg{})
+	changed := a.broadcast(core.FavoritesChangedMsg{})
+	if msg.On && msg.Target.Kind == models.FavoriteTeam && a.deps.Refresh != nil {
+		// A nation is followed through its matches, which aren't fetched
+		// until something asks: starring it asks. It costs nothing when
+		// another nation of its gender already brought them in.
+		if t, err := a.deps.Repos.GetTeam(a.deps.Ctx, msg.Target.ID); err == nil && t.National {
+			status := a.status
+			cmd := a.enqueue(core.RefreshRequest{TeamID: t.ID, Name: t.Name})
+			a.status = status
+			return tea.Batch(changed, cmd)
+		}
+	}
+	return changed
 }
