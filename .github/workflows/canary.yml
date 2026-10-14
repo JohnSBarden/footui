@@ -1,0 +1,24 @@
+name: Provider canary
+
+# Both data sources are undocumented and can change shape without notice.
+# This fetches one live competition from each and checks the payloads
+# still parse (TestLiveCanary in internal/data/provider/*). A failed run
+# means a provider changed, not that the code did.
+on:
+  schedule:
+    - cron: "17 6 * * 1" # Mondays 06:17 UTC, after the weekend's matches
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  canary:
+    name: live providers
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - run: make live

@@ -11,7 +11,7 @@ GOFLAGS_STATIC := CGO_ENABLED=0
 # Platforms built by `make release`.
 PLATFORMS := linux/amd64 linux/arm64 darwin/amd64 darwin/arm64
 
-.PHONY: build install static release test race cover fmt fmtcheck vet lint tidycheck check clean
+.PHONY: build install static release test race live cover fmt fmtcheck vet lint tidycheck check clean
 
 build:
 	go build -ldflags "$(LDFLAGS)" -o bin/$(BINARY) ./cmd/$(BINARY)
@@ -41,6 +41,13 @@ test:
 # The race detector needs cgo, unlike every other target here.
 race:
 	CGO_ENABLED=1 go test -race ./...
+
+# The provider canary: fetches one live competition from each source and
+# checks the payloads still parse. Opt-in and online, so never part of
+# `check`; CI runs it weekly (.github/workflows/canary.yml). -count=1
+# because a cached pass says nothing about today's endpoints.
+live:
+	FOOTY_LIVE=1 FOOTY_HTTP_CACHE= go test -count=1 -v -run TestLiveCanary ./internal/data/provider/...
 
 cover:
 	go test -coverprofile=coverage.out ./... && go tool cover -func=coverage.out | tail -1

@@ -274,7 +274,15 @@ every remaining competition at full timeout.
 ```sh
 make check     # vet, tests, and a gofmt check — what CI should run
 make cover     # test coverage summary
+make live      # provider canary: fetch one live competition from each source
 ```
+
+Both sources are undocumented, so the fixture tests can't notice when one
+changes shape. `make live` (the tests run only with `FOOTY_LIVE=1`) refreshes
+the current Premier League season from understat and the current NWSL season
+from ESPN and checks the payloads still parse into teams, scores, xG, team
+stats and squads. A scheduled CI job runs it weekly; a red canary means a
+provider changed, not that the code did.
 
 Set `FOOTY_HTTP_CACHE=/some/dir` to cache raw provider responses on disk. It
 is off by default, because `footy refresh` should mean "fetch the current
