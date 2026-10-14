@@ -18,6 +18,40 @@ type Competition struct {
 	// calendar year (MLS, NWSL): its 2026 season is "2026", not
 	// "2026-27".
 	CalendarYear bool
+	// Category is empty for a club competition. An international one is
+	// a CategoryTournament, CategoryQualifier, CategoryNationsLeague or
+	// CategoryFriendly, which is what a nation's competition filter
+	// presets select on.
+	Category string
+	// ShortName is a compact label for tight columns ("WC", "UNL"); empty
+	// when there isn't one.
+	ShortName string
+}
+
+// International competition categories.
+const (
+	CategoryTournament    = "tournament"
+	CategoryQualifier     = "qualifier"
+	CategoryNationsLeague = "nations-league"
+	CategoryFriendly      = "friendly"
+)
+
+// International reports whether this is a competition between national
+// teams.
+func (c Competition) International() bool { return c.Category != "" }
+
+// HasTable reports whether an international competition publishes group
+// tables. Friendlies have none.
+func (c Competition) HasTable() bool {
+	return c.Category != "" && c.Category != CategoryFriendly
+}
+
+// Abbrev is ShortName, or Name when there is no short form.
+func (c Competition) Abbrev() string {
+	if c.ShortName != "" {
+		return c.ShortName
+	}
+	return c.Name
 }
 
 // Season is one edition of a Competition (e.g. 2024-25).
@@ -43,15 +77,21 @@ type Team struct {
 	Gender      string // "men" | "women"
 	FoundedYear int
 	Venue       string
+	// National marks a national team rather than a club. Its ID is
+	// "nat-{slug}" ("nat-{slug}-women"), which can't collide with a club's.
+	National bool
 }
 
 // TeamSeasonStats is a team's aggregate performance in one Competition in
 // one Season. This is the row-per-(team,competition,season) grain that
 // keeps a team's numbers sliceable by competition instead of blended.
 type TeamSeasonStats struct {
-	TeamID         string
-	CompetitionID  string
-	SeasonID       string
+	TeamID        string
+	CompetitionID string
+	SeasonID      string
+	// GroupLabel is the group a tournament table row belongs to ("Group
+	// A"); Position is then the rank within it. Empty for one table.
+	GroupLabel     string
 	Position       *int // league standing rank; nil for cup competitions
 	MatchesPlayed  int
 	Wins           int
@@ -171,6 +211,10 @@ type SyncRun struct {
 	Status        string // SyncStatus* below
 	RowsUpserted  int
 	Error         string
+	// Year is set for a run that fetched one calendar year of a
+	// competition's matches (an international "unit") rather than one
+	// season; SeasonID is then empty.
+	Year int
 }
 
 // Sync run statuses.
@@ -181,6 +225,10 @@ const (
 	// SyncStatusSkipped is a unit that was never attempted, because the
 	// run gave up after repeated failures.
 	SyncStatusSkipped = "skipped"
+	// SyncStatusRateLimited is a unit the provider refused because footy
+	// was asking too often. It counts as a failure, and it suspends
+	// automatic refreshes for a while.
+	SyncStatusRateLimited = "rate_limited"
 )
 
 // Succeeded reports whether the run completed without error.

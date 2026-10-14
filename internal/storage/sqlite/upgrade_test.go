@@ -197,6 +197,26 @@ func writeFixture(t *testing.T, path string) {
 	// From schema 0007: favourites.
 	mustNoErr(t, s.AddFavorite(ctx, models.Favorite{Kind: models.FavoriteTeam, ID: "eng-arsenal", AddedAt: fixtureTime}))
 
+	// From schema 0008: national teams, a tournament with a group table, a
+	// match with stats, a saved filter, and a year run.
+	mustNoErr(t, s.UpsertCompetition(ctx, models.Competition{ID: "world-cup", Name: "FIFA World Cup", ShortName: "WC",
+		Country: "International", Gender: "men", Format: "cup", CalendarYear: true, Category: models.CategoryTournament}))
+	mustNoErr(t, s.UpsertSeason(ctx, models.Season{ID: "world-cup:2026", CompetitionID: "world-cup", Label: "2026"}))
+	for _, id := range []string{"nat-england", "nat-arcadia"} {
+		mustNoErr(t, s.UpsertTeam(ctx, models.Team{ID: id, Name: id[4:], Gender: "men", National: true}))
+		mustNoErr(t, s.LinkTeamCompetitionSeason(ctx, id, "world-cup", "world-cup:2026"))
+	}
+	mustNoErr(t, s.UpsertTeamSeasonStats(ctx, models.TeamSeasonStats{TeamID: "nat-england", CompetitionID: "world-cup",
+		SeasonID: "world-cup:2026", GroupLabel: "Group L", Position: ptrI(1), MatchesPlayed: 3, Wins: 3, Points: 9,
+		Source: "espn", UpdatedAt: fixtureTime}))
+	mustNoErr(t, s.UpsertMatches(ctx, []models.Match{{ID: "espn-900001", CompetitionID: "world-cup", SeasonID: "world-cup:2026",
+		Kickoff: fixtureTime, Status: models.MatchAET, Round: "Round of 16", HomeTeamID: "nat-england", AwayTeamID: "nat-arcadia",
+		Neutral: true, HomeScore: ptrI(2), AwayScore: ptrI(1),
+		HomeStats: &models.MatchTeamStats{Possession: ptrF(58.5), Shots: ptrI(17)}, Source: "espn", UpdatedAt: fixtureTime}}))
+	mustNoErr(t, s.SetTeamMatchFilter(ctx, "nat-england", models.MatchFilter{Preset: models.PresetCompetitive}))
+	mustNoErr(t, s.RecordSyncRun(ctx, models.SyncRun{Provider: "espn", CompetitionID: "world-cup", Year: 2026,
+		StartedAt: fixtureTime, FinishedAt: fixtureTime, Status: models.SyncStatusOK, RowsUpserted: 1}))
+
 	mustNoErr(t, os.MkdirAll(filepath.Dir(path), 0o755))
 	_ = os.Remove(path)
 	if _, err := db.Exec(`VACUUM INTO ?`, path); err != nil {
@@ -262,6 +282,36 @@ func checkFixture(t *testing.T, s *Store) {
 		t.Errorf("favorites %+v", favs)
 	}
 	mustNoErr(t, s.AddFavorite(ctx, models.Favorite{Kind: models.FavoritePlayer, ID: "p-saka", AddedAt: fixtureTime.Add(time.Hour)}))
+
+	// Clubs from before 0008 are clubs, and their competitions club ones.
+	if arsenal, _ := s.GetTeam(ctx, "eng-arsenal"); arsenal.National || pl.International() {
+		t.Error("pre-0008 rows must default to clubs and club competitions")
+	}
+	// Fixtures from 0008 on carry a nation, a group table and a match.
+	if wc, err := s.GetCompetition(ctx, "world-cup"); err == nil {
+		if wc.Category != models.CategoryTournament || wc.ShortName != "WC" {
+			t.Errorf("tournament %+v", wc)
+		}
+		table, _ := s.Standings(ctx, "world-cup", "world-cup:2026")
+		if len(table) != 1 || table[0].GroupLabel != "Group L" {
+			t.Errorf("group table %+v", table)
+		}
+		matches, err := s.MatchesForTeam(ctx, "nat-england", models.MatchFilter{}, nil)
+		if err != nil || len(matches) != 1 || matches[0].Status != models.MatchAET || *matches[0].HomeStats.Possession != 58.5 {
+			t.Errorf("matches %+v, %v", matches, err)
+		}
+		if f, _ := s.GetTeamMatchFilter(ctx, "nat-england"); f.Preset != models.PresetCompetitive {
+			t.Errorf("filter %+v", f)
+		}
+		if run, err := s.LatestYearRun(ctx, "world-cup", 2026); err != nil || run.RowsUpserted != 1 {
+			t.Errorf("year run %+v, %v", run, err)
+		}
+	}
+	// Every fixture accepts the new rows once upgraded.
+	mustNoErr(t, s.UpsertTeam(ctx, models.Team{ID: "nat-spain", Name: "Spain", Gender: "men", National: true}))
+	if nations, _ := s.NationalTeams(ctx, "men"); len(nations) == 0 {
+		t.Error("national teams can't be read back")
+	}
 }
 
 // A database folded by the old rules (which left Ø alone) is refolded on

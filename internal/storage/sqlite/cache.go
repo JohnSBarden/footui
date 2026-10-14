@@ -20,6 +20,7 @@ import (
 func (s *Store) CacheSummary(ctx context.Context) ([]models.CompetitionCache, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT c.id, c.name, c.country, c.tier, c.gender, c.format, c.calendar_year,
+			COALESCE(c.category, ''), COALESCE(c.short_name, ''),
 			(SELECT COUNT(*) FROM season se WHERE se.competition_id = c.id),
 			(SELECT MIN(label) FROM season se WHERE se.competition_id = c.id),
 			(SELECT MAX(label) FROM season se WHERE se.competition_id = c.id),
@@ -39,6 +40,7 @@ func (s *Store) CacheSummary(ctx context.Context) ([]models.CompetitionCache, er
 		var earliest, latest sql.NullString
 		if err := rows.Scan(&e.Competition.ID, &e.Competition.Name, &e.Competition.Country,
 			&e.Competition.Tier, &e.Competition.Gender, &e.Competition.Format, &e.Competition.CalendarYear,
+			&e.Competition.Category, &e.Competition.ShortName,
 			&e.Seasons, &earliest, &latest, &e.Teams, &e.PlayerSeasons); err != nil {
 			return nil, fmt.Errorf("sqlite: scan cache summary: %w", err)
 		}

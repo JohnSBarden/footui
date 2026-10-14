@@ -10,6 +10,7 @@ package storage
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/JohnSBarden/footui/internal/data/models"
 )
@@ -61,6 +62,9 @@ type TeamsRepo interface {
 	// is driven by what's cached rather than by the seed file, so this is
 	// how it enumerates its work.
 	ListTeams(ctx context.Context) ([]models.Team, error)
+	// NationalTeams returns the cached national teams of one gender ("men"
+	// or "women"; empty for both), ordered by name.
+	NationalTeams(ctx context.Context, gender string) ([]models.Team, error)
 }
 
 // CacheRepo answers questions about the cache as a whole rather than about
@@ -77,6 +81,45 @@ type SyncLogRepo interface {
 	// LatestSyncRun returns the most recent attempt for one
 	// competition-season, or ErrNotFound if it has never been attempted.
 	LatestSyncRun(ctx context.Context, competitionID, seasonID string) (models.SyncRun, error)
+	// LatestYearRun returns the most recent fetch of one calendar year of
+	// a competition's matches, or ErrNotFound.
+	LatestYearRun(ctx context.Context, competitionID string, year int) (models.SyncRun, error)
+	// LatestYearRuns returns the most recent fetch of every
+	// competition-year ever attempted.
+	LatestYearRuns(ctx context.Context) ([]models.SyncRun, error)
+	// LastRateLimited is when a provider last turned footy away for
+	// asking too often, or ErrNotFound if it never has.
+	LastRateLimited(ctx context.Context) (time.Time, error)
+}
+
+// MatchesRepo persists and queries individual matches — the grain
+// national teams are tracked at.
+type MatchesRepo interface {
+	// UpsertMatches writes matches and their per-team stats in one
+	// transaction, by match ID. Matches are never deleted, so a
+	// rescheduled fixture updates in place; stats a later fetch lacks are
+	// kept rather than blanked.
+	UpsertMatches(ctx context.Context, matches []models.Match) error
+	// MatchesForTeam returns a team's matches that pass filter, in the
+	// given calendar years (nil for all), newest first, with stats.
+	MatchesForTeam(ctx context.Context, teamID string, filter models.MatchFilter, years []int) ([]models.Match, error)
+	// MatchesForCompetitionSeason returns every match of one edition of a
+	// competition, in kickoff order.
+	MatchesForCompetitionSeason(ctx context.Context, competitionID, seasonID string) ([]models.Match, error)
+	// TeamMatchSummary is a team's record over the matches MatchesForTeam
+	// would return.
+	TeamMatchSummary(ctx context.Context, teamID string, filter models.MatchFilter, years []int) (models.MatchSummary, error)
+	// TeamMatchYears returns the calendar years a team has matches in,
+	// newest first.
+	TeamMatchYears(ctx context.Context, teamID string) ([]int, error)
+	// MatchesKickedOff counts a competition-year's matches that were last
+	// stored as scheduled or in play and kick off in (since, until] — the
+	// sign that a stored year has results waiting.
+	MatchesKickedOff(ctx context.Context, competitionID string, year int, since, until time.Time) (int, error)
+	// GetTeamMatchFilter returns the filter last used on a team, or the
+	// zero filter (every match) when none was saved.
+	GetTeamMatchFilter(ctx context.Context, teamID string) (models.MatchFilter, error)
+	SetTeamMatchFilter(ctx context.Context, teamID string, f models.MatchFilter) error
 }
 
 // TrophiesRepo persists and queries a club's honours.
@@ -180,4 +223,5 @@ type Repositories interface {
 	CacheRepo
 	ExternalRefRepo
 	FavoritesRepo
+	MatchesRepo
 }
