@@ -3,6 +3,7 @@ package sync_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -16,7 +17,9 @@ import (
 // failure can be asserted without a network.
 type flakySource struct {
 	failOn map[string]bool
-	calls  int
+	// failWith is the error a failing unit returns, when set.
+	failWith error
+	calls    int
 }
 
 func (f *flakySource) key(comp provider.CompetitionRef, season provider.SeasonRef) string {
@@ -26,6 +29,9 @@ func (f *flakySource) key(comp provider.CompetitionRef, season provider.SeasonRe
 func (f *flakySource) Teams(ctx context.Context, comp provider.CompetitionRef, season provider.SeasonRef) ([]models.Team, error) {
 	f.calls++
 	if f.failOn[f.key(comp, season)] {
+		if f.failWith != nil {
+			return nil, f.failWith
+		}
 		return nil, errors.New("upstream exploded")
 	}
 	return []models.Team{{
@@ -239,6 +245,39 @@ func TestInterleavedFailuresDoNotTripTheCircuitBreaker(t *testing.T) {
 	}
 	if s.Succeeded != 2 || s.Failed != 3 {
 		t.Errorf("unexpected summary: %+v", s)
+	}
+}
+
+// Being rate-limited stops a run at once, not after three strikes: every
+// further request would only prolong it. The refusal is logged as such,
+// which is what suspends automatic refreshes.
+func TestRateLimitingStopsTheRunImmediately(t *testing.T) {
+	src := &flakySource{failOn: map[string]bool{"a-league/2025": true},
+		failWith: fmt.Errorf("espn: %w", provider.ErrRateLimited)}
+	db, err := sqlite.Open(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	store := sqlite.NewStore(db)
+	syncer := sync.New(src, store).WithProviderName("fake")
+
+	results := syncer.SyncMany(context.Background(),
+		competitions("a-league", "b-league", "c-league"), []string{"2025"}, nil)
+
+	s := sync.Summarize(results)
+	if src.calls != 1 || s.Failed != 1 || s.Skipped != 2 {
+		t.Errorf("%d upstream calls, summary %+v: want one call, then the rest skipped", src.calls, s)
+	}
+	if !errors.Is(results[2].Err, provider.ErrRateLimited) {
+		t.Errorf("a skipped unit should say why: %v", results[2].Err)
+	}
+	run, err := store.LatestSyncRun(context.Background(), "a-league", "a-league:2025")
+	if err != nil || run.Status != models.SyncStatusRateLimited {
+		t.Errorf("logged %+v, %v", run, err)
+	}
+	if _, err := store.LastRateLimited(context.Background()); err != nil {
+		t.Errorf("the refusal should be findable: %v", err)
 	}
 }
 

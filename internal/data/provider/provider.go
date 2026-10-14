@@ -13,6 +13,7 @@ package provider
 
 import (
 	"context"
+	"errors"
 
 	"github.com/JohnSBarden/footui/internal/data/models"
 )
@@ -92,3 +93,29 @@ type LeaguePlayersProvider interface {
 type TeamResolver interface {
 	ResolveTeam(ctx context.Context, name string) ([]TeamRef, error)
 }
+
+// NationalTeamsProvider supplies the directory of national teams of one
+// gender ("men" or "women"), so they can be searched before any of their
+// matches are fetched.
+type NationalTeamsProvider interface {
+	NationalTeams(ctx context.Context, gender string) ([]models.Team, error)
+}
+
+// MatchesProvider supplies every match of a competition in one calendar
+// year — every nation's, in one call — with per-team stats where the
+// source has them, and the teams that played them. Each match's SeasonID
+// is the edition it belongs to, which can differ from year (Euro 2020 was
+// played in 2021).
+type MatchesProvider interface {
+	CompetitionMatches(ctx context.Context, comp CompetitionRef, year int) ([]models.Match, []models.Team, error)
+}
+
+// ErrRateLimited means the source refused footy for asking too often, and
+// kept refusing after the polite retries. Nothing more should be asked of
+// it for a while: a refresh that gets this stops rather than carrying on.
+var ErrRateLimited = errors.New("rate limited")
+
+// ErrIncomplete means a fetch returned data that is known to be partial
+// (the source truncated it). The data returned alongside it is still
+// worth storing, but must not be recorded as complete.
+var ErrIncomplete = errors.New("incomplete")

@@ -1,6 +1,7 @@
 // Package espn fetches competitions from ESPN's public JSON API: MLS,
-// NWSL, the women's leagues, the European second divisions, and the
-// European club competitions — everything understat.com doesn't cover.
+// NWSL, the women's leagues, the European second divisions, the European
+// club competitions, and international football — everything
+// understat.com doesn't cover.
 //
 // The API is undocumented and keyless. It has no expected goals, and no
 // minutes played per player, but it does have possession, corners, and
@@ -20,8 +21,11 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"sync"
 	"time"
+
+	"github.com/JohnSBarden/footui/internal/data/provider"
 )
 
 const (
@@ -40,7 +44,22 @@ const (
 	// a statistics request per club, so this is what keeps a 30-team
 	// league from being 60 requests in a burst.
 	defaultMinGap = 150 * time.Millisecond
+	// scoreboardGap spaces out the big requests: a year of a competition's
+	// matches is up to a couple of megabytes, and a nation's first
+	// download is thirty of them.
+	scoreboardGap = time.Second
+	// maxRetryAfter caps how long a Retry-After header can make footy
+	// wait in one go; a longer ask is treated as "not now" and gives up.
+	maxRetryAfter = 2 * time.Minute
+	// breakerOpen is how long every request is refused after ESPN kept
+	// rate-limiting footy through all its retries.
+	breakerOpen = time.Hour
 )
+
+// rateLimitBackoff is how long to wait after each successive 429 when
+// ESPN doesn't say: generous, because a 429 means footy was already
+// asking too much.
+var rateLimitBackoff = []time.Duration{5 * time.Second, 20 * time.Second, 60 * time.Second}
 
 // Client is a polite, retrying JSON fetcher for ESPN's two API hosts.
 type Client struct {
@@ -48,10 +67,17 @@ type Client struct {
 	siteURL    string
 	coreURL    string
 	minGap     time.Duration
+	slowGap    time.Duration
 	cacheDir   string
 	// OnRetry, if set, is told about each failed attempt that will be
 	// retried, so a slow refresh can say why it's slow.
 	OnRetry func(attempt, of int, err error)
+
+	// rateWaits is the 429 backoff schedule, and wait how a backoff is
+	// slept; tests shorten both.
+	rateWaits []time.Duration
+	wait      func(ctx context.Context, d time.Duration) error
+	breaker   *breaker
 
 	mu        sync.Mutex
 	lastFetch time.Time
@@ -64,28 +90,35 @@ func NewClient() *Client {
 		siteURL:    siteBaseURL,
 		coreURL:    coreBaseURL,
 		minGap:     defaultMinGap,
+		slowGap:    scoreboardGap,
 		cacheDir:   os.Getenv(CacheDirEnv),
+		rateWaits:  rateLimitBackoff,
+		wait:       sleep,
+		breaker:    sharedBreaker,
 	}
 }
 
-// withBaseURLs points the client at a test server.
+// withBaseURLs points the client at a test server, with no pacing, no
+// disk cache, and a breaker of its own.
 func (c *Client) withBaseURLs(site, core string) *Client {
-	c.siteURL, c.coreURL, c.minGap, c.cacheDir = site, core, 0, ""
+	c.siteURL, c.coreURL, c.minGap, c.slowGap, c.cacheDir = site, core, 0, 0, ""
+	c.rateWaits = []time.Duration{0, 0, 0}
+	c.breaker = &breaker{}
 	return c
 }
 
 // site fetches a path under the site API into out.
 func (c *Client) site(ctx context.Context, path string, out any) error {
-	return c.getJSON(ctx, c.siteURL+path, out)
+	return c.getJSON(ctx, c.siteURL+path, c.minGap, out)
 }
 
 // core fetches a path under the core API into out.
 func (c *Client) core(ctx context.Context, path string, out any) error {
-	return c.getJSON(ctx, c.coreURL+path, out)
+	return c.getJSON(ctx, c.coreURL+path, c.minGap, out)
 }
 
-func (c *Client) getJSON(ctx context.Context, url string, out any) error {
-	body, err := c.get(ctx, url)
+func (c *Client) getJSON(ctx context.Context, url string, gap time.Duration, out any) error {
+	body, err := c.get(ctx, url, gap)
 	if err != nil {
 		return err
 	}
@@ -124,42 +157,79 @@ func (e *ExhaustedError) Unwrap() error { return e.Last }
 type statusError struct {
 	URL    string
 	Status int
+	// RetryAfter is what a 429's Retry-After header asked for, zero when
+	// it said nothing usable.
+	RetryAfter time.Duration
 }
 
 func (e *statusError) Error() string {
 	return fmt.Sprintf("espn: %s returned HTTP %d", e.URL, e.Status)
 }
 
-func (c *Client) get(ctx context.Context, url string) ([]byte, error) {
+// errRateLimited is what every request gets once ESPN has kept refusing
+// footy: no request is made at all.
+var errRateLimited = fmt.Errorf("espn is rate-limiting footy; try again later: %w", provider.ErrRateLimited)
+
+// get fetches url, retrying what is worth retrying. A 429 is handled on
+// its own schedule: Retry-After when ESPN gives one, otherwise a backoff
+// far longer than for a dropped connection, and if it keeps refusing,
+// the breaker opens and nothing more is asked of it for an hour.
+func (c *Client) get(ctx context.Context, url string, gap time.Duration) ([]byte, error) {
 	if body, ok := c.readCache(url); ok {
 		return body, nil
 	}
+	if c.breaker.open(time.Now()) {
+		return nil, errRateLimited
+	}
 	var last error
-	for attempt := 1; attempt <= maxAttempts; attempt++ {
-		body, err := c.attempt(ctx, url)
+	failures, refusals := 0, 0
+	for {
+		body, err := c.attempt(ctx, url, gap)
 		if err == nil {
 			c.writeCache(url, body)
 			return body, nil
 		}
+
+		var se *statusError
+		if errors.As(err, &se) && se.Status == http.StatusTooManyRequests && ctx.Err() == nil {
+			if refusals == len(c.rateWaits) || se.RetryAfter > maxRetryAfter {
+				c.breaker.trip(time.Now())
+				return nil, errRateLimited
+			}
+			wait := c.rateWaits[refusals]
+			if se.RetryAfter > 0 {
+				wait = se.RetryAfter
+			}
+			refusals++
+			if c.OnRetry != nil {
+				c.OnRetry(refusals, len(c.rateWaits)+1, fmt.Errorf("ESPN asked footy to slow down; waiting %s", wait))
+			}
+			if err := c.wait(ctx, wait); err != nil {
+				return nil, err
+			}
+			continue
+		}
+
 		if !retryable(ctx, err) {
 			return nil, err
 		}
+		failures++
 		last = err
-		if attempt == maxAttempts {
+		if failures == maxAttempts {
 			break
 		}
 		if c.OnRetry != nil {
-			c.OnRetry(attempt, maxAttempts, err)
+			c.OnRetry(failures, maxAttempts, err)
 		}
-		if err := sleep(ctx, baseBackoff<<(attempt-1)); err != nil {
+		if err := c.wait(ctx, baseBackoff<<(failures-1)); err != nil {
 			return nil, err
 		}
 	}
 	return nil, &ExhaustedError{Attempts: maxAttempts, Last: last}
 }
 
-func (c *Client) attempt(ctx context.Context, url string) ([]byte, error) {
-	if err := c.throttle(ctx); err != nil {
+func (c *Client) attempt(ctx context.Context, url string, gap time.Duration) ([]byte, error) {
+	if err := c.throttle(ctx, gap); err != nil {
 		return nil, err
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
@@ -180,21 +250,36 @@ func (c *Client) attempt(ctx context.Context, url string) ([]byte, error) {
 	case resp.StatusCode == http.StatusNotFound:
 		return nil, fmt.Errorf("%w: %s", ErrNotFound, url)
 	case resp.StatusCode != http.StatusOK:
-		return nil, &statusError{URL: url, Status: resp.StatusCode}
+		return nil, &statusError{URL: url, Status: resp.StatusCode,
+			RetryAfter: retryAfter(resp.Header.Get("Retry-After"), time.Now())}
 	}
 	return io.ReadAll(resp.Body)
 }
 
+// retryAfter reads a Retry-After header: seconds, or an HTTP date.
+func retryAfter(h string, now time.Time) time.Duration {
+	if h == "" {
+		return 0
+	}
+	if secs, err := strconv.Atoi(h); err == nil && secs > 0 {
+		return time.Duration(secs) * time.Second
+	}
+	if at, err := http.ParseTime(h); err == nil && at.After(now) {
+		return at.Sub(now)
+	}
+	return 0
+}
+
 // retryable reports whether a failure is worth another attempt: timeouts,
 // dropped connections, and server errors are; a 404, a 4xx, or the user
-// cancelling are not.
+// cancelling are not. (A 429 has its own handling in get.)
 func retryable(ctx context.Context, err error) bool {
 	if ctx.Err() != nil || errors.Is(err, ErrNotFound) {
 		return false
 	}
 	var se *statusError
 	if errors.As(err, &se) {
-		return se.Status >= 500 || se.Status == http.StatusTooManyRequests
+		return se.Status >= 500
 	}
 	return true
 }
@@ -210,9 +295,10 @@ func sleep(ctx context.Context, d time.Duration) error {
 	}
 }
 
-func (c *Client) throttle(ctx context.Context) error {
+// throttle waits until gap has passed since the previous request.
+func (c *Client) throttle(ctx context.Context, gap time.Duration) error {
 	c.mu.Lock()
-	wait := c.minGap - time.Since(c.lastFetch)
+	wait := gap - time.Since(c.lastFetch)
 	c.mu.Unlock()
 	if wait > 0 {
 		if err := sleep(ctx, wait); err != nil {
@@ -223,6 +309,29 @@ func (c *Client) throttle(ctx context.Context) error {
 	c.lastFetch = time.Now()
 	c.mu.Unlock()
 	return nil
+}
+
+// breaker remembers that ESPN rate-limited footy through every retry, so
+// that nothing else in the process asks again for a while. One is shared
+// by every client: the TUI builds a provider per queued refresh, and the
+// next one in the queue must not start the whole dance again.
+type breaker struct {
+	mu    sync.Mutex
+	until time.Time
+}
+
+var sharedBreaker = &breaker{}
+
+func (b *breaker) trip(now time.Time) {
+	b.mu.Lock()
+	b.until = now.Add(breakerOpen)
+	b.mu.Unlock()
+}
+
+func (b *breaker) open(now time.Time) bool {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return now.Before(b.until)
 }
 
 func (c *Client) cachePath(url string) string {

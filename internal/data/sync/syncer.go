@@ -121,7 +121,7 @@ func (s *Syncer) recordRun(ctx context.Context, comp models.Competition, season 
 		RowsUpserted:  res.TeamStats + res.PlayerStats,
 	}
 	if syncErr != nil {
-		run.Status = models.SyncStatusFailed
+		run.Status = failureStatus(syncErr)
 		run.Error = syncErr.Error()
 	}
 
@@ -264,6 +264,19 @@ func (s *Syncer) applyProviderColors(ctx context.Context, comp provider.Competit
 	}
 }
 
+// errSkippedRateLimited marks the units a run never attempted because the
+// provider had rate-limited it.
+var errSkippedRateLimited = fmt.Errorf("skipped: the provider is rate-limiting footy: %w", provider.ErrRateLimited)
+
+// failureStatus is how a failed unit is logged: rate limiting is logged
+// as such, because it suspends automatic refreshes for a while.
+func failureStatus(err error) string {
+	if errors.Is(err, provider.ErrRateLimited) {
+		return models.SyncStatusRateLimited
+	}
+	return models.SyncStatusFailed
+}
+
 // hasNativeIDs reports whether a provider returned its own team IDs.
 func hasNativeIDs(teams []models.Team) bool {
 	for _, t := range teams {
@@ -357,6 +370,7 @@ func (s *Syncer) SyncJobs(ctx context.Context, jobs []Job, progress Progress) []
 	consecutiveFailures := 0
 	limit := s.maxConsecutiveFailures()
 	gaveUp := false
+	stopReason := fmt.Errorf("skipped after %d consecutive failures", limit)
 
 	for _, job := range jobs {
 		comp := job.Competition
@@ -370,8 +384,7 @@ func (s *Syncer) SyncJobs(ctx context.Context, jobs []Job, progress Progress) []
 			}
 
 			if gaveUp {
-				record(UnitResult{Competition: comp, Season: season, Skipped: true,
-					Err: fmt.Errorf("skipped after %d consecutive failures", limit)})
+				record(UnitResult{Competition: comp, Season: season, Skipped: true, Err: stopReason})
 				continue
 			}
 
@@ -389,7 +402,12 @@ func (s *Syncer) SyncJobs(ctx context.Context, jobs []Job, progress Progress) []
 
 			if err != nil {
 				consecutiveFailures++
-				if limit > 0 && consecutiveFailures >= limit {
+				switch {
+				case errors.Is(err, provider.ErrRateLimited):
+					// The source asked footy to stop; every further
+					// request would only prolong that.
+					gaveUp, stopReason = true, errSkippedRateLimited
+				case limit > 0 && consecutiveFailures >= limit:
 					gaveUp = true
 				}
 			} else {
