@@ -36,7 +36,7 @@ func (a *App) favoriteBinding() (key.Binding, bool) {
 func (a *App) toggleFavorite() tea.Cmd {
 	target, ok := a.favoriteTarget()
 	if !ok {
-		a.status = "nothing to favourite here — open a league, club or player"
+		a.status = "nothing to favourite here — open a league, club, nation or player"
 		return nil
 	}
 	if a.deps.Favorites == nil {

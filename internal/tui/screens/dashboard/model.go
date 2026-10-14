@@ -3,14 +3,15 @@
 // stands this season, and each drilling into the screen Browse would
 // open.
 //
-// Cards are grouped in a fixed order — leagues, then clubs, then players —
-// and within each group by when they were starred. Search is one key away
+// Cards are grouped in a fixed order — leagues, tournaments, clubs,
+// nations, players — and within each group by when they were starred. Search is one key away
 // (/), so the dashboard replaces the bare search box without hiding it.
 package dashboard
 
 import (
 	"errors"
 	"sort"
+	"time"
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
@@ -35,11 +36,24 @@ type StandingRow struct {
 	Played   int
 }
 
-// Card is one favourite's card. Kind selects which of the fields below
-// mean anything.
+// Group is a card's section of the dashboard, in display order.
+type Group int
+
+// Dashboard groups.
+const (
+	GroupLeagues Group = iota
+	GroupTournaments
+	GroupClubs
+	GroupNations
+	GroupPlayers
+)
+
+// Card is one favourite's card. Kind and Group select which of the
+// fields below mean anything.
 type Card struct {
-	Kind models.FavoriteKind
-	ID   string
+	Kind  models.FavoriteKind
+	Group Group
+	ID    string
 	// Missing is set when the favourite's entity isn't cached (it was
 	// starred, then its data deleted with the database file, say). The
 	// card stays, so it can still be un-starred.
@@ -67,6 +81,25 @@ type Card struct {
 	// Player cards. Team is the club the line is for.
 	Player      models.Player
 	PlayerStats *models.PlayerSeasonStats
+
+	// Tournament cards show a group's table (GroupLabel, in Table) during
+	// the group stage, and the latest round's results after it.
+	GroupLabel string
+	RoundLabel string
+	Results    []models.Match
+
+	// Nation cards (Team is the nation), under its saved filter: the last
+	// few results, the next fixture, and its record.
+	Filter  models.MatchFilter
+	Recent  []models.Match
+	Next    *models.Match
+	Summary models.MatchSummary
+	// Updated is when the newest of a nation's matches was fetched.
+	Updated time.Time
+
+	// Teams and Comps name the sides and competitions in match lines.
+	Teams map[string]models.Team
+	Comps map[string]models.Competition
 }
 
 // Name is the card's heading.
@@ -90,9 +123,10 @@ type Model struct {
 	cards  []Card
 	cursor int
 
-	// active and pending are the competitions being refreshed and waiting
-	// to be, so a card can say its numbers are on their way.
-	active  string
+	// active and pending are what is being refreshed and waiting to be,
+	// keyed like core.RefreshRequest.Key, so a card can say its numbers
+	// are on their way.
+	active  map[string]bool
 	pending map[string]bool
 
 	width  int
@@ -104,7 +138,7 @@ type Model struct {
 
 // New constructs the dashboard. Cards load in Init.
 func New(deps core.Deps) *Model {
-	return &Model{deps: deps, loading: true, width: 100, height: 30, pending: map[string]bool{}}
+	return &Model{deps: deps, loading: true, width: 100, height: 30, active: map[string]bool{}, pending: map[string]bool{}}
 }
 
 // Title implements core.Screen.
@@ -145,20 +179,23 @@ func (m *Model) FavoriteTarget() (core.FavoriteTarget, bool) {
 // card's numbers come from.
 func (m *Model) RefreshTarget() (string, bool) {
 	c, ok := m.Selected()
-	if !ok || c.Missing || c.Competition.ID == "" {
+	if !ok || c.Missing || c.Competition.ID == "" || c.Group == GroupNations {
 		return "", false
 	}
 	return c.Competition.ID, true
 }
 
-type cardsLoadedMsg struct{ cards []Card }
-
-// kindOrder is the dashboard's fixed group order.
-var kindOrder = map[models.FavoriteKind]int{
-	models.FavoriteCompetition: 0,
-	models.FavoriteTeam:        1,
-	models.FavoritePlayer:      2,
+// RefreshRequest implements core.RefreshRequester: a nation card's
+// matches.
+func (m *Model) RefreshRequest() (core.RefreshRequest, bool) {
+	c, ok := m.Selected()
+	if !ok || c.Missing || c.Group != GroupNations {
+		return core.RefreshRequest{}, false
+	}
+	return core.RefreshRequest{TeamID: c.Team.ID, Name: c.Team.Name}, true
 }
+
+type cardsLoadedMsg struct{ cards []Card }
 
 // load builds every card. A favourite whose entity is gone becomes a
 // Missing card rather than an error.
@@ -169,20 +206,19 @@ func (m *Model) load() tea.Cmd {
 		if err != nil {
 			return core.ErrMsg{Err: err}
 		}
-		// ListFavorites is oldest first; a stable sort keeps that order
-		// within each group.
-		sort.SliceStable(favs, func(i, j int) bool { return kindOrder[favs[i].Kind] < kindOrder[favs[j].Kind] })
-
 		cards := make([]Card, 0, len(favs))
 		for _, f := range favs {
 			c, err := loadCard(deps, f)
 			if errors.Is(err, storage.ErrNotFound) {
-				c = Card{Kind: f.Kind, ID: f.ID, Missing: true}
+				c = Card{Kind: f.Kind, ID: f.ID, Missing: true, Group: missingGroup(f.Kind)}
 			} else if err != nil {
 				return core.ErrMsg{Err: err}
 			}
 			cards = append(cards, c)
 		}
+		// ListFavorites is oldest first; a stable sort keeps that order
+		// within each group.
+		sort.SliceStable(cards, func(i, j int) bool { return cards[i].Group < cards[j].Group })
 		return cardsLoadedMsg{cards: cards}
 	}
 }
@@ -198,11 +234,25 @@ func loadCard(deps core.Deps, f models.Favorite) (Card, error) {
 	}
 }
 
+// missingGroup is where a card whose entity isn't cached goes.
+func missingGroup(k models.FavoriteKind) Group {
+	switch k {
+	case models.FavoriteCompetition:
+		return GroupLeagues
+	case models.FavoriteTeam:
+		return GroupClubs
+	}
+	return GroupPlayers
+}
+
 func loadLeague(deps core.Deps, id string) (Card, error) {
-	c := Card{Kind: models.FavoriteCompetition, ID: id}
+	c := Card{Kind: models.FavoriteCompetition, ID: id, Group: GroupLeagues}
 	comp, err := deps.Repos.GetCompetition(deps.Ctx, id)
 	if err != nil {
 		return c, err
+	}
+	if comp.International() {
+		return loadTournament(deps, comp)
 	}
 	c.Competition = comp
 	seasons, err := deps.Repos.ListSeasons(deps.Ctx, id)
@@ -240,10 +290,13 @@ func loadLeague(deps core.Deps, id string) (Card, error) {
 }
 
 func loadTeam(deps core.Deps, id string) (Card, error) {
-	c := Card{Kind: models.FavoriteTeam, ID: id}
+	c := Card{Kind: models.FavoriteTeam, ID: id, Group: GroupClubs}
 	team, err := deps.Repos.GetTeam(deps.Ctx, id)
 	if err != nil {
 		return c, err
+	}
+	if team.National {
+		return loadNation(deps, team)
 	}
 	c.Team = team
 	history, err := deps.Repos.TeamHistory(deps.Ctx, id)
@@ -288,7 +341,7 @@ func loadTeam(deps core.Deps, id string) (Card, error) {
 }
 
 func loadPlayer(deps core.Deps, id string) (Card, error) {
-	c := Card{Kind: models.FavoritePlayer, ID: id}
+	c := Card{Kind: models.FavoritePlayer, ID: id, Group: GroupPlayers}
 	player, err := deps.Repos.GetPlayer(deps.Ctx, id)
 	if err != nil {
 		return c, err

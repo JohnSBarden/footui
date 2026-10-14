@@ -17,15 +17,7 @@ import (
 // group stage they run group by group, which is how a reader follows one.
 
 // stageOf is the section a match is listed under.
-func stageOf(m models.Match) string {
-	switch {
-	case strings.HasPrefix(m.Round, "Group ") || m.Round == "Group stage":
-		return "Group stage"
-	case m.Round == "":
-		return "Matches"
-	}
-	return m.Round
-}
+func stageOf(m models.Match) string { return components.Stage(m) }
 
 // displayOrder sorts a season's matches into the order the fixtures view
 // lists them: stage by stage, each stage where its first match falls.
@@ -41,7 +33,7 @@ func displayOrder(matches []models.Match) []models.Match {
 		if d := first[stageOf(a)] - first[stageOf(b)]; d != 0 {
 			return d
 		}
-		if stageOf(a) == "Group stage" && a.Round != b.Round {
+		if stageOf(a) == components.GroupStage && a.Round != b.Round {
 			return strings.Compare(a.Round, b.Round)
 		}
 		return a.Kickoff.Compare(b.Kickoff)
@@ -83,7 +75,7 @@ func (m *Model) fixturesView() string {
 			score = components.Kickoff(mt.Kickoff)
 		}
 		round := ""
-		if stage == "Group stage" {
+		if stage == components.GroupStage {
 			round = strings.TrimPrefix(mt.Round, "Group ")
 		}
 		text := "  " + padTo(components.MatchDate(mt.Kickoff), 10) + "  " + padTo(round, 3) + " " +

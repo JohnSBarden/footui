@@ -37,7 +37,7 @@ func (m *Model) resultsTable() string {
 	for _, r := range m.results {
 		kind, id := r.favoriteKey()
 		rows = append(rows, []components.Cell{
-			components.Styled(kindLabel(r.Kind), m.deps.Theme.Muted),
+			components.Styled(r.label(), m.deps.Theme.Muted),
 			components.Text(m.deps.Star(kind, id, r.Name())),
 			components.Styled(m.context(r), m.deps.Theme.Muted),
 		})
@@ -45,7 +45,7 @@ func (m *Model) resultsTable() string {
 
 	return components.Table(components.TableOpts{
 		Columns: []components.Column{
-			{Title: "Type", Width: 11},
+			{Title: "Type", Width: 13},
 			{Title: "Name", Width: m.nameColWidth()},
 			{Title: "Details", Width: 34},
 		},
@@ -56,11 +56,15 @@ func (m *Model) resultsTable() string {
 	})
 }
 
-func kindLabel(k Kind) string {
-	switch k {
-	case KindCompetition:
+// label is the result's Type column: a national team says so, since it
+// shares its name with the country's clubs' league and its women's side.
+func (r Result) label() string {
+	switch {
+	case r.Kind == KindCompetition:
 		return "competition"
-	case KindTeam:
+	case r.Kind == KindTeam && r.Team.National:
+		return "national team"
+	case r.Kind == KindTeam:
 		return "team"
 	default:
 		return "player"
@@ -75,6 +79,9 @@ func (m *Model) context(r Result) string {
 		parts := []string{r.Competition.Country}
 		if r.Competition.Tier > 0 {
 			parts = append(parts, "tier "+strconv.Itoa(r.Competition.Tier))
+		}
+		if r.Competition.International() {
+			parts = append(parts, r.Competition.Category)
 		}
 		if r.Competition.Gender != "" {
 			parts = append(parts, r.Competition.Gender)
@@ -95,7 +102,7 @@ func (m *Model) context(r Result) string {
 }
 
 func (m *Model) nameColWidth() int {
-	const fixed = 11 + 34 + 2 + 4
+	const fixed = 13 + 34 + 2 + 4
 	w := m.width - fixed
 	if w < 16 {
 		return 16

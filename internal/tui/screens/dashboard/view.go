@@ -52,7 +52,7 @@ func (m *Model) View() string {
 		lines := []string{
 			th.Empty.Render("No favourites yet."),
 			"",
-			th.Muted.Render("Press  ") + th.Accent.Render("/") + th.Muted.Render("  to search, open a league, club or player,"),
+			th.Muted.Render("Press  ") + th.Accent.Render("/") + th.Muted.Render("  to search, open a league, tournament, club, nation or player,"),
 			th.Muted.Render("and press  ") + th.Accent.Render("f") + th.Muted.Render("  to star it here."),
 		}
 		b.WriteString(strings.Join(lines, "\n"))
@@ -80,11 +80,11 @@ func (m *Model) cardsView() string {
 
 	var blocks []block
 	for r, row := range rows {
-		if r == 0 || m.cards[row[0]].Kind != m.cards[rows[r-1][0]].Kind {
+		if r == 0 || m.cards[row[0]].Group != m.cards[rows[r-1][0]].Group {
 			if r > 0 {
 				blocks = append(blocks, block{text: "", lines: 1, row: -1})
 			}
-			blocks = append(blocks, block{text: th.PanelTitle.Render(groupName(m.cards[row[0]].Kind)), lines: 1, row: -1})
+			blocks = append(blocks, block{text: th.PanelTitle.Render(groupName(m.cards[row[0]].Group)), lines: 1, row: -1})
 		}
 		rendered := make([]string, 0, len(row))
 		for c, i := range row {
@@ -130,12 +130,16 @@ func linesBetween(blocks []block, from, to int) int {
 	return n
 }
 
-func groupName(k models.FavoriteKind) string {
-	switch k {
-	case models.FavoriteCompetition:
+func groupName(g Group) string {
+	switch g {
+	case GroupLeagues:
 		return "Leagues"
-	case models.FavoriteTeam:
+	case GroupTournaments:
+		return "Tournaments"
+	case GroupClubs:
 		return "Clubs"
+	case GroupNations:
+		return "Nations"
 	default:
 		return "Players"
 	}
@@ -159,6 +163,10 @@ func (m *Model) renderCard(c Card, selected bool) string {
 	switch {
 	case c.Missing:
 		lines = m.missingLines(c, inner)
+	case c.Group == GroupTournaments:
+		lines = m.tournamentLines(c, inner)
+	case c.Group == GroupNations:
+		lines = m.nationLines(c, inner)
 	case c.Kind == models.FavoriteCompetition:
 		lines = m.leagueLines(c, inner)
 	case c.Kind == models.FavoriteTeam:
@@ -326,11 +334,14 @@ func (m *Model) playerLines(c Card, inner int) []string {
 func (m *Model) freshness(c Card, inner int) string {
 	th := m.deps.Theme
 	var text string
+	running, waiting := m.inFlight(c)
 	switch {
-	case c.Competition.ID != "" && c.Competition.ID == m.active:
+	case running:
 		return th.Status.Render(components.Truncate("refreshing now…", inner))
-	case m.pending[c.Competition.ID]:
+	case waiting:
 		return th.Status.Render(components.Truncate("queued for refresh", inner))
+	case c.Group == GroupNations && !c.Updated.IsZero():
+		text = "updated " + components.Freshness(c.Updated, now())
 	case c.LastSync == nil:
 		text = "never refreshed"
 	case !c.LastSync.Succeeded():

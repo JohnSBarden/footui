@@ -23,13 +23,12 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 		return m, m.load()
 
 	case core.RefreshQueueMsg:
-		m.active = ""
+		m.active, m.pending = map[string]bool{}, map[string]bool{}
 		if msg.Active != nil {
-			m.active = msg.Active.CompetitionID
+			m.active[msg.Active.Key()] = true
 		}
-		m.pending = map[string]bool{}
 		for _, r := range msg.Pending {
-			m.pending[r.CompetitionID] = true
+			m.pending[r.Key()] = true
 		}
 		return m, nil
 
@@ -84,7 +83,7 @@ func (m *Model) grid() [][]int {
 	cols := m.columns()
 	var rows [][]int
 	for i := range m.cards {
-		newGroup := i == 0 || m.cards[i].Kind != m.cards[i-1].Kind
+		newGroup := i == 0 || m.cards[i].Group != m.cards[i-1].Group
 		if newGroup || len(rows[len(rows)-1]) == cols {
 			rows = append(rows, nil)
 		}

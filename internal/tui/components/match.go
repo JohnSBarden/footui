@@ -3,6 +3,7 @@ package components
 import (
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/JohnSBarden/footui/internal/data/models"
@@ -48,6 +49,22 @@ func scoreText(m models.Match, a, b, ap, bp *int) string {
 		s += " live"
 	}
 	return s
+}
+
+// GroupStage is the stage every group match is listed under.
+const GroupStage = "Group stage"
+
+// Stage is the part of a competition a match belongs to: the group stage
+// for any group's match, otherwise its round ("Quarterfinal"), or
+// "Matches" when the source names none (a friendly).
+func Stage(m models.Match) string {
+	switch {
+	case strings.HasPrefix(m.Round, "Group ") || m.Round == GroupStage:
+		return GroupStage
+	case m.Round == "":
+		return "Matches"
+	}
+	return m.Round
 }
 
 // Kickoff renders when a fixture kicks off, in the viewer's own time zone:
