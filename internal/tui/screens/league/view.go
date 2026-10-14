@@ -141,6 +141,8 @@ func (m *Model) View() string {
 		b.WriteString(th.Muted.Render("Loading standings…"))
 	case len(m.seasons) == 0:
 		b.WriteString(m.emptyState("No seasons cached for this competition."))
+	case m.matchesView:
+		b.WriteString(m.fixturesView())
 	case len(m.rows) == 0:
 		season, _ := m.currentSeason()
 		b.WriteString(m.emptyState(fmt.Sprintf(
@@ -177,6 +179,9 @@ func (m *Model) header() string {
 	if m.comp.Tier > 0 {
 		meta = append(meta, "tier "+strconv.Itoa(m.comp.Tier))
 	}
+	if m.comp.International() {
+		meta = append(meta, m.comp.Category)
+	}
 	if m.comp.Gender != "" {
 		meta = append(meta, m.comp.Gender)
 	}
@@ -197,7 +202,10 @@ func (m *Model) header() string {
 		if freshness != "" {
 			seasonBar += "   " + freshness
 		}
-		return line + "\n" + seasonBar
+		line += "\n" + seasonBar
+	}
+	if groups := m.groupBar(); groups != "" && !m.matchesView {
+		line += "\n" + groups
 	}
 	return line
 }
@@ -296,7 +304,7 @@ func (m *Model) table() string {
 	rows := make([][]components.Cell, 0, len(m.rows))
 
 	extras := m.extraGroups()
-	for _, r := range m.rows {
+	for _, r := range m.visibleRows() {
 		s := r.Stats
 
 		row := []components.Cell{
@@ -349,7 +357,10 @@ func (m *Model) deltaStyle(v float64) lipgloss.Style {
 // block, column headers, footer, and the table's own "showing x-y of z"
 // line.
 func (m *Model) tableHeight() int {
-	const chrome = 9
+	chrome := 9
+	if len(m.groups) > 1 {
+		chrome++ // the group bar
+	}
 	h := m.height - chrome
 	if h < 5 {
 		return 5
@@ -359,6 +370,10 @@ func (m *Model) tableHeight() int {
 
 func (m *Model) emptyState(reason string) string {
 	th := m.deps.Theme
+	command := "footy refresh --competition " + m.compID
+	if season, ok := m.currentSeason(); ok && m.comp.International() {
+		command += " --season " + season.Label
+	}
 	// Each line is styled separately and joined afterwards: a newline
 	// inside a single Render call makes Lip Gloss pad every line to the
 	// width of the longest, which leaves the shorter one visibly indented.
@@ -367,7 +382,7 @@ func (m *Model) emptyState(reason string) string {
 		"",
 		th.Muted.Render("Press  ") + th.Accent.Render("r") + th.Muted.Render("  to fetch it now,"),
 		th.Muted.Render("or run  ") +
-			th.Accent.Render("footy refresh --competition "+m.compID) +
+			th.Accent.Render(command) +
 			th.Muted.Render("  from a shell."),
 	}
 	return strings.Join(lines, "\n")

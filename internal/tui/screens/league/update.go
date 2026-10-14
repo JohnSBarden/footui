@@ -3,6 +3,7 @@ package league
 import (
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/JohnSBarden/footui/internal/data/models"
 	"github.com/JohnSBarden/footui/internal/tui/core"
 )
 
@@ -20,7 +21,9 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 		return m, nil
 
 	case core.RefreshedMsg:
-		if msg.CompetitionID != m.compID {
+		// A nation's refresh brings in the yearly match lists every
+		// international competition's seasons are made of.
+		if msg.CompetitionID != m.compID && !(msg.International && m.comp.International()) {
 			return m, nil
 		}
 		// Reload from the top: the refresh may have added a season, not
@@ -61,15 +64,27 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 		// club, wherever it now sits, rather than throwing the user back
 		// to the header.
 		selected, hadSelection := m.SelectedRow()
+		group := m.Group()
 		m.rows = msg.rows
 		m.lastSync = msg.lastSync
+		m.matches, m.matchTeams = displayOrder(msg.matches), msg.matchTeams
+		m.setGroups(group)
 		m.cursor = headerRow
-		for i, r := range m.rows {
+		for i, r := range m.visibleRows() {
 			if hadSelection && r.Team.ID == selected.Team.ID {
 				m.cursor = i
 				break
 			}
 		}
+		// A season with fixtures but no table (friendlies, a knockout-only
+		// finals) opens on its fixtures.
+		if len(m.rows) == 0 && len(m.matches) > 0 {
+			m.matchesView = true
+		}
+		if !m.matchesShown {
+			m.matchCursor = defaultMatch(m.matches)
+		}
+		m.matchCursor = min(m.matchCursor, max(len(m.matches)-1, 0))
 		m.loading = false
 		m.loaded = true
 		return m, nil
@@ -88,6 +103,48 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 }
 
 func (m *Model) handleKey(msg tea.KeyMsg) (core.Screen, tea.Cmd) {
+	if m.comp.International() {
+		switch msg.String() {
+		case "m":
+			m.matchesView = !m.matchesView
+			m.matchesShown = true
+			return m, nil
+		case "[", "]":
+			if len(m.groups) > 1 && !m.matchesView {
+				step := 1
+				if msg.String() == "[" {
+					step = -1
+				}
+				m.groupIdx = (m.groupIdx + step + len(m.groups)) % len(m.groups)
+				m.cursor = headerRow
+			}
+			return m, nil
+		}
+		if m.matchesView {
+			switch msg.String() {
+			case "up", "k":
+				m.matchCursor = max(m.matchCursor-1, 0)
+				return m, nil
+			case "down", "j":
+				m.matchCursor = min(m.matchCursor+1, max(len(m.matches)-1, 0))
+				return m, nil
+			case "pgup":
+				m.matchCursor = max(m.matchCursor-10, 0)
+				return m, nil
+			case "pgdown":
+				m.matchCursor = min(m.matchCursor+10, max(len(m.matches)-1, 0))
+				return m, nil
+			case "home", "g":
+				m.matchCursor = 0
+				return m, nil
+			case "end", "G":
+				m.matchCursor = max(len(m.matches)-1, 0)
+				return m, nil
+			case "enter":
+				return m, nil
+			}
+		}
+	}
 	switch msg.String() {
 	case "up", "k":
 		m.moveCursor(-1)
@@ -96,7 +153,7 @@ func (m *Model) handleKey(msg tea.KeyMsg) (core.Screen, tea.Cmd) {
 	case "home", "g":
 		m.cursor = headerRow
 	case "end", "G":
-		m.cursor = len(m.rows) - 1
+		m.cursor = len(m.visibleRows()) - 1
 	case "pgup":
 		m.moveCursor(-10)
 	case "pgdown":
@@ -112,7 +169,8 @@ func (m *Model) handleKey(msg tea.KeyMsg) (core.Screen, tea.Cmd) {
 }
 
 func (m *Model) moveCursor(delta int) {
-	if len(m.rows) == 0 {
+	rows := m.visibleRows()
+	if len(rows) == 0 {
 		return
 	}
 	// The header sits one step above the first club.
@@ -120,9 +178,49 @@ func (m *Model) moveCursor(delta int) {
 	if m.cursor < headerRow {
 		m.cursor = headerRow
 	}
-	if m.cursor >= len(m.rows) {
-		m.cursor = len(m.rows) - 1
+	if m.cursor >= len(rows) {
+		m.cursor = len(rows) - 1
 	}
+}
+
+// setGroups reads a tournament table's groups from its rows, keeping the
+// group that was on screen, or else opening on the group of a starred
+// nation — the one the user follows the tournament for.
+func (m *Model) setGroups(keep string) {
+	m.groups = nil
+	seen := map[string]bool{}
+	starred := ""
+	for _, r := range m.rows {
+		g := r.Stats.GroupLabel
+		if g == "" || seen[g] {
+			continue
+		}
+		seen[g] = true
+		m.groups = append(m.groups, g)
+	}
+	for _, r := range m.rows {
+		if r.Stats.GroupLabel != "" && m.deps.Favorites.Has(models.FavoriteTeam, r.Team.ID) {
+			starred = r.Stats.GroupLabel
+			break
+		}
+	}
+	m.groupIdx = 0
+	for i, g := range m.groups {
+		if g == keep || (keep == "" && g == starred) {
+			m.groupIdx = i
+		}
+	}
+}
+
+// defaultMatch is where the fixtures view opens: the next match to be
+// played, or the last one when it's all over.
+func defaultMatch(matches []models.Match) int {
+	for i, mt := range matches {
+		if !mt.Finished() && mt.Status != models.MatchCancelled {
+			return i
+		}
+	}
+	return max(len(matches)-1, 0)
 }
 
 // selectSeason switches the displayed season. Seasons are ordered most
@@ -136,6 +234,8 @@ func (m *Model) selectSeason(idx int) tea.Cmd {
 	m.rows = nil
 	m.lastSync = nil
 	m.cursor = headerRow
+	m.matches, m.matchesShown = nil, false
+	m.groups = nil
 	return m.loadStandings(m.seasons[idx].ID)
 }
 

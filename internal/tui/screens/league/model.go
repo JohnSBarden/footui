@@ -36,6 +36,19 @@ type Model struct {
 	// league's own header is highlighted.
 	cursor int
 
+	// groups are a tournament table's groups in order, empty for one
+	// table; groupIdx is the one shown.
+	groups   []string
+	groupIdx int
+
+	// matches are an international season's fixtures, shown instead of
+	// the table while matchesView is on.
+	matches      []models.Match
+	matchTeams   map[string]models.Team
+	matchesView  bool
+	matchCursor  int
+	matchesShown bool // the view was switched to at least once this season
+
 	// lastSync is the most recent refresh attempt for the displayed
 	// season, or nil when it has never been attempted.
 	lastSync *models.SyncRun
@@ -86,13 +99,55 @@ func (m *Model) Title() string {
 
 // Keys implements core.Screen.
 func (m *Model) Keys() core.KeyMap {
-	return core.KeyMap{
+	km := core.KeyMap{
 		Short: []key.Binding{keys.Move, keys.Season, keys.Open},
 		Full: [][]key.Binding{
 			{keys.Up, keys.Down, keys.PageUp, keys.PageDown},
 			{keys.Home, keys.End, keys.Season, keys.Open},
 		},
 	}
+	if !m.comp.International() {
+		return km
+	}
+	var extra []key.Binding
+	if len(m.groups) > 1 && !m.matchesView {
+		extra = append(extra, keys.Group)
+	}
+	if m.matchesView {
+		extra = append(extra, keys.Tables)
+	} else {
+		extra = append(extra, keys.Matches)
+	}
+	km.Short = append(km.Short, extra...)
+	km.Full = append(km.Full, extra)
+	return km
+}
+
+// MatchesView reports whether the screen is showing fixtures rather than
+// the table.
+func (m *Model) MatchesView() bool { return m.matchesView }
+
+// Group is the tournament group shown, empty for one table.
+func (m *Model) Group() string {
+	if m.groupIdx < 0 || m.groupIdx >= len(m.groups) {
+		return ""
+	}
+	return m.groups[m.groupIdx]
+}
+
+// visibleRows are the table rows on screen: one group's, or all of them.
+func (m *Model) visibleRows() []Row {
+	g := m.Group()
+	if g == "" {
+		return m.rows
+	}
+	var out []Row
+	for _, r := range m.rows {
+		if r.Stats.GroupLabel == g {
+			out = append(out, r)
+		}
+	}
+	return out
 }
 
 // Init implements core.Screen.
@@ -131,6 +186,9 @@ type competitionLoadedMsg struct {
 type standingsLoadedMsg struct {
 	seasonID string
 	rows     []Row
+	// matches and their teams, for an international season.
+	matches    []models.Match
+	matchTeams map[string]models.Team
 	// lastSync is nil when this competition-season has never been
 	// refreshed — a normal state for data loaded before sync logging
 	// existed, or seeded by hand.
@@ -158,43 +216,65 @@ func (m *Model) loadCompetition() tea.Cmd {
 // loadStandings fetches one season's standings and resolves every team name
 // in a single batch query.
 func (m *Model) loadStandings(seasonID string) tea.Cmd {
-	deps, compID := m.deps, m.compID
+	deps, compID, international := m.deps, m.compID, m.comp.International()
 	return func() tea.Msg {
-		stats, err := deps.Repos.Standings(deps.Ctx, compID, seasonID)
+		msg, err := loadTable(deps, compID, seasonID)
 		if err != nil {
 			return core.ErrMsg{Err: err}
 		}
-
-		ids := make([]string, 0, len(stats))
-		for _, s := range stats {
-			ids = append(ids, s.TeamID)
-		}
-		teams, err := deps.Repos.GetTeams(deps.Ctx, ids)
-		if err != nil {
-			return core.ErrMsg{Err: err}
-		}
-
-		rows := make([]Row, 0, len(stats))
-		for _, s := range stats {
-			team, ok := teams[s.TeamID]
-			if !ok {
-				// Render the ID rather than dropping the row: a missing
-				// team row is a data defect worth seeing, not worth
-				// hiding a league position over.
-				team = models.Team{ID: s.TeamID, Name: s.TeamID}
+		if international {
+			if msg.matches, err = deps.Repos.MatchesForCompetitionSeason(deps.Ctx, compID, seasonID); err != nil {
+				return core.ErrMsg{Err: err}
 			}
-			rows = append(rows, Row{Stats: s, Team: team})
+			ids := make([]string, 0, 2*len(msg.matches))
+			for _, mt := range msg.matches {
+				ids = append(ids, mt.HomeTeamID, mt.AwayTeamID)
+			}
+			if msg.matchTeams, err = deps.Repos.GetTeams(deps.Ctx, ids); err != nil {
+				return core.ErrMsg{Err: err}
+			}
 		}
-
-		// A missing sync log entry is expected, not an error, so it never
-		// fails the load.
-		var lastSync *models.SyncRun
-		if run, err := deps.Repos.LatestSyncRun(deps.Ctx, compID, seasonID); err == nil {
-			lastSync = &run
-		}
-
-		return standingsLoadedMsg{seasonID: seasonID, rows: rows, lastSync: lastSync}
+		return msg
 	}
+}
+
+// loadTable is one season's standings with every team name resolved in
+// a single batch query.
+func loadTable(deps core.Deps, compID, seasonID string) (standingsLoadedMsg, error) {
+	stats, err := deps.Repos.Standings(deps.Ctx, compID, seasonID)
+	if err != nil {
+		return standingsLoadedMsg{}, err
+	}
+
+	ids := make([]string, 0, len(stats))
+	for _, s := range stats {
+		ids = append(ids, s.TeamID)
+	}
+	teams, err := deps.Repos.GetTeams(deps.Ctx, ids)
+	if err != nil {
+		return standingsLoadedMsg{}, err
+	}
+
+	rows := make([]Row, 0, len(stats))
+	for _, s := range stats {
+		team, ok := teams[s.TeamID]
+		if !ok {
+			// Render the ID rather than dropping the row: a missing
+			// team row is a data defect worth seeing, not worth
+			// hiding a league position over.
+			team = models.Team{ID: s.TeamID, Name: s.TeamID}
+		}
+		rows = append(rows, Row{Stats: s, Team: team})
+	}
+
+	// A missing sync log entry is expected, not an error, so it never
+	// fails the load.
+	var lastSync *models.SyncRun
+	if run, err := deps.Repos.LatestSyncRun(deps.Ctx, compID, seasonID); err == nil {
+		lastSync = &run
+	}
+
+	return standingsLoadedMsg{seasonID: seasonID, rows: rows, lastSync: lastSync}, nil
 }
 
 // currentSeason returns the season currently being displayed, if any.
@@ -206,10 +286,11 @@ func (m *Model) currentSeason() (models.Season, bool) {
 }
 
 // SelectedRow returns the row under the cursor, for drill-down. It is
-// false while the header is highlighted.
+// false while the header is highlighted, and while fixtures are shown.
 func (m *Model) SelectedRow() (Row, bool) {
-	if m.cursor < 0 || m.cursor >= len(m.rows) {
+	rows := m.visibleRows()
+	if m.matchesView || m.cursor < 0 || m.cursor >= len(rows) {
 		return Row{}, false
 	}
-	return m.rows[m.cursor], true
+	return rows[m.cursor], true
 }
