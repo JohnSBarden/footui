@@ -51,9 +51,14 @@ var leagueSlugs = map[string]string{
 	"int-friendly-women":      "fifa.friendly.w",
 }
 
-// directorySlugs are where each gender's national teams are listed: the
-// friendlies, which every nation plays.
-var directorySlugs = map[string]string{"men": "fifa.friendly", "women": "fifa.friendly.w"}
+// directorySlugs are where each gender's national teams are listed. The
+// men's friendlies list every nation; the women's lists only some (no
+// England, no Netherlands), so the Women's World Cup and the UEFA Women's
+// Nations League are merged in.
+var directorySlugs = map[string][]string{
+	"men":   {"fifa.friendly"},
+	"women": {"fifa.friendly.w", "fifa.wwc", "uefa.w.nations"},
+}
 
 // Provider-native IDs. They are not canonical: the sync layer resolves
 // them to footy's own team and player IDs (and records the mapping), so

@@ -26,6 +26,7 @@ func intlServer(t *testing.T) (*Provider, *int32) {
 		"/site/v2/sports/soccer/fifa.world/standings":       "standings_fifa.world_2030.json",
 		"/site/site/v2/sports/soccer/fifa.friendly/teams":   "teams_fifa.friendly.json",
 		"/site/site/v2/sports/soccer/fifa.friendly.w/teams": "teams_fifa.friendly.w.json",
+		"/site/site/v2/sports/soccer/fifa.wwc/teams":        "teams_fifa.wwc.json",
 	}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		atomic.AddInt32(&requests, 1)
@@ -187,8 +188,11 @@ func TestNationalTeamsComeFromTheFriendliesDirectory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(women) != 2 || women[0].Name != "Arcadia" || women[0].Gender != "women" {
-		t.Errorf("women %+v: the team carries the gender, so the name is the country's", women)
+	// The friendlies' list lacks Carpania; the World Cup's has it, and
+	// Borduria once, though both list her. The Nations League's list 404s,
+	// which costs only what it would have added.
+	if len(women) != 3 || women[0].Name != "Arcadia" || women[0].Gender != "women" || women[2].Name != "Carpania" {
+		t.Errorf("women %+v: merged by ID, and the team carries the gender, so the name is the country's", women)
 	}
 	if _, err := p.NationalTeams(ctxBkgnd, "mixed"); err == nil {
 		t.Error("an unknown gender should be an error")

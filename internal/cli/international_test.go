@@ -91,8 +91,8 @@ func TestFollowingNationsEndToEndRequestBudget(t *testing.T) {
 	if _, err := refresh(ctx, core.RefreshRequest{Directory: true}, noProgress); err != nil {
 		t.Fatal(err)
 	}
-	if f.directories != 2 {
-		t.Errorf("%d directory requests, want one per gender", f.directories)
+	if f.directories != 4 {
+		t.Errorf("%d directory requests, want the men's list and the women's three", f.directories)
 	}
 	summary, err := refresh(ctx, core.RefreshRequest{TeamID: "nat-arcadia"}, noProgress)
 	if err != nil {

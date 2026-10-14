@@ -3,6 +3,7 @@ package espn
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -155,22 +156,32 @@ func (p *Provider) scoreboard(ctx context.Context, slug, dates string) ([]scoreb
 	return resp.Events, nil
 }
 
-// NationalTeams implements provider.NationalTeamsProvider, from the
-// friendlies' team list: every nation plays friendlies.
+// NationalTeams implements provider.NationalTeamsProvider, from the team
+// lists in directorySlugs, merged by ESPN ID. Only the first list is
+// required; the others fill gaps, and one failing costs only its gaps.
 func (p *Provider) NationalTeams(ctx context.Context, gender string) ([]models.Team, error) {
-	slug, ok := directorySlugs[gender]
+	slugs, ok := directorySlugs[gender]
 	if !ok {
 		return nil, fmt.Errorf("espn: no national teams for gender %q", gender)
 	}
-	var tl teamsResponse
-	if err := p.client.site(ctx, fmt.Sprintf("/site/v2/sports/soccer/%s/teams?limit=500", slug), &tl); err != nil {
-		return nil, fmt.Errorf("espn: national teams (%s): %w", gender, err)
-	}
 	var out []models.Team
-	for _, s := range tl.Sports {
-		for _, l := range s.Leagues {
-			for _, t := range l.Teams {
-				out = append(out, nationalTeam(t.Team.ID, t.Team.DisplayName, t.Team.ShortDisplayName, gender))
+	seen := map[string]bool{}
+	for i, slug := range slugs {
+		var tl teamsResponse
+		if err := p.client.site(ctx, fmt.Sprintf("/site/v2/sports/soccer/%s/teams?limit=500", slug), &tl); err != nil {
+			if i == 0 || errors.Is(err, provider.ErrRateLimited) {
+				return nil, fmt.Errorf("espn: national teams (%s): %w", gender, err)
+			}
+			continue
+		}
+		for _, s := range tl.Sports {
+			for _, l := range s.Leagues {
+				for _, t := range l.Teams {
+					if !seen[t.Team.ID] {
+						seen[t.Team.ID] = true
+						out = append(out, nationalTeam(t.Team.ID, t.Team.DisplayName, t.Team.ShortDisplayName, gender))
+					}
+				}
 			}
 		}
 	}
