@@ -115,6 +115,10 @@ type MatchesProvider interface {
 // it for a while: a refresh that gets this stops rather than carrying on.
 var ErrRateLimited = errors.New("rate limited")
 
+// ErrNoTable means the source has no table for that season: before the
+// competition existed, or an edition that was knockout-only.
+var ErrNoTable = errors.New("no table for that season")
+
 // ErrIncomplete means a fetch returned data that is known to be partial
 // (the source truncated it). The data returned alongside it is still
 // worth storing, but must not be recorded as complete.

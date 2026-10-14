@@ -10,6 +10,7 @@ import (
 
 	"github.com/JohnSBarden/footui/internal/data/models"
 	"github.com/JohnSBarden/footui/internal/data/provider"
+	footysync "github.com/JohnSBarden/footui/internal/data/sync"
 	"github.com/JohnSBarden/footui/internal/textfold"
 )
 
@@ -95,7 +96,10 @@ func (n *flexNum) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-var _ json.Unmarshaler = (*flexNum)(nil)
+var (
+	_ json.Unmarshaler      = (*flexNum)(nil)
+	_ footysync.MatchSource = (*Provider)(nil)
+)
 
 // --- fetching ---
 

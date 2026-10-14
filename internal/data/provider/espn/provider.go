@@ -2,7 +2,6 @@ package espn
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -129,7 +128,7 @@ func competitionFor(ref provider.CompetitionRef) models.Competition {
 
 // ErrNoTable means ESPN has no standings for that season: before the
 // competition existed, or a season it never published a table for.
-var ErrNoTable = errors.New("espn: no table for that season")
+var ErrNoTable = fmt.Errorf("espn: %w", provider.ErrNoTable)
 
 func (p *Provider) fetch(ctx context.Context, ref provider.CompetitionRef, season provider.SeasonRef) (*bundle, error) {
 	slug, ok := leagueSlugs[ref.CompetitionID]

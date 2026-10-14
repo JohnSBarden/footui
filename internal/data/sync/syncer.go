@@ -89,6 +89,8 @@ type Result struct {
 	TeamStats   int
 	Players     int
 	PlayerStats int
+	// Matches counts the matches a competition-year fetch stored.
+	Matches int
 }
 
 // SyncCompetitionSeason fetches and persists everything Source can supply
@@ -293,8 +295,11 @@ func hasNativeIDs(teams []models.Team) bool {
 type UnitResult struct {
 	Competition models.Competition
 	Season      models.Season
-	Result      Result
-	Err         error
+	// Year is set for a competition-year of international matches, whose
+	// Season is then only a label ("2025") for display.
+	Year   int
+	Result Result
+	Err    error
 	// Skipped marks a unit that was never attempted because the run gave
 	// up after repeated failures. It is reported separately from a
 	// failure: nothing is known about a skipped unit, whereas a failed one
@@ -472,6 +477,7 @@ func Summarize(results []UnitResult) Summary {
 		s.Totals.TeamStats += r.Result.TeamStats
 		s.Totals.Players += r.Result.Players
 		s.Totals.PlayerStats += r.Result.PlayerStats
+		s.Totals.Matches += r.Result.Matches
 	}
 	return s
 }

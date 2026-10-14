@@ -226,7 +226,8 @@ func (r *resolver) match(t models.Team) (models.Team, bool) {
 	name := normalizeClub(t.Name)
 	var exact, loose []models.Team
 	for _, c := range r.cached {
-		if c.Gender != t.Gender || r.claimed[c.ID] {
+		// A national team is never a club, whatever it's called.
+		if c.Gender != t.Gender || r.claimed[c.ID] || c.National {
 			continue
 		}
 		if !europe && c.Country != r.comp.Country {
@@ -266,6 +267,93 @@ func (r *resolver) newTeamID(t models.Team) string {
 	for n := 2; ; n++ {
 		existing, taken := r.cachedTeam(id)
 		if (!taken || existing.Gender == t.Gender && normalizeClub(existing.Name) == normalizeClub(t.Name)) && !r.claimed[id] {
+			return id
+		}
+		id = fmt.Sprintf("%s-%d", base, n)
+	}
+}
+
+// nations maps national teams reported under a provider's IDs to
+// canonical ones, returning the rows to write and the mapping.
+//
+// A nation is simpler than a club: it is "nat-{slug}" (with "-women" for a
+// women's side), its name is the same in every competition, and it is
+// only ever matched against other national teams — never a club, so no
+// "Arsenal" can become "England". As with clubs, a recorded mapping wins,
+// then a cached nation of the same gender and name, then a new one.
+func nations(ctx context.Context, repos storage.Repositories, teams []models.Team) ([]models.Team, map[string]string, error) {
+	mapping := map[string]string{}
+	cached := map[string][]models.Team{}
+	for _, g := range []string{"men", "women"} {
+		ts, err := repos.NationalTeams(ctx, g)
+		if err != nil {
+			return nil, nil, err
+		}
+		cached[g] = ts
+	}
+	byID := func(id string) (models.Team, bool) {
+		for _, ts := range cached {
+			for _, t := range ts {
+				if t.ID == id {
+					return t, true
+				}
+			}
+		}
+		return models.Team{}, false
+	}
+
+	out := make([]models.Team, 0, len(teams))
+	for _, t := range teams {
+		t.National = true
+		provider, local, ok := nativeID(t.ID)
+		if !ok {
+			out = append(out, t)
+			continue
+		}
+		if _, done := mapping[t.ID]; done {
+			continue
+		}
+		row := t
+		if id, err := repos.ExternalRef(ctx, "team", provider, local); err == nil {
+			row.ID = id
+			if existing, ok := byID(id); ok {
+				row = existing
+			}
+		} else if !errors.Is(err, storage.ErrNotFound) {
+			return nil, nil, err
+		} else {
+			row.ID = ""
+			name := normalizePerson(t.Name)
+			for _, c := range cached[t.Gender] {
+				if normalizePerson(c.Name) == name {
+					row = c
+					break
+				}
+			}
+			if row.ID == "" {
+				row.ID = newNationID(t, byID)
+				cached[t.Gender] = append(cached[t.Gender], row)
+			}
+			if err := repos.PutExternalRef(ctx, "team", row.ID, provider, local); err != nil {
+				return nil, nil, err
+			}
+		}
+		mapping[t.ID] = row.ID
+		out = append(out, row)
+	}
+	return out, mapping, nil
+}
+
+// newNationID mints "nat-{slug}", or "nat-{slug}-women", taking a numbered
+// suffix in the unlikely case another nation already has it.
+func newNationID(t models.Team, taken func(string) (models.Team, bool)) string {
+	base := "nat-" + slug(t.Name)
+	if t.Gender == "women" {
+		base += "-women"
+	}
+	id := base
+	for n := 2; ; n++ {
+		if _, used := taken(id); !used {
 			return id
 		}
 		id = fmt.Sprintf("%s-%d", base, n)
