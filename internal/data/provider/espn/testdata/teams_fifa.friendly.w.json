@@ -1,0 +1,14 @@
+{
+ "sports": [
+  {
+   "leagues": [
+    {
+     "teams": [
+      {"team": {"id": "19101", "displayName": "Arcadia Women", "shortDisplayName": "Arcadia W", "abbreviation": "ARC"}},
+      {"team": {"id": "19102", "displayName": "Borduria", "shortDisplayName": "Borduria", "abbreviation": "BOR"}}
+     ]
+    }
+   ]
+  }
+ ]
+}

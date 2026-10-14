@@ -16,6 +16,8 @@ import (
 type Provider struct {
 	client *Client
 	now    func() time.Time
+	// limit is how many matches one scoreboard request asks for.
+	limit int
 
 	mu      sync.Mutex
 	bundles map[string]*bundle
@@ -25,7 +27,7 @@ type Provider struct {
 func New() *Provider { return newWithClient(NewClient()) }
 
 func newWithClient(c *Client) *Provider {
-	return &Provider{client: c, now: time.Now, bundles: map[string]*bundle{}}
+	return &Provider{client: c, now: time.Now, limit: scoreboardLimit, bundles: map[string]*bundle{}}
 }
 
 // OnRetry reports each retried request, for progress output.
@@ -146,6 +148,12 @@ func (p *Provider) fetch(ctx context.Context, ref provider.CompetitionRef, seaso
 	b.teams, b.standings = mapStandings(st, comp, season.SeasonID, now)
 	if len(b.standings) == 0 {
 		return nil, fmt.Errorf("%w (%s %s)", ErrNoTable, slug, year)
+	}
+	// A tournament's table is the whole story: national squads change
+	// from one match to the next, and footy keeps no player stats for
+	// them, so there are no rosters to fetch.
+	if comp.International() {
+		return b, nil
 	}
 
 	// Colors are decoration: a failure here costs nothing but theming.

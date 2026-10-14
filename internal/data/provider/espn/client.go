@@ -112,6 +112,12 @@ func (c *Client) site(ctx context.Context, path string, out any) error {
 	return c.getJSON(ctx, c.siteURL+path, c.minGap, out)
 }
 
+// scoreboard fetches a scoreboard path under the site API into out, paced
+// more widely than other requests.
+func (c *Client) scoreboard(ctx context.Context, path string, out any) error {
+	return c.getJSON(ctx, c.siteURL+path, c.slowGap, out)
+}
+
 // core fetches a path under the core API into out.
 func (c *Client) core(ctx context.Context, path string, out any) error {
 	return c.getJSON(ctx, c.coreURL+path, c.minGap, out)

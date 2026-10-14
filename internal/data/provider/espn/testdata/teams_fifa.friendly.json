@@ -1,0 +1,15 @@
+{
+ "sports": [
+  {
+   "leagues": [
+    {
+     "teams": [
+      {"team": {"id": "9101", "displayName": "Arcadia", "shortDisplayName": "Arcadia", "abbreviation": "ARC", "color": "1A3C8B"}},
+      {"team": {"id": "9102", "displayName": "Borduria", "shortDisplayName": "Borduria", "abbreviation": "BOR"}},
+      {"team": {"id": "9103", "displayName": "Carpania", "shortDisplayName": "Carpania", "abbreviation": "CAR"}}
+     ]
+    }
+   ]
+  }
+ ]
+}

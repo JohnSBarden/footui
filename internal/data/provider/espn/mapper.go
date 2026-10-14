@@ -26,7 +26,34 @@ var leagueSlugs = map[string]string{
 	"eur-europa-league":           "uefa.europa",
 	"eur-conference-league":       "uefa.europa.conf",
 	"eur-womens-champions-league": "uefa.wchampions",
+
+	// International. Each was checked against ESPN; the women's Nations
+	// League is "uefa.w.nations" and the Asian Cup "afc.asian.cup" (the
+	// obvious spellings return 400).
+	"world-cup":               "fifa.world",
+	"euro":                    "uefa.euro",
+	"copa-america":            "conmebol.america",
+	"gold-cup":                "concacaf.gold",
+	"afcon":                   "caf.nations",
+	"asian-cup":               "afc.asian.cup",
+	"wcq-uefa":                "fifa.worldq.uefa",
+	"wcq-conmebol":            "fifa.worldq.conmebol",
+	"wcq-concacaf":            "fifa.worldq.concacaf",
+	"wcq-afc":                 "fifa.worldq.afc",
+	"wcq-caf":                 "fifa.worldq.caf",
+	"euro-qualifying":         "uefa.euroq",
+	"nations-league":          "uefa.nations",
+	"concacaf-nations-league": "concacaf.nations.league",
+	"int-friendly":            "fifa.friendly",
+	"world-cup-women":         "fifa.wwc",
+	"euro-women":              "uefa.weuro",
+	"nations-league-women":    "uefa.w.nations",
+	"int-friendly-women":      "fifa.friendly.w",
 }
+
+// directorySlugs are where each gender's national teams are listed: the
+// friendlies, which every nation plays.
+var directorySlugs = map[string]string{"men": "fifa.friendly", "women": "fifa.friendly.w"}
 
 // Provider-native IDs. They are not canonical: the sync layer resolves
 // them to footy's own team and player IDs (and records the mapping), so
@@ -128,6 +155,9 @@ type rosterResponse struct {
 func mapStandings(resp standingsResponse, comp models.Competition, seasonID string, updated time.Time) ([]models.Team, []models.TeamSeasonStats) {
 	var teams []models.Team
 	var rows []models.TeamSeasonStats
+	// A tournament's groups are its table: each keeps its label and its
+	// own ranking. Only club competitions are folded into one table.
+	groups := comp.International() && len(resp.Children) > 1
 	for _, group := range resp.Children {
 		for _, e := range group.Standings.Entries {
 			teams = append(teams, mapTeam(e.Team, comp))
@@ -148,10 +178,13 @@ func mapStandings(resp standingsResponse, comp models.Competition, seasonID stri
 				p := int(rank)
 				row.Position = &p
 			}
+			if groups {
+				row.GroupLabel = groupLabel(group.Name)
+			}
 			rows = append(rows, row)
 		}
 	}
-	if len(resp.Children) > 1 {
+	if len(resp.Children) > 1 && !groups {
 		rankOverall(rows)
 	}
 	return teams, rows
@@ -183,6 +216,9 @@ func rankOverall(rows []models.TeamSeasonStats) {
 // a European competition's clubs come from everywhere, so their country
 // is left for identity resolution to supply from the club already cached.
 func mapTeam(t wireTeam, comp models.Competition) models.Team {
+	if comp.International() {
+		return nationalTeam(t.ID, t.DisplayName, t.ShortDisplayName, comp.Gender)
+	}
 	team := models.Team{ID: teamID(t.ID), Name: t.DisplayName, ShortName: t.ShortDisplayName, Gender: comp.Gender}
 	if comp.Country != "Europe" {
 		team.Country = comp.Country

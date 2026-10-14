@@ -1,0 +1,172 @@
+{
+ "events": [
+  {
+   "id": "3001",
+   "date": "2030-06-14T19:00Z",
+   "season": {"year": 2030, "slug": "group-stage"},
+   "competitions": [
+    {
+     "date": "2030-06-14T19:00Z",
+     "status": {"type": {"name": "STATUS_FULL_TIME", "state": "post", "completed": true}},
+     "venue": {"address": {"city": "Port Arcadia", "country": "Arcadia"}},
+     "group": {"name": "Group A"},
+     "competitors": [
+      {
+       "homeAway": "home", "score": "3",
+       "team": {"id": "9101", "displayName": "Arcadia", "shortDisplayName": "Arcadia", "location": "Arcadia"},
+       "statistics": [
+        {"name": "possessionPct", "displayValue": "61.5"},
+        {"name": "totalShots", "displayValue": "18"},
+        {"name": "shotsOnTarget", "displayValue": "7"},
+        {"name": "wonCorners", "displayValue": "6"},
+        {"name": "foulsCommitted", "displayValue": "9"},
+        {"name": "appearances", "displayValue": "14"}
+       ]
+      },
+      {
+       "homeAway": "away", "score": "1",
+       "team": {"id": "9102", "displayName": "Borduria", "shortDisplayName": "Borduria", "location": "Borduria"},
+       "statistics": [
+        {"name": "possessionPct", "displayValue": "38.5"},
+        {"name": "totalShots", "displayValue": "6"},
+        {"name": "shotsOnTarget", "displayValue": "2"},
+        {"name": "wonCorners", "displayValue": "2"},
+        {"name": "foulsCommitted", "displayValue": "14"}
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "3002",
+   "date": "2030-06-15T16:00Z",
+   "season": {"year": 2030, "slug": "group-stage"},
+   "competitions": [
+    {
+     "date": "2030-06-15T16:00Z",
+     "status": {"type": {"name": "STATUS_FULL_TIME", "state": "post", "completed": true}},
+     "venue": {"address": {"city": "Elbon", "country": "Elbonia"}},
+     "group": {"name": "2030 FIFA World Cup¤ Finals - Group B"},
+     "competitors": [
+      {
+       "homeAway": "home", "score": "0",
+       "team": {"id": "9103", "displayName": "Carpania", "shortDisplayName": "Carpania", "location": "Carpania"},
+       "statistics": [
+        {"name": "possessionPct", "displayValue": "0"},
+        {"name": "totalShots", "displayValue": "4"},
+        {"name": "shotsOnTarget", "displayValue": "9"},
+        {"name": "wonCorners", "displayValue": "3"}
+       ]
+      },
+      {
+       "homeAway": "away", "score": "0",
+       "team": {"id": "9104", "displayName": "Dravonia", "shortDisplayName": "Dravonia", "location": "Dravonia"},
+       "statistics": [
+        {"name": "possessionPct", "displayValue": "0"},
+        {"name": "totalShots", "displayValue": "0"},
+        {"name": "shotsOnTarget", "displayValue": "0"},
+        {"name": "wonCorners", "displayValue": "0"},
+        {"name": "foulsCommitted", "displayValue": "0"}
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "3003",
+   "date": "2030-07-04T20:00Z",
+   "season": {"year": 2030, "slug": "quarterfinals"},
+   "competitions": [
+    {
+     "date": "2030-07-04T20:00Z",
+     "status": {"type": {"name": "STATUS_FINAL_PEN", "state": "post", "completed": true}},
+     "venue": {"address": {"city": "Elbon", "country": "Elbonia"}},
+     "competitors": [
+      {
+       "homeAway": "home", "score": "1", "shootoutScore": 4,
+       "team": {"id": "9101", "displayName": "Arcadia", "shortDisplayName": "Arcadia", "location": "Arcadia"},
+       "statistics": [{"name": "possessionPct", "displayValue": "55.0"}, {"name": "totalShots", "displayValue": "12"}]
+      },
+      {
+       "homeAway": "away", "score": "1", "shootoutScore": 5,
+       "team": {"id": "9103", "displayName": "Carpania", "shortDisplayName": "Carpania", "location": "Carpania"},
+       "statistics": [{"name": "possessionPct", "displayValue": "45.0"}, {"name": "totalShots", "displayValue": "9"}]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "3004",
+   "date": "2030-07-09T20:00Z",
+   "season": {"year": 2030, "slug": "semifinals"},
+   "competitions": [
+    {
+     "date": "2030-07-09T20:00Z",
+     "status": {"type": {"name": "STATUS_FINAL_AET", "state": "post", "completed": true}},
+     "venue": {"address": {"city": "Elbon", "country": "Elbonia"}},
+     "competitors": [
+      {
+       "homeAway": "home", "score": "2",
+       "team": {"id": "9103", "displayName": "Carpania", "shortDisplayName": "Carpania", "location": "Carpania"}
+      },
+      {
+       "homeAway": "away", "score": "1",
+       "team": {"id": "9106", "displayName": "Freedonia", "shortDisplayName": "Freedonia", "location": "Freedonia"}
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "3005",
+   "date": "2030-07-21T19:00Z",
+   "season": {"year": 2030, "slug": "final"},
+   "competitions": [
+    {
+     "date": "2030-07-21T19:00Z",
+     "status": {"type": {"name": "STATUS_SCHEDULED", "state": "pre", "completed": false}},
+     "venue": {"address": {"city": "Elbon", "country": "Elbonia"}},
+     "competitors": [
+      {"homeAway": "home", "score": "0", "team": {"id": "9103", "displayName": "Carpania", "location": "Carpania"}},
+      {"homeAway": "away", "score": "0", "team": {"id": "9105", "displayName": "Elbonia", "location": "Elbonia"}}
+     ]
+    }
+   ]
+  },
+  {
+   "id": "3006",
+   "date": "2030-06-18T16:00Z",
+   "season": {"year": 2030, "slug": "group-stage"},
+   "competitions": [
+    {
+     "date": "2030-06-18T16:00Z",
+     "status": {"type": {"name": "STATUS_CANCELED", "state": "post", "completed": false}},
+     "group": {"name": "Group B"},
+     "competitors": [
+      {"homeAway": "home", "score": "0", "team": {"id": "9104", "displayName": "Dravonia", "location": "Dravonia"}},
+      {"homeAway": "away", "score": "0", "team": {"id": "9105", "displayName": "Elbonia", "location": "Elbonia"}}
+     ]
+    }
+   ]
+  },
+  {
+   "id": "3007",
+   "date": "2030-01-05T17:00Z",
+   "season": {"year": 2029, "slug": "group-stage"},
+   "competitions": [
+    {
+     "date": "2030-01-05T17:00Z",
+     "status": {"type": {"name": "STATUS_FULL_TIME", "state": "post", "completed": true}},
+     "group": {"name": "Group C"},
+     "competitors": [
+      {"homeAway": "home", "score": "2", "team": {"id": "9105", "displayName": "Elbonia", "location": "Elbonia"}},
+      {"homeAway": "away", "score": "2", "team": {"id": "9106", "displayName": "Freedonia", "location": "Freedonia"}}
+     ]
+    }
+   ]
+  }
+ ]
+}

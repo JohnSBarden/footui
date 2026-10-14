@@ -1,6 +1,7 @@
 package sync
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
@@ -58,7 +59,46 @@ func TestCoverageIDsAreUniqueAndScopeMatches(t *testing.T) {
 			t.Errorf("%s has unknown provider %q", c.Competition.ID, c.Provider)
 		}
 	}
-	if len(Scope) != len(Coverages) {
-		t.Errorf("Scope has %d entries, Coverages %d", len(Scope), len(Coverages))
+	clubs := 0
+	for _, c := range Coverages {
+		if !c.Competition.International() {
+			clubs++
+		}
+	}
+	if len(Scope) != clubs {
+		t.Errorf("Scope has %d entries, want the %d club competitions", len(Scope), clubs)
+	}
+}
+
+func TestInternationalCoverageCountsEditionsAndYears(t *testing.T) {
+	oct2026 := time.Date(2026, 10, 13, 0, 0, 0, 0, time.UTC)
+	wc := cov(t, "world-cup")
+	if got := wc.AvailableSeasons(oct2026); strings.Join(got, " ") != "2026 2022 2018 2014 2010" {
+		t.Errorf("world cup editions %v", got)
+	}
+	if wc.CurrentSeason(oct2026) != "2026" || wc.CurrentSeason(time.Date(2025, 5, 1, 0, 0, 0, 0, time.UTC)) != "2022" {
+		t.Error("a tournament's current edition is the latest one whose year has come")
+	}
+	if got := wc.RecentSeasons(oct2026, 2); strings.Join(got, " ") != "2026 2022" {
+		t.Errorf("recent editions %v", got)
+	}
+	unl := cov(t, "nations-league")
+	if unl.CurrentSeason(time.Date(2026, 1, 5, 0, 0, 0, 0, time.UTC)) != "2026" {
+		t.Error("a nations league's matches are counted by calendar year, with no rollover month")
+	}
+	if got := unl.AvailableSeasons(oct2026); got[len(got)-1] != "2018" {
+		t.Errorf("nations league years %v, want back to 2018", got)
+	}
+	if !cov(t, "world-cup").Competition.CalendarYear || cov(t, "nations-league").Competition.CalendarYear {
+		t.Error("tournaments show as one year, nations leagues as a split season")
+	}
+	men, women := InternationalCoverages("men"), InternationalCoverages("women")
+	if len(men) != 15 || len(women) != 4 {
+		t.Errorf("%d men's and %d women's international competitions", len(men), len(women))
+	}
+	for _, c := range append(men, women...) {
+		if c.Competition.ShortName == "" || !c.Competition.International() {
+			t.Errorf("%s needs a short name and a category", c.Competition.ID)
+		}
 	}
 }

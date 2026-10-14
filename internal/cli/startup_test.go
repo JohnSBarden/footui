@@ -84,7 +84,7 @@ func TestStaleRefreshesCanBeDisabled(t *testing.T) {
 
 func TestCatalogOffersEverySeasonBackTo2014(t *testing.T) {
 	cat := tuiCatalog(september)
-	if len(cat) != len(sync.Scope) {
+	if len(cat) != len(sync.Coverages) {
 		t.Fatalf("catalog has %d entries, want every covered competition", len(cat))
 	}
 	seasons := cat[0].Seasons
