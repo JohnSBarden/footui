@@ -7,7 +7,9 @@ A terminal dashboard for drillable football statistics.
 `footui` (binary: `footy`) fetches league, team, and player data into a local
 SQLite cache and lets you drill through it in an interactive TUI:
 **Browse → League → Team → Player**, with expected goals, pressing metrics,
-squad breakdowns, and club honours along the way.
+squad breakdowns, and club honours along the way. National teams and
+international tournaments are covered too: every match a nation plays,
+friendlies included, filterable down to the competitions you care about.
 
 ```
  Arsenal   England · men
@@ -60,6 +62,8 @@ footy refresh                        # current season of the Premier League
 footy refresh --all                  # current season of every covered competition
 footy refresh --all --years 5        # ...and the four seasons before it
 footy refresh --all --years 5 --dry-run   # show what that would fetch, and stop
+footy refresh --team england         # a national team's matches, this year and last
+footy refresh --competition world-cup --season 2022   # a tournament edition
 ```
 
 For a scheduled refresh, `--max-age` skips what's already current. A
@@ -82,6 +86,8 @@ Then explore:
 footy                          # your favourites, or browse everything cached
 footy league "premier"         # standings table
 footy team "Arsenal"           # club dashboard
+footy team england             # a national team ("england women" for the women's side)
+footy league world-cup         # a tournament: groups, then fixtures by round
 footy player "Saka"            # player career
 ```
 
@@ -97,9 +103,9 @@ Every screen shows its bindings along the bottom; `?` expands the full set.
 | Key | Anywhere |
 |---|---|
 | `/` | Search, from any screen |
-| `enter` | Open the highlighted league, club, player, season or card |
+| `enter` | Open the highlighted league, club, nation, player, season or card |
 | `esc` | Back (clears a search query first) |
-| `f` | Star or un-star the league, club or player on screen, or the highlighted result or card |
+| `f` | Star or un-star the league, club, nation or player on screen, or the highlighted result or card |
 | `r` | Refresh the competition on screen; progress shows on the status line |
 | `d` | Open the league catalog to download leagues and seasons |
 | `t` | Switch theme, and remember the choice |
@@ -111,13 +117,19 @@ The search box takes letters as text, so while you type there use `ctrl+f`,
 into the results, where `j`/`k` and the plain keys work again.
 
 On the dashboard the arrow keys (or `hjkl`) move between cards. On the
-League screen `←`/`→` change season. On Team and Player they change
-competition, and on Team `tab` moves between the seasons and the squad.
+League screen `←`/`→` change season; for a tournament, `[`/`]` step through
+its groups and `m` switches to every fixture by round. On Team and Player
+`←`/`→` change competition, and on Team `tab` moves between the seasons and
+the squad. On a nation, `←`/`→` change year, `tab` moves into the
+competition filter (`←`/`→` along it, `space` to apply), and `enter` opens a
+match's box score.
 
 In the league catalog, `space` ticks a season, `a` ticks every season of the
 league you don't have, `c` its current season, `C` the current season of
-every league, and `u` clears the ticks. `enter` downloads what's ticked, and
-`s` stops downloads in progress.
+every club league, and `u` clears the ticks. `enter` downloads what's
+ticked, and `s` stops downloads in progress. Its International section lists
+tournaments by edition, qualifiers and nations leagues by year, and a
+"National teams" line per gender for older years of every nation at once.
 
 ### Favourites and the dashboard
 
@@ -146,6 +158,39 @@ seasons of it before.
 Favourites are kept in the database and survive refreshes. They're keyed by
 footy's own IDs, so a club starred from its Premier League page is the same
 favourite when you reach it through the Champions League.
+
+### National teams and tournaments
+
+Every nation is searchable from the first launch (footy fetches ESPN's
+list of national teams once). Open one and star it with `f`: its matches
+for this year and last arrive in the background. Its screen shows every
+match it played, newest first — friendlies, qualifiers, Nations League,
+tournaments — with aet and penalty shoot-outs, kickoff times for fixtures
+to come, and each match's possession, shots, corners and fouls a keypress
+away.
+
+Above the matches sits the competition filter: **All**, **Competitive**
+(no friendlies), **Tournaments**, or a tick per competition. The record and
+averages (played, won, drawn, lost, goals, possession, shots, shots on
+target, form) are worked out from exactly the matches the filter and year
+keep, and the filter is remembered for each nation. A shoot-out counts as a
+draw, as FIFA records it. There are no player stats for national teams.
+
+A tournament opens on the League screen: its groups one at a time (`[`/`]`),
+or `m` for every fixture by round through to the final. Starred, it gets a
+dashboard card showing your nation's group during the group stage and the
+latest round after it. A starred nation's card shows its last three
+results, its next fixture and its form, under its saved filter.
+
+**What it costs ESPN.** Matches are fetched a competition-year at a time:
+one request returns every nation's 2025 friendlies. So the first nation
+you star costs about 25 requests (each international competition, this
+year and last), and every nation after it costs none. A year that has
+ended is never fetched again once it's complete; the current year is
+re-fetched only when it's stale and one of its matches has been played
+since (or once a week, for newly announced fixtures). If ESPN ever
+rate-limits footy, it stops at once, says so, and leaves ESPN alone for an
+hour.
 
 ### Themes
 
@@ -201,8 +246,18 @@ back it goes):
 | Player stats | Appearances, minutes, goals, assists, shots, key passes, xG, xA, npxG | Appearances, goals, assists, shots, cards — no minutes |
 | Not available | Possession, fouls, corners, cards | Expected goals of any kind |
 
-Not covered by either: the German and Italian women's leagues, third tiers
-and below, and domestic cups.
+International football comes from ESPN too: the World Cup, Euros, Copa
+América, Gold Cup, Africa Cup of Nations and Asian Cup; World Cup
+qualifying in Europe, South America, North America, Asia and Africa; Euro
+qualifying; the UEFA and Concacaf Nations Leagues; friendlies; and the
+Women's World Cup, Women's Euro, UEFA Women's Nations League and women's
+friendlies. History goes back to 2010-2012 for most, 2018 for the Nations
+League and 2025 for the women's one. Each match has the result and, where
+ESPN has them, both sides' possession, shots, shots on target, corners and
+fouls; cards and saves aren't in the data footy fetches.
+
+Not covered: the German and Italian women's leagues, third tiers and
+below, domestic cups, and player stats for national teams.
 
 A club or player reached through both sources is one entity: Arsenal's
 Champions League seasons sit on the same dashboard as its Premier League
@@ -241,9 +296,9 @@ easiest way to improve coverage.
 |---|---|
 | `footy` | Open the dashboard of favourites, or browse everything cached when there are none |
 | `footy league <name>` | Open a competition's standings |
-| `footy team <name>` | Open a club's dashboard |
+| `footy team <name>` | Open a club's dashboard, or a national team's matches |
 | `footy player <name>` | Open a player's career dashboard |
-| `footy refresh` | Fetch data (`--all`, `--years N`, `--season YYYY`, `--max-age D`, `--dry-run`) |
+| `footy refresh` | Fetch data (`--all`, `--years N`, `--season YYYY`, `--team NATION`, `--max-age D`, `--dry-run`) |
 | `footy status` | Show what's cached and how fresh it is |
 | `footy competitions` | List what can be refreshed |
 | `footy colors` | Apply curated club colors and report coverage |

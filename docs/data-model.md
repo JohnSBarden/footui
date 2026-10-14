@@ -14,6 +14,8 @@ Competition ─┬─< Season ─┬─< TeamCompetitionSeason >─┬─ Team
              │            │                            │
              │            └─< TeamSeasonStats ─────────┘
              │            └─< PlayerSeasonStats ──────── Player
+             │            └─< Match >── home, away ───── Team (national)
+             │                  └─< MatchTeamStats
              └─< Trophy ──────────────────────────────── Team
                                                           Team ─< TeamColors
 ```
@@ -27,6 +29,13 @@ anchor/join table this correctness property is built on; `TeamSeasonStats`
 and `PlayerSeasonStats` both carry the full `(team, competition, season)`
 key directly rather than joining through a season-only row.
 
+National teams take the same idea one step further, to **the match**. A
+nation's year is a dozen matches across half a dozen competitions, and
+which of them count (friendlies? qualifiers?) is the user's choice, so
+every match is stored and a nation's record is computed from the matches a
+filter keeps, on read. Clubs are untouched; the `match` table is built so
+they could move to it later.
+
 ## Competition
 
 | Field | Type | Notes |
@@ -37,8 +46,16 @@ key directly rather than joining through a season-only row.
 | `Tier` | int | `1` = top flight, `2` = second division. |
 | `Gender` | string | `"men"` \| `"women"`. |
 | `Format` | string | `"league"` (default) or `"cup"`. |
-
 | `CalendarYear` | bool | Seasons fall within one calendar year (MLS, NWSL), so the 2026 season displays as `2026` rather than `2026-27`. |
+| `Category` | string | Empty for a club competition. International ones are `tournament` (World Cup, Euros, Copa América, AFCON, …), `qualifier`, `nations-league` or `friendly` — what a nation's filter presets select on. Schema 0008. |
+| `ShortName` | string | A compact label for tight columns: `WC`, `WCQ`, `UNL`, `FRI`. |
+
+An international competition's season is an **edition**, keyed by the year
+it is named for — Euro 2024 is `2024`, the 2024-25 Nations League is
+`2024`, and Euro 2020, played in 2021, is `2020`. Tournaments and
+friendlies display as one year, qualifiers and nations leagues as a split
+season. Tournaments list their editions explicitly in `sync.Coverages`,
+since they come every two or four years, and irregularly.
 
 `sync.Coverages` (`internal/data/sync/scope.go`) is the authoritative list of
 what can be synced: each competition, the provider that serves it, and how
@@ -64,6 +81,7 @@ far back that provider goes. `footy competitions` prints it.
 | `Gender` | string | Men's and women's sides of the same club get **separate `Team` rows** with different IDs — they play in different competitions and have independent squads/history. |
 | `FoundedYear` | int | Not populated yet. |
 | `Venue` | string | Not populated yet. |
+| `National` | bool | A national team. Its ID is `nat-{slug}`, or `nat-{slug}-women` for a women's side (whose name is just the country's), so it can never collide with a club's country-prefixed ID. Schema 0008. |
 
 **Identity:** providers return their own IDs (`understat:eng-arsenal`,
 `espn:359`). Before anything is written, `internal/data/sync/identity.go`
@@ -73,6 +91,12 @@ re-guess. A club it can't confidently match becomes a new team rather
 than being merged into the wrong one. understat's IDs were the first
 scheme, so an understat club that matches nothing keeps its own slug.
 
+A national team is resolved the same way but only ever against other
+national teams of its gender, by exact name — never against a club, so no
+club called "Arcadia" can collect a nation's matches. ESPN's directory of
+nations is stored on first use, so search finds every nation before any of
+its matches are fetched.
+
 ## TeamSeasonStats
 
 The per-`(team, competition, season)` stat line — the "not blended across
@@ -80,7 +104,8 @@ competitions" row.
 
 | Field | Type | understat.com | ESPN |
 |---|---|---|---|
-| `Position` | `*int` | **Computed by footui**: teams sorted by points → goal difference → goals for. Head-to-head tie-breaks aren't modeled, so treat it as an approximation. | Same rule; a table split into groups (MLS conferences) is ranked as one. |
+| `Position` | `*int` | **Computed by footui**: teams sorted by points → goal difference → goals for. Head-to-head tie-breaks aren't modeled, so treat it as an approximation. | Same rule; a club table split into groups (MLS conferences) is ranked as one. A tournament's groups keep ESPN's rank within each group. |
+| `GroupLabel` | string | Not populated. | A tournament table row's group ("Group B"), empty for one table. Schema 0008. |
 | `MatchesPlayed`, `Wins`, `Draws`, `Losses`, `GoalsFor`, `GoalsAgainst`, `GoalDiff`, `Points` | int | Summed from the per-match `history` array. | From the standings payload. |
 | `PossessionAvg` | `*float64` | No. | Yes, when plausible. |
 | `FoulsCommitted`, `FoulsSuffered`, `YellowCards`, `RedCards`, `Shots`, `ShotsOnTarget`, `Corners` | `*int` | No. | Yes, each checked against matches played; an impossible figure is left `nil`. |
@@ -187,11 +212,61 @@ curated entry overrides it.
 
 ## external_ref, sync_log
 
-`external_ref` maps each canonical team and player to every provider ID it
-has been reported under (see Identity above). `sync_log` has one row per
-competition-season refresh attempt — provider, timing, row counts, and the
-error if it failed — and drives the freshness shown on the League, Team and
+`external_ref` maps each canonical team, player and match to every
+provider ID it has been reported under (see Identity above). `sync_log` has
+one row per refresh attempt — provider, timing, row counts, and the error
+if it failed — and drives the freshness shown on the League, Team and
 catalog screens, the stale check on open, and `footy refresh --max-age`.
+
+A row is either a competition-season (`entity_type = 'competition_season'`,
+`season_id` set) or, for international matches, one calendar year of a
+competition's matches (`'competition_year'`, the `year` column set, schema
+0008). The two never stand in for each other. Year rows are what the
+politeness rules read: a year fetched after it ended is complete and never
+fetched again. A refusal for asking too often is logged with status
+`rate_limited`, which suspends automatic refreshes for an hour.
+
+## Match
+
+One game, the grain national teams are tracked at (schema 0008).
+International matches are fetched a competition-year at a time — every
+nation's matches in, say, the 2025 friendlies, in one request — and
+upserted by ID, never deleted: a rescheduled fixture moves, a played one
+gets its score.
+
+| Field | Type | Notes |
+|---|---|---|
+| `ID` | string | Canonical, `espn-{event id}`, recorded in `external_ref` like a team. |
+| `CompetitionID`, `SeasonID` | string | The season is the **edition** ESPN files the match under, not the year it was fetched for: AFCON 2025's January matches are in `afcon:2025`. |
+| `Kickoff` | `time.Time` | UTC, stored as RFC3339 text. A nation's years are calendar years of kickoff. |
+| `Status` | string | `scheduled`, `in_play`, `ft`, `aet`, `pens`, `postponed`, `cancelled`. Only `ft`/`aet`/`pens` count in a record. |
+| `Round` | string | A display label: the group ("Group B") or the stage ("Quarterfinal"); empty for a friendly. |
+| `HomeTeamID`, `AwayTeamID` | string | Canonical team IDs. |
+| `Neutral` | bool | Played in a country neither side is from (from the venue; ESPN's scoreboard has no flag). |
+| `HomeScore`, `AwayScore` | `*int` | Nil until it starts. After a shoot-out, the score after extra time. |
+| `HomePens`, `AwayPens` | `*int` | The shoot-out, for a `pens` match. |
+| `HomeStats`, `AwayStats` | `*MatchTeamStats` | Nil when ESPN had none for that side. |
+
+`MatchTeamStats` (`match_team_stats`, keyed by match and team) holds
+possession, shots, shots on target, corners and fouls, each nullable. As
+with club seasons, impossible figures are dropped rather than stored
+(possession outside 0–100, more shots on target than shots), a side
+reporting nothing but zeroes has no stats, and a later fetch that lacks a
+figure keeps the earlier one.
+
+`SummarizeMatches` (in `models`) is the record over a set of matches: P W D
+L, goals, form (the last five, oldest first), and averages that count only
+the matches that have the stat — "61% possession" from the two matches that
+reported it, not diluted by the one that didn't. A shoot-out counts as a
+draw, as FIFA records it; an aet result counts by its score.
+
+## team_match_filter
+
+The competition filter last used on each nation: a preset (`all`,
+`competitive` — tournaments, qualifiers and nations leagues — or
+`tournaments`), or an explicit JSON list of competition IDs. No row means
+every match. The nation screen and its dashboard card both read it, so they
+always agree.
 
 ## favorite
 

@@ -30,7 +30,8 @@ a boundary is a value from `internal/data/models` (see
 Status: both boundaries are built and exercised end to end. The source
 contract has two implementations: `internal/data/provider/understat` (the
 six leagues with xG) and `internal/data/provider/espn` (MLS, the women's
-leagues, the second divisions, and the European competitions). Each
+leagues, the second divisions, the European competitions, and
+international football). Each
 competition is routed to one of them by `sync.Coverages`. Both providers
 return their own IDs (`understat:eng-arsenal`, `espn:359`). Before anything
 is written, the sync layer resolves those to canonical team and player IDs
@@ -38,8 +39,8 @@ is written, the sync layer resolves those to canonical team and player IDs
 `external_ref`, so a club reached through both providers is one entity.
 understat's IDs were the original canonical scheme, so a club only
 understat knows keeps exactly the ID it always had. The rendering side
-is the TUI — the favourites dashboard, Browse, League, Team, Player, and
-the league catalog — and it
+is the TUI — the favourites dashboard, Browse, League, Team, Nation,
+Player, and the league catalog — and it
 reaches data only through `storage.Repositories`, never through a provider
 or the database directly.
 
@@ -85,7 +86,25 @@ type LeaguePlayersProvider interface {
     Players(ctx context.Context, comp CompetitionRef, season SeasonRef) ([]models.Player, error)
     AllRosterStats(ctx context.Context, comp CompetitionRef, season SeasonRef) ([]models.PlayerSeasonStats, error)
 }
+
+// International football is fetched by the match, not the season.
+
+type NationalTeamsProvider interface {
+    NationalTeams(ctx context.Context, gender string) ([]models.Team, error)
+}
+
+// CompetitionMatches returns every match of comp in one calendar year,
+// every nation's, with per-team stats where the source has them, and the
+// teams that played them.
+type MatchesProvider interface {
+    CompetitionMatches(ctx context.Context, comp CompetitionRef, year int) ([]models.Match, []models.Team, error)
+}
 ```
+
+Three sentinel errors cross the boundary: `provider.ErrRateLimited` (the
+source refused footy and kept refusing — stop), `provider.ErrIncomplete`
+(data returned alongside it is known to be partial — store it, don't call
+it complete), and `provider.ErrNoTable` (no table for that season).
 
 **Implementations:**
 
@@ -95,9 +114,12 @@ type LeaguePlayersProvider interface {
   see `client.go`), and implements `StandingsProvider`, `XGProvider`,
   `PlayerStatsProvider`, `TeamsProvider`, and `LeaguePlayersProvider`.
 - `internal/data/provider/espn` serves everything else: MLS and USL, the
-  second divisions, the women's leagues, and the European competitions.
-  It has possession, shots, corners, fouls and cards, but no expected
-  goals.
+  second divisions, the women's leagues, the European competitions, and
+  international football. It has possession, shots, corners, fouls and
+  cards, but no expected goals. For internationals it implements
+  `MatchesProvider` from the scoreboard endpoint, `NationalTeamsProvider`
+  from the friendlies' (and women's tournaments') team lists, and
+  `StandingsProvider` with group labels kept — one request, no rosters.
 
 FBref would cover more, but it sits behind a Cloudflare JS challenge that
 plain HTTP requests can't clear. Adding a source means writing a package
@@ -131,6 +153,16 @@ type TeamStatsRepo interface {
     TeamHistory(ctx context.Context, teamID string) ([]models.TeamSeasonStats, error)
 }
 
+type MatchesRepo interface {
+    UpsertMatches(ctx context.Context, matches []models.Match) error
+    MatchesForTeam(ctx context.Context, teamID string, filter models.MatchFilter, years []int) ([]models.Match, error)
+    MatchesForCompetitionSeason(ctx context.Context, competitionID, seasonID string) ([]models.Match, error)
+    TeamMatchSummary(ctx context.Context, teamID string, filter models.MatchFilter, years []int) (models.MatchSummary, error)
+    GetTeamMatchFilter(ctx context.Context, teamID string) (models.MatchFilter, error)
+    SetTeamMatchFilter(ctx context.Context, teamID string, f models.MatchFilter) error
+    // ...plus TeamMatchYears and MatchesKickedOff
+}
+
 // ...SeasonsRepo, TeamsRepo, PlayersRepo, PlayerStatsRepo follow the same
 // Upsert{Entity}/query shape — see internal/storage/repository.go.
 ```
@@ -158,6 +190,15 @@ function) from the same pipeline `footy refresh` uses and hands it to the
 root app in `core.Deps`. Screens only report which competition a refresh
 from them should fetch (`core.Refreshable`) and re-query when told it
 landed (`core.RefreshedMsg`).
+
+A refresh request is usually a competition and some seasons, but it can
+also name a national team (`TeamID`), every nation of a gender
+(`Nations`), or the directory of nations (`Directory`). A screen whose
+refresh isn't one competition — the nation screen, a nation's dashboard
+card — implements `core.RefreshRequester` and hands the app the whole
+request. When the refresher returns `core.ErrRateLimited`, the app drops
+everything queued and says so, instead of letting each request be refused
+in turn.
 
 Every refresh the TUI runs goes through one queue in the root app
 (`internal/tui/refresh.go`), whatever triggered it: the refresh key, the
@@ -202,7 +243,7 @@ internal/tui/
 ├── keys/             # every key binding, paired with its help text
 ├── styles/           # the theme, and team-brand theming with contrast adjustment
 ├── components/       # table, stat cards, tabs, freshness, formatting
-└── screens/{dashboard,browse,catalog,league,team,player}/
+└── screens/{dashboard,browse,catalog,league,team,nation,player}/
 ```
 
 Three rules make this hold together:
@@ -255,6 +296,46 @@ screen test exercises the same SQL the binary runs.
 One HTTP round trip per league/season, cached in-process so the standings,
 team, and roster calls that hit the same endpoint don't re-fetch, and
 optionally cached on disk via `FOOTY_HTTP_CACHE` during development.
+
+## International football: the unit, and politeness
+
+A nation's matches can't be fetched per nation without hundreds of
+requests, and per-match summaries are 440 KB each. Instead the unit is
+**one calendar year of one competition** — ESPN's scoreboard returns every
+match of, say, the 2025 friendlies, every nation's, in one request. A
+nation's matches are the units of every international competition of its
+gender for the years wanted (`sync.NationUnits`), so the first nation
+followed costs a request per competition per year — about 25 for this year
+and last — and every nation after it costs nothing.
+
+`sync.MatchSyncer` decides per unit whether to fetch at all (`UnitDue`),
+from the year rows in `sync_log`:
+
+- never fetched, or a failure more than ten minutes old: fetch
+- fetched after its year ended (UTC, plus a day's grace): complete, never
+  again
+- fetched while its year was still going, and the year has since ended:
+  once more
+- the current year: only when older than `stale_after` **and** a stored
+  match has kicked off since the last fetch (or is in play), or the last
+  fetch is a week old — so fixtures announced since aren't missed.
+  Outside international windows, that is nothing.
+
+A tournament edition (the catalog, the League screen's `r`) is its named
+year's unit, the next year's only if the first held no final (Euro 2020,
+AFCON 2025), and one standings request for its groups.
+
+Each match is filed under the edition ESPN gives it, not the year fetched.
+A scoreboard response exactly at its `limit` is taken as truncated (ESPN
+doesn't say) and refetched as twelve month windows; if a month is full
+too, the matches are stored but the unit is logged as failed.
+
+The ESPN client paces scoreboards a second apart (other calls 150 ms). A
+429 honours `Retry-After`, else waits 5 s, 20 s, 60 s; one that outlasts
+that trips a breaker shared by every client in the process, so for an hour
+every request fails at once with `provider.ErrRateLimited`. Sync stops the
+run there, the unit is logged `rate_limited`, the TUI drops its queue, and
+the stale check on open stands down for the hour.
 
 ## Curated datasets
 
