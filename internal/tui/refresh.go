@@ -2,6 +2,7 @@ package tui
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -58,13 +59,20 @@ func awaitRefresh(events <-chan refreshEvent) tea.Cmd {
 	}
 }
 
-// refreshTarget reports which competition a refresh from the current
-// screen would fetch, if the screen has one.
-func (a *App) refreshTarget() (string, bool) {
-	if r, ok := a.current().(core.Refreshable); ok {
-		return r.RefreshTarget()
+// refreshTarget reports what a refresh from the current screen would
+// fetch, if anything: a whole request (a nation's), or a competition.
+func (a *App) refreshTarget() (core.RefreshRequest, bool) {
+	if r, ok := a.current().(core.RefreshRequester); ok {
+		if req, ok := r.RefreshRequest(); ok {
+			return req, true
+		}
 	}
-	return "", false
+	if r, ok := a.current().(core.Refreshable); ok {
+		if id, ok := r.RefreshTarget(); ok {
+			return core.RefreshRequest{CompetitionID: id}, true
+		}
+	}
+	return core.RefreshRequest{}, false
 }
 
 // refreshBinding is the refresh key the footer should advertise for the
@@ -87,16 +95,20 @@ func (a *App) startRefresh() tea.Cmd {
 	if a.active != nil {
 		return nil
 	}
-	compID, ok := a.refreshTarget()
+	req, ok := a.refreshTarget()
 	if !ok {
 		a.status = "nothing to refresh from here — open a league to refresh it"
 		return nil
 	}
 	if a.deps.Refresh == nil {
-		a.status = fmt.Sprintf("refresh isn't available in this view — run  footy refresh --competition %s", compID)
+		if req.TeamID != "" {
+			a.status = "refresh isn't available in this view — run  footy refresh --team " + req.Label()
+		} else {
+			a.status = fmt.Sprintf("refresh isn't available in this view — run  footy refresh --competition %s", req.CompetitionID)
+		}
 		return nil
 	}
-	return a.enqueue(core.RefreshRequest{CompetitionID: compID})
+	return a.enqueue(req)
 }
 
 // enqueue adds requests to the refresh queue and starts the first if
@@ -121,8 +133,12 @@ func (a *App) enqueue(reqs ...core.RefreshRequest) tea.Cmd {
 // request for the same competition.
 func mergeRequest(queue []core.RefreshRequest, req core.RefreshRequest) []core.RefreshRequest {
 	for i, q := range queue {
-		if q.CompetitionID != req.CompetitionID {
+		if q.Key() != req.Key() {
 			continue
+		}
+		// The directory is the directory: asking twice is asking once.
+		if req.Directory {
+			return queue
 		}
 		// An empty season list means "the current season", which isn't
 		// a year that can be merged with others; keep such requests
@@ -178,7 +194,7 @@ func (a *App) cancelRefresh() tea.Cmd {
 	a.queue = nil
 	a.stopping = true
 	a.stopActive()
-	a.refreshing = "Stopping " + a.active.CompetitionID + "…"
+	a.refreshing = "Stopping " + a.active.Label() + "…"
 	return a.broadcastQueue()
 }
 
@@ -187,7 +203,7 @@ func (a *App) cancelRefresh() tea.Cmd {
 func (a *App) describe(req core.RefreshRequest, progress string) string {
 	text := progress
 	if text == "" {
-		text = "Refreshing " + req.CompetitionID
+		text = "Refreshing " + req.Label()
 		if n := len(req.Seasons); n > 1 {
 			text += fmt.Sprintf(" (%d seasons)", n)
 		}
@@ -243,16 +259,26 @@ func (a *App) handleRefreshEvent(msg refreshMsg) tea.Cmd {
 		a.batch = refreshBatch{}
 		a.active = nil
 		a.status = "Downloads stopped."
-		return tea.Batch(a.broadcast(core.RefreshedMsg{CompetitionID: req.CompetitionID}), a.broadcastQueue())
+		return tea.Batch(a.broadcast(refreshedMsg(req)), a.broadcastQueue())
+	}
+	if errors.Is(ev.err, core.ErrRateLimited) {
+		// The source has asked footy to stop: everything still queued
+		// would only be refused too, so it's dropped, and the user is told
+		// why. What landed before the refusal is still worth showing.
+		a.queue = nil
+		a.batch = refreshBatch{}
+		a.status = ""
+		a.err = core.ErrRateLimited
+		return tea.Batch(a.broadcast(refreshedMsg(req)), a.startNext())
 	}
 	var reload tea.Cmd
 	if ev.err != nil {
-		a.batch.failed = append(a.batch.failed, fmt.Sprintf("%s (%v)", req.CompetitionID, ev.err))
+		a.batch.failed = append(a.batch.failed, fmt.Sprintf("%s (%v)", req.Label(), ev.err))
 		a.batch.lastErr = ev.err
 	} else {
-		a.batch.done = append(a.batch.done, req.CompetitionID)
-		a.batch.lastSummary = "Refreshed " + req.CompetitionID + ": " + ev.summary
-		reload = a.broadcast(core.RefreshedMsg{CompetitionID: req.CompetitionID})
+		a.batch.done = append(a.batch.done, req.Label())
+		a.batch.lastSummary = "Refreshed " + req.Label() + ": " + ev.summary
+		reload = a.broadcast(refreshedMsg(req))
 	}
 
 	// A failure doesn't abandon the rest of the queue: each request is a
@@ -262,6 +288,14 @@ func (a *App) handleRefreshEvent(msg refreshMsg) tea.Cmd {
 		a.reportBatch()
 	}
 	return tea.Batch(reload, a.startNext())
+}
+
+// refreshedMsg is what screens are told once req has landed.
+func refreshedMsg(req core.RefreshRequest) core.RefreshedMsg {
+	return core.RefreshedMsg{
+		CompetitionID: req.CompetitionID,
+		International: req.TeamID != "" || req.Nations != "" || req.Directory,
+	}
 }
 
 // refreshBatch accumulates outcomes while the queue drains, so the status
