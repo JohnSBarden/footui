@@ -5,6 +5,9 @@
 package tuitest
 
 import (
+	"reflect"
+	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -52,12 +55,17 @@ func Drive(t *testing.T, s core.Screen, cmd tea.Cmd) core.Screen {
 			continue
 		}
 
+		if isTimer(next) {
+			// A timer (the text cursor's blink) isn't a data load.
+			// Waiting on it would add half a second per test and tell
+			// us nothing about the screen's behaviour.
+			continue
+		}
 		msg, ok := runCmd(next)
-		if !ok || msg == nil {
-			// A command that doesn't produce a message promptly is a
-			// timer (the text cursor's blink), not a data load. Waiting
-			// on those would add half a second per test and tell us
-			// nothing about the screen's behaviour.
+		if !ok {
+			t.Fatalf("tuitest: a command gave no message within %s", cmdTimeout)
+		}
+		if msg == nil {
 			continue
 		}
 		if batch, ok := msg.(tea.BatchMsg); ok {
@@ -72,10 +80,35 @@ func Drive(t *testing.T, s core.Screen, cmd tea.Cmd) core.Screen {
 	return s
 }
 
-// cmdTimeout is how long a command gets to produce its message before
-// Drive treats it as a timer and moves on. Repository queries against an
-// in-memory database return far inside this.
-const cmdTimeout = 50 * time.Millisecond
+// cmdTimeout is how long a command gets to produce its message. Queries
+// against an in-memory database return far inside it, even under the race
+// detector with every package's tests running at once — which is why
+// timers are recognised by what they are (isTimer) rather than by being
+// slow: a short timeout made loads that took a little longer under load
+// look like timers, and tests flaked.
+const cmdTimeout = 10 * time.Second
+
+// timerFuncs are the functions behind the commands that wait on a clock
+// rather than load anything.
+var timerFuncs = []string{
+	"github.com/charmbracelet/bubbles/cursor.",
+	"github.com/charmbracelet/bubbletea.Tick",
+	"github.com/charmbracelet/bubbletea.Every",
+}
+
+// isTimer reports whether cmd is a timer: a blinking cursor or a tick.
+func isTimer(cmd tea.Cmd) bool {
+	fn := runtime.FuncForPC(reflect.ValueOf(cmd).Pointer())
+	if fn == nil {
+		return false
+	}
+	for _, prefix := range timerFuncs {
+		if strings.HasPrefix(fn.Name(), prefix) {
+			return true
+		}
+	}
+	return false
+}
 
 // runCmd runs a command, reporting false if it didn't return in time.
 func runCmd(cmd tea.Cmd) (tea.Msg, bool) {
