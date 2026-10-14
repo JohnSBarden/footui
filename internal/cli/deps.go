@@ -14,6 +14,7 @@ import (
 	"github.com/JohnSBarden/footui/internal/data/models"
 	"github.com/JohnSBarden/footui/internal/storage"
 	"github.com/JohnSBarden/footui/internal/storage/sqlite"
+	"github.com/JohnSBarden/footui/internal/textfold"
 	"github.com/JohnSBarden/footui/internal/tui"
 	"github.com/JohnSBarden/footui/internal/tui/core"
 	"github.com/JohnSBarden/footui/internal/tui/styles"
@@ -68,7 +69,7 @@ func (g *globalFlags) launchTUI(ctx context.Context, build func(core.Deps) (core
 
 	now := time.Now()
 	deps := tui.NewDeps(ctx, repos, styles.BaseFor(g.settings.theme, g.settings.noColor))
-	deps.Refresh = tuiRefresher(repos)
+	deps.Refresh = tuiRefresher(repos, g.settings.staleAfter)
 	deps.Catalog = tuiCatalog(now)
 	deps.Appearance = &styles.Appearance{Mode: g.settings.theme}
 	deps.SaveTheme = g.saveTheme
@@ -106,6 +107,13 @@ func resolveCompetition(ctx context.Context, repos storage.Repositories, query s
 	matches, err := repos.FindCompetitionsByName(ctx, query)
 	if err != nil {
 		return models.Competition{}, err
+	}
+	// An exact ID or name beats a substring: "world-cup" is the World
+	// Cup, not also the women's one whose ID contains it.
+	for _, c := range matches {
+		if strings.EqualFold(c.ID, query) || textfold.Fold(c.Name) == textfold.Fold(query) {
+			return c, nil
+		}
 	}
 
 	switch len(matches) {

@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/JohnSBarden/footui/internal/colors"
+	"github.com/JohnSBarden/footui/internal/data/provider"
 	"github.com/JohnSBarden/footui/internal/data/provider/espn"
 	"github.com/JohnSBarden/footui/internal/data/provider/understat"
 	"github.com/JohnSBarden/footui/internal/data/sync"
@@ -41,7 +43,24 @@ func runRefresh(ctx context.Context, store storage.Repositories, jobs []sync.Job
 	maxAge time.Duration, ev refreshEvents) []sync.UnitResult {
 
 	var results []sync.UnitResult
-	for _, group := range groupByProvider(jobs) {
+	var clubs []sync.Job
+	for _, j := range jobs {
+		if !j.Competition.International() {
+			clubs = append(clubs, j)
+			continue
+		}
+		// An international season is matches from the shared yearly
+		// lists, plus its group tables.
+		ms := newMatchSyncer(store, ev)
+		ms.StaleAfter = maxAge
+		for _, season := range j.Seasons {
+			if rateLimited(results) {
+				break // ESPN asked footy to stop; the client refuses anyway
+			}
+			results = append(results, ms.SyncEdition(ctx, j.Competition, season, ev.unitFunc())...)
+		}
+	}
+	for _, group := range groupByProvider(clubs) {
 		source, err := newSource(group.provider, ev)
 		if err != nil {
 			results = append(results, failAll(group.jobs, err, ev)...)
@@ -57,6 +76,64 @@ func runRefresh(ctx context.Context, store storage.Repositories, jobs []sync.Job
 	}
 	reseed(ctx, store, ev)
 	return results
+}
+
+func (ev refreshEvents) unitFunc() sync.Progress {
+	return func(u sync.UnitResult) {
+		if ev.unit != nil {
+			ev.unit(u)
+		}
+	}
+}
+
+// newMatchSource builds the source of international matches. It is a
+// variable so tests can point it at a fake server.
+var newMatchSource = func(ev refreshEvents) sync.MatchSource {
+	source := espn.New()
+	if ev.retry != nil {
+		source = source.OnRetry(ev.retry)
+	}
+	return source
+}
+
+func newMatchSyncer(store storage.Repositories, ev refreshEvents) *sync.MatchSyncer {
+	return sync.NewMatchSyncer(newMatchSource(ev), store).WithProviderName(sync.ProviderESPN)
+}
+
+// runNations fetches the yearly match lists a gender's nations play in.
+// staleAfter holds the current year to the stale threshold; zero fetches
+// whatever has changed.
+func runNations(ctx context.Context, store storage.Repositories, gender string, years []int,
+	staleAfter time.Duration, ev refreshEvents) []sync.UnitResult {
+
+	ms := newMatchSyncer(store, ev)
+	ms.StaleAfter = staleAfter
+	return ms.SyncNations(ctx, gender, years, ev.unitFunc())
+}
+
+// seedDirectory stores both genders' national teams, so search finds
+// every nation before any of its matches are fetched.
+func seedDirectory(ctx context.Context, store storage.Repositories, ev refreshEvents) (int, error) {
+	ms := newMatchSyncer(store, ev)
+	total := 0
+	for _, g := range []string{"men", "women"} {
+		n, err := ms.SeedNationalTeams(ctx, g)
+		if err != nil {
+			return total, fmt.Errorf("national teams (%s): %w", g, err)
+		}
+		total += n
+	}
+	return total, nil
+}
+
+// rateLimited reports whether any unit was refused for asking too often.
+func rateLimited(results []sync.UnitResult) bool {
+	for _, r := range results {
+		if errors.Is(r.Err, provider.ErrRateLimited) {
+			return true
+		}
+	}
+	return false
 }
 
 type providerJobs struct {
@@ -145,8 +222,60 @@ func reseed(ctx context.Context, store storage.Repositories, ev refreshEvents) {
 // needs: one competition and some of its seasons (the current one when
 // none are named), progress as lines of text, and a one-line summary or an
 // error at the end.
-func tuiRefresher(store storage.Repositories) core.Refresher {
+//
+// staleAfter is the threshold an automatic refresh of international
+// matches is held to; one the user asked for fetches whatever has changed.
+func tuiRefresher(store storage.Repositories, staleAfter time.Duration) core.Refresher {
 	return func(ctx context.Context, req core.RefreshRequest, progress func(string)) (string, error) {
+		ev := refreshEvents{
+			retry: func(attempt, of int, err error) {
+				progress(fmt.Sprintf("retry %d of %d: %v", attempt, of, tuiError(err)))
+			},
+			note: progress,
+		}
+		stale := time.Duration(0)
+		if req.Automatic {
+			stale = staleAfter
+		}
+		switch {
+		case req.Directory:
+			n, err := seedDirectory(ctx, store, ev)
+			if err != nil {
+				return "", tuiError(err)
+			}
+			return fmt.Sprintf("%d national teams, ready to search", n), nil
+		case req.TeamID != "" || req.Nations != "":
+			gender := req.Nations
+			if req.TeamID != "" {
+				team, err := store.GetTeam(ctx, req.TeamID)
+				if err != nil {
+					return "", err
+				}
+				if !team.National {
+					return "", fmt.Errorf("%s isn't a national team", team.Name)
+				}
+				gender = team.Gender
+			}
+			years, err := calendarYears(req.Seasons, time.Now())
+			if err != nil {
+				return "", err
+			}
+			units := sync.NationUnits(gender, years)
+			done := 0
+			ev.unit = func(u sync.UnitResult) {
+				done++
+				outcome := "fetched"
+				switch {
+				case u.Fresh:
+					outcome = "up to date"
+				case u.Failed():
+					outcome = "failed"
+				}
+				progress(fmt.Sprintf("%s %s %s (%d of %d)", u.Competition.Abbrev(), u.Season.Label, outcome, done, len(units)))
+			}
+			return summarizeMatchUnits(runNations(ctx, store, gender, years, stale, ev))
+		}
+
 		cov, ok := sync.FindCoverage(req.CompetitionID)
 		if !ok {
 			return "", fmt.Errorf("footy doesn't cover %q — see `footy competitions`", req.CompetitionID)
@@ -155,6 +284,13 @@ func tuiRefresher(store storage.Repositories) core.Refresher {
 		seasons := req.Seasons
 		if len(seasons) == 0 {
 			seasons = []string{cov.CurrentSeason(time.Now())}
+		}
+
+		if comp.International() {
+			ev.unit = func(u sync.UnitResult) {
+				progress(fmt.Sprintf("%s %s %s", comp.Abbrev(), components.SeasonName(u.Season), unitOutcome(u)))
+			}
+			return summarizeMatchUnits(runRefresh(ctx, store, []sync.Job{{Competition: comp, Seasons: seasons}}, stale, ev))
 		}
 
 		done := 0
@@ -176,9 +312,82 @@ func tuiRefresher(store storage.Repositories) core.Refresher {
 			},
 			note: progress,
 		})
+		if rateLimited(results) {
+			return "", core.ErrRateLimited
+		}
 		summary, err := summarizeUnits(results)
 		return summary, tuiError(err)
 	}
+}
+
+// calendarYears parses requested years, defaulting to this year and last.
+func calendarYears(seasons []string, now time.Time) ([]int, error) {
+	if len(seasons) == 0 {
+		return sync.RecentYears(now, 2), nil
+	}
+	out := make([]int, 0, len(seasons))
+	for _, s := range seasons {
+		y, err := strconv.Atoi(s)
+		if err != nil {
+			return nil, fmt.Errorf("%q isn't a year", s)
+		}
+		out = append(out, y)
+	}
+	return out, nil
+}
+
+func unitOutcome(u sync.UnitResult) string {
+	switch {
+	case u.Fresh:
+		return "up to date"
+	case u.Skipped:
+		return "skipped"
+	case u.Failed():
+		return "failed"
+	}
+	return "fetched"
+}
+
+// summarizeMatchUnits turns a refresh of international matches into the
+// line the TUI shows: how much was fetched, how much was already up to
+// date — usually all of it, which is the politeness rules working — and
+// what failed. Being rate-limited is reported as such, so the app stops
+// its queue; otherwise it only errors when nothing could be fetched.
+func summarizeMatchUnits(results []sync.UnitResult) (string, error) {
+	if rateLimited(results) {
+		return "", core.ErrRateLimited
+	}
+	sum := sync.Summarize(results)
+	if sum.Units == 0 {
+		return "nothing to fetch", nil
+	}
+	if sum.Succeeded == 0 && sum.Fresh == 0 {
+		for _, r := range results {
+			if r.Err != nil {
+				return "", tuiError(r.Err)
+			}
+		}
+	}
+	var line string
+	switch {
+	case sum.Succeeded == 0 && sum.Failed == 0:
+		line = "already up to date"
+	default:
+		line = fmt.Sprintf("fetched %d, %d matches", sum.Succeeded, sum.Totals.Matches)
+		if sum.Fresh > 0 {
+			line += fmt.Sprintf("; %d already up to date", sum.Fresh)
+		}
+	}
+	var failed []string
+	for _, r := range results {
+		if r.Failed() && !r.Skipped {
+			failed = append(failed, r.Competition.Abbrev()+" "+components.SeasonName(r.Season))
+		}
+	}
+	if len(failed) > 0 {
+		line += "; failed: " + strings.Join(failed, ", ")
+	}
+	return line, nil
 }
 
 // tuiError rephrases a refresh failure for the TUI's one-line status bar.
@@ -205,6 +414,8 @@ func tuiError(err error) error {
 		if errors.As(err, &ex) {
 			attempts = ex.Attempts
 		}
+	case errors.Is(err, provider.ErrRateLimited):
+		return core.ErrRateLimited
 	case errors.Is(err, espn.ErrNoTable):
 		return errors.New("ESPN has no table for that season")
 	default:

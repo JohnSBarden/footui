@@ -25,6 +25,13 @@ type Provider struct {
 // New returns a provider against the real API.
 func New() *Provider { return newWithClient(NewClient()) }
 
+// NewAt returns a provider against another host serving ESPN's paths (a
+// test server), unpaced and with its own rate-limit breaker, so another
+// package's tests can count the requests a refresh makes.
+func NewAt(baseURL string) *Provider {
+	return newWithClient(NewClient().withBaseURLs(baseURL+"/site", baseURL+"/core"))
+}
+
 func newWithClient(c *Client) *Provider {
 	return &Provider{client: c, now: time.Now, limit: scoreboardLimit, bundles: map[string]*bundle{}}
 }

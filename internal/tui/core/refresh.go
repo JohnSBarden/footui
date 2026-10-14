@@ -2,23 +2,85 @@ package core
 
 import (
 	"context"
+	"errors"
 
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/JohnSBarden/footui/internal/data/models"
 )
 
-// RefreshRequest is one unit of refresh work: a competition and the
-// seasons of it to fetch.
+// RefreshRequest is one unit of refresh work. Usually that is a
+// competition and the seasons of it to fetch; it can instead be a
+// national team's matches (TeamID), every nation's matches of one gender
+// (Nations), or the directory of national teams (Directory).
 type RefreshRequest struct {
 	CompetitionID string
+	// TeamID asks for a national team's matches: the shared yearly match
+	// lists of every international competition of its gender, which
+	// cover every other nation of that gender too.
+	TeamID string
+	// Nations ("men" or "women") asks for those yearly match lists
+	// without naming a team — the catalog's national teams line.
+	Nations string
+	// Directory asks for the list of national teams, so search can find
+	// every nation before any of its matches are fetched.
+	Directory bool
 	// Seasons are bare start years ("2025" for 2025-26), most recent
 	// first. Empty means the current season — what the refresh key
-	// fetches.
+	// fetches. For TeamID and Nations they are calendar years, and empty
+	// means this year and last.
 	Seasons []string
+	// Name is how the status line refers to the request, when the ID
+	// alone would read badly ("England" rather than "nat-england").
+	Name string
 	// Why, when set, is shown alongside the progress line so a refresh
 	// the user didn't ask for (the stale check on open) explains itself.
 	Why string
+	// Automatic marks a refresh nobody asked for, which is held to the
+	// stale threshold; one the user asked for fetches whatever has
+	// changed since.
+	Automatic bool
+}
+
+// Key identifies what a request fetches, so two requests for the same
+// thing can be merged.
+func (r RefreshRequest) Key() string {
+	switch {
+	case r.Directory:
+		return "directory"
+	case r.TeamID != "":
+		return "team:" + r.TeamID
+	case r.Nations != "":
+		return "nations:" + r.Nations
+	}
+	return "competition:" + r.CompetitionID
+}
+
+// Label is how the status line names the request.
+func (r RefreshRequest) Label() string {
+	switch {
+	case r.Name != "":
+		return r.Name
+	case r.Directory:
+		return "national teams"
+	case r.TeamID != "":
+		return r.TeamID
+	case r.Nations != "":
+		return "national teams (" + r.Nations + ")"
+	}
+	return r.CompetitionID
+}
+
+// ErrRateLimited is what a Refresher returns when the source has asked
+// footy to stop for a while. The root app then drops everything queued
+// rather than carrying on asking.
+var ErrRateLimited = errors.New("ESPN is rate-limiting footy; try again later")
+
+// RefreshRequester is implemented by screens whose refresh isn't a single
+// competition — a nation's — and so hand the root app a whole request. It
+// is asked before Refreshable.
+type RefreshRequester interface {
+	RefreshRequest() (RefreshRequest, bool)
 }
 
 // Refresher fetches one RefreshRequest into the cache. It is how the TUI
@@ -45,7 +107,13 @@ type Refreshable interface {
 // after a refresh succeeds, so each can re-query and replace its empty
 // state with the data that just arrived — including screens beneath the
 // visible one, which the user may pop back to.
-type RefreshedMsg struct{ CompetitionID string }
+type RefreshedMsg struct {
+	CompetitionID string
+	// International is set when what landed was international matches
+	// (a nation's, or every nation's of a gender), which any screen
+	// showing a nation or a tournament may want to re-read.
+	International bool
+}
 
 // RefreshRequestMsg asks the root app to queue refresh work. Screens that
 // let the user pick what to fetch (the league catalog) send it rather than

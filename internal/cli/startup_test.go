@@ -30,7 +30,7 @@ func seedSeason(t *testing.T, repos storage.Repositories, compID, year string, s
 }
 
 func TestStaleRefreshesPicksFollowedLeaguesOnly(t *testing.T) {
-	repos := storagetest.New(t)
+	repos := withDirectory(t)
 	// Followed and stale.
 	seedSeason(t, repos, "eng-premier-league", "2026", september.Add(-13*24*time.Hour), models.SyncStatusOK)
 	// Followed and fresh.
@@ -61,7 +61,7 @@ func TestStaleRefreshesPicksFollowedLeaguesOnly(t *testing.T) {
 }
 
 func TestStaleRefreshesBacksOffAfterARecentFailure(t *testing.T) {
-	repos := storagetest.New(t)
+	repos := withDirectory(t)
 	seedSeason(t, repos, "eng-premier-league", "2026", september.Add(-2*time.Minute), models.SyncStatusFailed)
 	if reqs := staleRefreshes(context.Background(), repos, september, 6*time.Hour); len(reqs) != 0 {
 		t.Errorf("retried a refresh that failed two minutes ago: %v", reqs)
@@ -114,7 +114,7 @@ func TestSummarizeUnitsKeepsAPartialDownload(t *testing.T) {
 // A favourite league is followed even when only old seasons are cached:
 // starring it says "keep this current", whatever was downloaded before.
 func TestStaleRefreshesFollowsFavouriteLeagues(t *testing.T) {
-	repos := storagetest.New(t)
+	repos := withDirectory(t)
 	seedSeason(t, repos, "ita-serie-a", "2016", september.Add(-24*time.Hour), models.SyncStatusOK)
 	seedSeason(t, repos, "fra-ligue-1", "2015", september.Add(-24*time.Hour), models.SyncStatusOK)
 	if err := repos.AddFavorite(context.Background(), models.Favorite{

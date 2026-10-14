@@ -49,6 +49,11 @@ func staleRefreshes(ctx context.Context, repos storage.Repositories, now time.Ti
 	if maxAge <= 0 {
 		return nil
 	}
+	// A provider that rate-limited footy recently gets left alone: nothing
+	// automatic runs until the pause is over.
+	if at, err := repos.LastRateLimited(ctx); err == nil && now.Sub(at) < rateLimitPause {
+		return nil
+	}
 	comps, err := repos.ListCompetitions(ctx)
 	if err != nil {
 		// The TUI will surface a broken database itself; a missed
@@ -60,7 +65,9 @@ func staleRefreshes(ctx context.Context, repos storage.Repositories, now time.Ti
 	var out []core.RefreshRequest
 	for _, comp := range comps {
 		cov, covered := sync.FindCoverage(comp.ID)
-		if !covered {
+		if !covered || comp.International() {
+			// International competitions follow the nations and
+			// tournaments starred, below.
 			continue
 		}
 		// Each competition's own calendar: in February MLS's current
@@ -86,7 +93,74 @@ func staleRefreshes(ctx context.Context, repos storage.Repositories, now time.Ti
 		if newest == previous {
 			why = "new season " + components.SeasonLabelFor(comp.CalendarYear, current)
 		}
-		out = append(out, core.RefreshRequest{CompetitionID: comp.ID, Seasons: []string{current}, Why: why})
+		out = append(out, core.RefreshRequest{CompetitionID: comp.ID, Seasons: []string{current}, Why: why, Automatic: true})
+	}
+	return append(out, internationalRefreshes(ctx, repos, now, maxAge)...)
+}
+
+// rateLimitPause is how long automatic refreshes stand down after a
+// provider rate-limited footy.
+const rateLimitPause = time.Hour
+
+// internationalRefreshes is the stale check for international football:
+//
+//   - the directory of national teams, once, so search finds every nation
+//   - for each gender with a starred nation, this year's and last year's
+//     match lists, when any is due by the politeness rules (usually none)
+//   - for each starred international competition, its current season
+//
+// Clubs' rule — follow what was downloaded recently — doesn't apply: a
+// nation's matches are downloaded for the nations someone stars.
+func internationalRefreshes(ctx context.Context, repos storage.Repositories, now time.Time, maxAge time.Duration) []core.RefreshRequest {
+	var out []core.RefreshRequest
+	if nations, err := repos.NationalTeams(ctx, ""); err == nil && len(nations) == 0 {
+		out = append(out, core.RefreshRequest{Directory: true, Why: "so search can find every nation", Automatic: true})
+	}
+	favs, err := repos.ListFavorites(ctx)
+	if err != nil {
+		return out
+	}
+	starred := map[string][]models.Team{}
+	for _, f := range favs {
+		switch f.Kind {
+		case models.FavoriteTeam:
+			if t, err := repos.GetTeam(ctx, f.ID); err == nil && t.National {
+				starred[t.Gender] = append(starred[t.Gender], t)
+			}
+		case models.FavoriteCompetition:
+			cov, ok := sync.FindCoverage(f.ID)
+			if !ok || !cov.Competition.International() {
+				continue
+			}
+			season := cov.CurrentSeason(now)
+			year, _ := strconv.Atoi(season)
+			if why, due := sync.UnitDue(ctx, repos, sync.Unit{Competition: cov.Competition, Year: year}, now, maxAge); due {
+				out = append(out, core.RefreshRequest{CompetitionID: f.ID, Seasons: []string{season}, Why: why, Automatic: true})
+			}
+		}
+	}
+	years := sync.RecentYears(now, 2)
+	var labels []string
+	for _, y := range years {
+		labels = append(labels, strconv.Itoa(y))
+	}
+	for _, gender := range []string{"men", "women"} {
+		teams := starred[gender]
+		if len(teams) == 0 {
+			continue
+		}
+		for _, u := range sync.NationUnits(gender, years) {
+			why, due := sync.UnitDue(ctx, repos, u, now, maxAge)
+			if !due {
+				continue
+			}
+			req := core.RefreshRequest{Nations: gender, Seasons: labels, Why: why, Automatic: true}
+			if len(teams) == 1 {
+				req = core.RefreshRequest{TeamID: teams[0].ID, Name: teams[0].Name, Seasons: labels, Why: why, Automatic: true}
+			}
+			out = append(out, req)
+			break
+		}
 	}
 	return out
 }
