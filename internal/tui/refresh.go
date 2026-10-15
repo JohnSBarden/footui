@@ -317,8 +317,8 @@ type refreshBatch struct {
 }
 
 // reportBatch puts the outcome of everything run since the queue was last
-// idle on the status line. A lone refresh reports exactly as it always
-// has; a batch is summed up so an early failure isn't hidden by a later
+// idle on the status line. A lone refresh reports its own summary or
+// error; a batch is summed up so an early failure isn't hidden by a later
 // success.
 func (a *App) reportBatch() {
 	b := a.batch

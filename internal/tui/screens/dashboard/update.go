@@ -100,13 +100,13 @@ func (m *Model) move(dRow, dCol int) {
 		return
 	}
 	if dCol != 0 {
-		m.cursor = clamp(m.cursor+dCol, 0, len(m.cards)-1)
+		m.cursor = min(max(m.cursor+dCol, 0), len(m.cards)-1)
 		return
 	}
 	rows := m.grid()
 	r, c := position(rows, m.cursor)
-	r = clamp(r+dRow, 0, len(rows)-1)
-	m.cursor = rows[r][clamp(c, 0, len(rows[r])-1)]
+	r = min(max(r+dRow, 0), len(rows)-1)
+	m.cursor = rows[r][min(max(c, 0), len(rows[r])-1)]
 }
 
 // position finds a card's row and column in the grid.
@@ -119,16 +119,6 @@ func position(rows [][]int, card int) (int, int) {
 		}
 	}
 	return 0, 0
-}
-
-func clamp(v, lo, hi int) int {
-	if v < lo {
-		return lo
-	}
-	if v > hi {
-		return hi
-	}
-	return v
 }
 
 // open drills into the selected card: the same screen Browse would open,

@@ -172,12 +172,7 @@ func (m *Model) setCursor(idx int) tea.Cmd {
 	if n == 0 {
 		return nil
 	}
-	if idx < 0 {
-		idx = 0
-	}
-	if idx >= n {
-		idx = n - 1
-	}
+	idx = min(max(idx, 0), n-1)
 
 	if m.focus == paneSquad {
 		m.cursorSquad = idx

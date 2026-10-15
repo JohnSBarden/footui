@@ -125,7 +125,7 @@ type TeamSeasonStats struct {
 	Shots          *int
 	ShotsOnTarget  *int
 	Corners        *int
-	XG             *float64 // nullable: only populated once an XGProvider pass has run
+	XG             *float64 // nullable: only populated once an xG pass has run
 	XGA            *float64
 	// Extras carries source-specific long-tail stats that don't warrant a
 	// column of their own — pressing intensity, expected points, deep

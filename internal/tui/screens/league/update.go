@@ -174,13 +174,7 @@ func (m *Model) moveCursor(delta int) {
 		return
 	}
 	// The header sits one step above the first club.
-	m.cursor += delta
-	if m.cursor < headerRow {
-		m.cursor = headerRow
-	}
-	if m.cursor >= len(rows) {
-		m.cursor = len(rows) - 1
-	}
+	m.cursor = min(max(m.cursor+delta, headerRow), len(rows)-1)
 }
 
 // setGroups reads a tournament table's groups from its rows, keeping the

@@ -94,13 +94,7 @@ func (m *Model) moveCursor(delta int) {
 	if len(rows) == 0 {
 		return
 	}
-	m.cursor += delta
-	if m.cursor < 0 {
-		m.cursor = 0
-	}
-	if m.cursor >= len(rows) {
-		m.cursor = len(rows) - 1
-	}
+	m.cursor = min(max(m.cursor+delta, 0), len(rows)-1)
 }
 
 // selectCompetition switches tabs, resetting the cursor since season

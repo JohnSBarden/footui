@@ -1,11 +1,11 @@
 // Package dashboard is the landing page once anything is favourited: a
-// card per favourite league, club and player, each showing where it
-// stands this season, and each drilling into the screen Browse would
-// open.
+// card per favourite, each showing where it stands this season, and each
+// drilling into the screen Browse would open.
 //
 // Cards are grouped in a fixed order — leagues, tournaments, clubs,
-// nations, players — and within each group by when they were starred. Search is one key away
-// (/), so the dashboard replaces the bare search box without hiding it.
+// nations, players — and within each group by when they were starred.
+// Search is one key away (/), so the dashboard replaces the bare search
+// box without hiding it.
 package dashboard
 
 import (

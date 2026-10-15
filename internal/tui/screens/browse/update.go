@@ -115,13 +115,7 @@ func (m *Model) moveCursor(delta int) {
 	if len(m.results) == 0 {
 		return
 	}
-	m.cursor += delta
-	if m.cursor < 0 {
-		m.cursor = 0
-	}
-	if m.cursor >= len(m.results) {
-		m.cursor = len(m.results) - 1
-	}
+	m.cursor = min(max(m.cursor+delta, 0), len(m.results)-1)
 }
 
 // open drills into whatever the selected result points at.
