@@ -155,7 +155,7 @@ func TestTabMovesFocusToSquadAndEnterOpensThePlayer(t *testing.T) {
 	deps := newDeps(repos)
 	deps.Nav.Player = func(_ core.Deps, p models.Player, _ string) core.Screen {
 		opened = p
-		return stubScreen{}
+		return tuitest.Stub{}
 	}
 
 	s := settled(t, deps, "eng-premier-league", "eng-premier-league:2025")
@@ -179,7 +179,7 @@ func TestTabDoesNotFocusAnEmptySquad(t *testing.T) {
 	deps := newDeps(repos)
 	deps.Nav.League = func(_ core.Deps, competitionID, _ string) core.Screen {
 		openedCompetition = competitionID
-		return stubScreen{}
+		return tuitest.Stub{}
 	}
 
 	s := settled(t, deps, "eng-premier-league", "eng-premier-league:2025")
@@ -378,7 +378,7 @@ func TestClubBrandingDoesNotLeakIntoPushedScreens(t *testing.T) {
 	deps.Theme = styles.Default()
 	deps.Nav.Player = func(d core.Deps, _ models.Player, _ string) core.Screen {
 		childTheme = d.Theme
-		return stubScreen{}
+		return tuitest.Stub{}
 	}
 
 	s := tuitest.Resize(t, tuitest.Settle(t, team.New(deps, arsenal, "eng-premier-league", "eng-premier-league:2025")), 110, 44)

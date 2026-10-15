@@ -112,7 +112,7 @@ func TestTypingNarrowsResults(t *testing.T) {
 func TestEnterOpensACompetition(t *testing.T) {
 	var opened string
 	deps := newDeps(seeded(t))
-	deps.Nav.League = func(_ core.Deps, id, _ string) core.Screen { opened = id; return stubScreen{} }
+	deps.Nav.League = func(_ core.Deps, id, _ string) core.Screen { opened = id; return tuitest.Stub{} }
 
 	s := open(t, deps, "premier")
 	_, cmd := s.Update(tea.KeyMsg{Type: tea.KeyEnter})
@@ -127,7 +127,7 @@ func TestEnterOpensACompetition(t *testing.T) {
 func TestEnterOpensATeam(t *testing.T) {
 	var opened models.Team
 	deps := newDeps(seeded(t))
-	deps.Nav.Team = func(_ core.Deps, tm models.Team, _, _ string) core.Screen { opened = tm; return stubScreen{} }
+	deps.Nav.Team = func(_ core.Deps, tm models.Team, _, _ string) core.Screen { opened = tm; return tuitest.Stub{} }
 
 	s := open(t, deps, "Manchester City")
 	_, cmd := s.Update(tea.KeyMsg{Type: tea.KeyEnter})

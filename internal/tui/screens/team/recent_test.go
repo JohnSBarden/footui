@@ -17,9 +17,6 @@ import (
 	"github.com/JohnSBarden/footui/internal/tui/tuitest"
 )
 
-func ip(n int) *int         { return &n }
-func fp(f float64) *float64 { return &f }
-
 // seedGames gives Arsenal six finished games across the league, a cup and
 // Europe, and a fixture still to come, against fictional opponents.
 func seedGames(t *testing.T, repos storage.Repositories) {
@@ -49,7 +46,7 @@ func seedGames(t *testing.T, repos storage.Repositories) {
 	day := func(d int) time.Time { return time.Date(2026, 3, d, 15, 0, 0, 0, time.UTC) }
 	game := func(id, comp, season string, d int, home, away string, hs, as int) models.Match {
 		return models.Match{ID: id, CompetitionID: comp, SeasonID: season, Kickoff: day(d), Status: models.MatchFullTime,
-			HomeTeamID: home, AwayTeamID: away, HomeScore: ip(hs), AwayScore: ip(as), Source: "test", UpdatedAt: day(28)}
+			HomeTeamID: home, AwayTeamID: away, HomeScore: new(hs), AwayScore: new(as), Source: "test", UpdatedAt: day(28)}
 	}
 	pl := "eng-premier-league"
 	matches := []models.Match{
@@ -60,9 +57,9 @@ func seedGames(t *testing.T, repos storage.Repositories) {
 		game("g5", pl, pl+":2025", 14, arsenal.ID, "eng-fenm", 1, 2),
 		game("g6", pl, pl+":2025", 18, "eng-nort", arsenal.ID, 0, 2),
 	}
-	matches[3].Status, matches[3].HomePens, matches[3].AwayPens = models.MatchPens, ip(2), ip(4)
-	matches[5].HomeStats = &models.MatchTeamStats{XG: fp(0.81)}
-	matches[5].AwayStats = &models.MatchTeamStats{XG: fp(2.14)}
+	matches[3].Status, matches[3].HomePens, matches[3].AwayPens = models.MatchPens, new(2), new(4)
+	matches[5].HomeStats = &models.MatchTeamStats{XG: new(0.81)}
+	matches[5].AwayStats = &models.MatchTeamStats{XG: new(2.14)}
 	fixture := game("g7", pl, pl+":2025", 25, arsenal.ID, "eng-kels", 0, 0)
 	fixture.Status, fixture.HomeScore, fixture.AwayScore = models.MatchScheduled, nil, nil
 	if err := repos.UpsertMatches(ctx, append(matches, fixture)); err != nil {
@@ -226,7 +223,7 @@ func TestMOpensTheGamesScreen(t *testing.T) {
 	repos := seedTwoCompetitions(t)
 	deps := newDeps(repos)
 	var opened models.Team
-	deps.Nav.Games = func(_ core.Deps, t models.Team) core.Screen { opened = t; return stubScreen{} }
+	deps.Nav.Games = func(_ core.Deps, t models.Team) core.Screen { opened = t; return tuitest.Stub{} }
 	s := settled(t, deps, "", "")
 	_, cmd := s.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("m")})
 	if _, ok := tuitest.CapturedCmd(cmd).(core.PushMsg); !ok || opened.ID != arsenal.ID {

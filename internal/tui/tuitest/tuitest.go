@@ -163,3 +163,13 @@ func keyMsg(name string) tea.KeyMsg {
 	}
 	return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(name)}
 }
+
+// Stub is a do-nothing core.Screen standing in for a drill-down target, so
+// navigation can be asserted without depending on another screen package.
+type Stub struct{}
+
+func (Stub) Init() tea.Cmd                           { return nil }
+func (s Stub) Update(tea.Msg) (core.Screen, tea.Cmd) { return s, nil }
+func (Stub) View() string                            { return "stub" }
+func (Stub) Title() string                           { return "stub" }
+func (Stub) Keys() core.KeyMap                       { return core.KeyMap{} }

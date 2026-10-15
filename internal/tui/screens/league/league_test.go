@@ -335,7 +335,7 @@ func TestEnterPushesTheTeamScreenForTheSelectedRow(t *testing.T) {
 	deps := newDeps(repos)
 	deps.Nav.Team = func(_ core.Deps, team models.Team, competitionID, seasonID string) core.Screen {
 		gotTeam, gotComp, gotSeason = team, competitionID, seasonID
-		return stubScreen{}
+		return tuitest.Stub{}
 	}
 
 	s := tuitest.Resize(t, tuitest.Settle(t, league.New(deps, "eng-premier-league")), 100, 30)

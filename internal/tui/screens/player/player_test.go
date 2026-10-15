@@ -145,7 +145,7 @@ func TestEnterOpensTheClubForTheSelectedSeason(t *testing.T) {
 	deps := newDeps(seedTwoCompetitions(t))
 	deps.Nav.Team = func(_ core.Deps, tm models.Team, competitionID, seasonID string) core.Screen {
 		openedTeam, openedComp, openedSeason = tm, competitionID, seasonID
-		return stubScreen{}
+		return tuitest.Stub{}
 	}
 
 	s := settled(t, deps, "")
