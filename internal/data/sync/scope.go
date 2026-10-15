@@ -39,7 +39,7 @@ type Coverage struct {
 // API covers everything else: MLS, the women's leagues, the second
 // divisions, and the European competitions, with no xG but with
 // possession, corners, and fouls, which understat never had.
-var Coverages = []Coverage{
+var Coverages = withShortNames([]Coverage{
 	// Men's top flights — understat (with xG).
 	{men("eng-premier-league", "Premier League", "England", 1), ProviderUnderstat, 2014, nil},
 	{men("esp-la-liga", "La Liga", "Spain", 1), ProviderUnderstat, 2014, nil},
@@ -120,6 +120,27 @@ var Coverages = []Coverage{
 		[]int{2017, 2022, 2025}},
 	{international("nations-league-women", "Women's Nations League", "WNL", "women", models.CategoryNationsLeague), ProviderESPN, 2025, nil},
 	{international("int-friendly-women", "Women's International Friendlies", "FRI", "women", models.CategoryFriendly), ProviderESPN, 2015, nil},
+})
+
+// leagueShortNames are the club leagues' compact labels, for the
+// competition column of a club's games. Cups and international
+// competitions carry theirs in their constructors.
+var leagueShortNames = map[string]string{
+	"eng-premier-league": "PL", "esp-la-liga": "LL", "ger-bundesliga": "BL", "ita-serie-a": "SA",
+	"fra-ligue-1": "L1", "rus-premier-league": "RPL", "eng-championship": "CH", "esp-la-liga-2": "LL2",
+	"ger-2-bundesliga": "2BL", "ita-serie-b": "SB", "fra-ligue-2": "L2", "usa-mls": "MLS",
+	"usa-usl-championship": "USL", "eng-wsl": "WSL", "esp-liga-f": "LF", "fra-premiere-ligue": "D1F",
+	"usa-nwsl": "NWSL", "eur-champions-league": "UCL", "eur-europa-league": "UEL",
+	"eur-conference-league": "UECL", "eur-womens-champions-league": "UWCL",
+}
+
+func withShortNames(covs []Coverage) []Coverage {
+	for i := range covs {
+		if s, ok := leagueShortNames[covs[i].Competition.ID]; ok && covs[i].Competition.ShortName == "" {
+			covs[i].Competition.ShortName = s
+		}
+	}
+	return covs
 }
 
 // international builds an international competition. Its country is

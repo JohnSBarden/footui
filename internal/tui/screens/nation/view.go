@@ -1,7 +1,6 @@
 package nation
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 
@@ -165,10 +164,7 @@ func (m *Model) summaryTable() string {
 func (m *Model) matchTable() string {
 	th := m.deps.Theme
 	roundWidth := max(m.width-(10+1+6+1+3+1+22+1+15+1)-4, 8)
-	cols := []components.Column{
-		{Title: "Date", Width: 10}, {Title: "Comp", Width: 6}, {Title: "", Width: 3},
-		{Title: "Opponent", Width: 22}, {Title: "Score", Width: 15}, {Title: "Round", Width: roundWidth},
-	}
+	cols := append(components.MatchColumns(22), components.Column{Title: "Round", Width: roundWidth})
 	var rows [][]components.Cell
 	cursor := -1
 	for i, mt := range m.matches {
@@ -186,76 +182,13 @@ func (m *Model) matchTable() string {
 }
 
 func (m *Model) matchRow(mt models.Match) []components.Cell {
-	th := m.deps.Theme
-	venue := "A"
-	switch {
-	case mt.Neutral:
-		venue = "N"
-	case mt.HomeTeamID == m.team.ID:
-		venue = "H"
-	}
-	score := components.ScoreFor(mt, m.team.ID)
-	style := th.TableCell
-	switch mt.Result(m.team.ID) {
-	case "W":
-		style = th.Positive
-	case "L":
-		style = th.Negative
-	case "":
-		if score == "" {
-			score = components.Kickoff(mt.Kickoff)[4:] // "14 Nov 19:45"
-		}
-		style = th.Muted
-	}
-	return []components.Cell{
-		components.Text(components.MatchDate(mt.Kickoff)),
-		components.Styled(m.competition(mt.CompetitionID).Abbrev(), th.Muted),
-		components.Styled(venue, th.Muted),
-		components.Text(m.teamName(mt.Opponent(m.team.ID))),
-		components.Styled(score, style),
-		components.Styled(mt.Round, th.Muted),
-	}
+	return components.MatchCells(m.deps.Theme, mt, m.team.ID, m.competition(mt.CompetitionID).Abbrev(),
+		m.teamName(mt.Opponent(m.team.ID)), mt.Round)
 }
 
 // boxScore is the two sides' numbers from one match, the nation's first.
 func (m *Model) boxScore(mt models.Match) [][]components.Cell {
-	th := m.deps.Theme
-	_, _, ours := mt.For(m.team.ID)
-	_, _, theirs := mt.For(mt.Opponent(m.team.ID))
-	if ours == nil && theirs == nil {
-		return [][]components.Cell{{components.Text(""), components.Text(""), components.Text(""),
-			components.Styled("  no match stats", th.Muted)}}
-	}
-	get := func(s *models.MatchTeamStats, f func(*models.MatchTeamStats) string) string {
-		if s == nil {
-			return components.Missing
-		}
-		return f(s)
-	}
-	lines := []struct {
-		label string
-		f     func(*models.MatchTeamStats) string
-	}{
-		{"Possession", func(s *models.MatchTeamStats) string {
-			if s.Possession == nil {
-				return components.Missing
-			}
-			return strconv.FormatFloat(*s.Possession, 'f', 0, 64) + "%"
-		}},
-		{"Shots", func(s *models.MatchTeamStats) string { return components.Int(s.Shots) }},
-		{"On target", func(s *models.MatchTeamStats) string { return components.Int(s.ShotsOnTarget) }},
-		{"Corners", func(s *models.MatchTeamStats) string { return components.Int(s.Corners) }},
-		{"Fouls", func(s *models.MatchTeamStats) string { return components.Int(s.Fouls) }},
-	}
-	var rows [][]components.Cell
-	for _, l := range lines {
-		rows = append(rows, []components.Cell{
-			components.Text(""), components.Text(""), components.Text(""),
-			components.Styled("  "+l.label, th.Muted),
-			components.Styled(fmt.Sprintf("%s – %s", get(ours, l.f), get(theirs, l.f)), th.TableCell),
-		})
-	}
-	return rows
+	return components.BoxScore(m.deps.Theme, mt, m.team.ID, 3)
 }
 
 func (m *Model) tableHeight() int {

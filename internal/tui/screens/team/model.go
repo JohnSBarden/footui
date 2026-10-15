@@ -58,6 +58,18 @@ type Model struct {
 	seasonIdx    int
 
 	honours []models.Trophy
+
+	// recent are the club's last few finished games in every competition,
+	// for the strip under the header, with the names their rows need.
+	recent       []models.Match
+	recentTeams  map[string]models.Team
+	recentComps  map[string]models.Competition
+	recentLoaded bool
+	// fetching and queued say the club's recent games are being fetched
+	// or waiting to be.
+	fetching bool
+	queued   bool
+
 	// lastSync is the most recent refresh attempt for the selected
 	// competition-season, or nil when it has never been attempted.
 	lastSync      *models.SyncRun
@@ -120,19 +132,38 @@ func (m *Model) Title() string { return m.team.Name }
 // Keys implements core.Screen.
 func (m *Model) Keys() core.KeyMap {
 	return core.KeyMap{
-		Short: []key.Binding{keys.Move, keys.Competition, keys.Pane, keys.Open},
+		Short: []key.Binding{keys.Move, keys.Competition, keys.Pane, keys.Open, keys.Matches},
 		Full: [][]key.Binding{
 			{keys.Up, keys.Down, keys.PageUp, keys.PageDown},
 			{keys.Home, keys.End, keys.Competition},
-			{keys.Pane, keys.Open},
+			{keys.Pane, keys.Open, keys.Matches},
 		},
 	}
 }
 
-// Init implements core.Screen.
+// Init implements core.Screen: everything cached, and — once, on open —
+// whether the club's recent games need fetching.
 func (m *Model) Init() tea.Cmd {
-	return tea.Batch(m.loadHistory(), m.loadColors(), m.loadHonours())
+	return tea.Batch(m.load(), m.checkRecent())
 }
+
+// load reads everything the screen shows from the cache.
+func (m *Model) load() tea.Cmd {
+	return tea.Batch(m.loadHistory(), m.loadColors(), m.loadHonours(), m.loadRecent())
+}
+
+// RefreshRequest implements core.RefreshRequester for a club with no
+// table cached — a cup opponent — whose refresh can only be its recent
+// games. A club with tables refreshes its selected competition instead.
+func (m *Model) RefreshRequest() (core.RefreshRequest, bool) {
+	if m.loading || len(m.competitions) > 0 || m.fromCompetitionID != "" {
+		return core.RefreshRequest{}, false
+	}
+	return core.RefreshRequest{TeamID: m.team.ID, Name: m.team.Name}, true
+}
+
+// RecentGames returns the strip's games.
+func (m *Model) RecentGames() []models.Match { return m.recent }
 
 // FavoriteTarget implements core.Favoritable: the club, whichever pane has
 // the cursor. A player is favourited from their own screen.

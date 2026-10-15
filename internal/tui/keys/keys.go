@@ -165,6 +165,11 @@ var (
 		key.WithKeys("m"),
 		key.WithHelp("m", "matches"),
 	)
+	// Opponent opens the other side of the highlighted match.
+	Opponent = key.NewBinding(
+		key.WithKeys("o"),
+		key.WithHelp("o", "opponent"),
+	)
 	Tables = key.NewBinding(
 		key.WithKeys("m"),
 		key.WithHelp("m", "tables"),

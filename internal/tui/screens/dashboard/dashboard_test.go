@@ -105,6 +105,27 @@ func TestCardsAreGroupedLeaguesClubsPlayers(t *testing.T) {
 	}
 }
 
+// A starred club's card shows its form over its last games in every
+// competition, oldest first.
+func TestAClubCardShowsItsForm(t *testing.T) {
+	repos, deps, _ := seed(t)
+	day := func(d int) time.Time { return storagetest.Fixed.AddDate(0, 0, -d) }
+	one, two, zero := 1, 2, 0
+	if err := repos.UpsertMatches(ctx, []models.Match{
+		{ID: "m1", CompetitionID: "eng-premier-league", SeasonID: "eng-premier-league:2025", Kickoff: day(7),
+			Status: models.MatchFullTime, HomeTeamID: "eng-arsenal", AwayTeamID: "eng-luton-town",
+			HomeScore: &zero, AwayScore: &one, Source: "test", UpdatedAt: day(0)},
+		{ID: "m2", CompetitionID: "eng-premier-league", SeasonID: "eng-premier-league:2025", Kickoff: day(3),
+			Status: models.MatchFullTime, HomeTeamID: "eng-manchester-city", AwayTeamID: "eng-arsenal",
+			HomeScore: &one, AwayScore: &two, Source: "test", UpdatedAt: day(0)},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if view := load(t, deps, 120).View(); !strings.Contains(view, "Form L W") {
+		t.Errorf("no form line:\n%s", view)
+	}
+}
+
 func TestCardsShowWhereEachFavouriteStands(t *testing.T) {
 	_, deps, _ := seed(t)
 	view := load(t, deps, 120).View()

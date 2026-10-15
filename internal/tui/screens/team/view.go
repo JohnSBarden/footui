@@ -26,8 +26,16 @@ func (m *Model) View() string {
 	case m.loading:
 		b.WriteString(th.Muted.Render("Loading…"))
 		return b.String()
-	case len(m.competitions) == 0:
+	case len(m.competitions) == 0 && len(m.recent) == 0 && !m.fetching && !m.queued:
 		b.WriteString(m.emptyState())
+		return b.String()
+	}
+
+	b.WriteString(m.recentStrip())
+	b.WriteString("\n\n")
+	if len(m.competitions) == 0 {
+		// A club known only from its games — a cup opponent — has no
+		// table to show beneath them.
 		return b.String()
 	}
 

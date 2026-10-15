@@ -74,7 +74,8 @@ type Card struct {
 	// rows, shown beneath them so a favourite club is always visible.
 	Starred []StandingRow
 
-	// Club cards.
+	// Club cards. Summary (below) carries the club's form over its last
+	// games in every competition.
 	Team      models.Team
 	TeamStats *models.TeamSeasonStats
 
@@ -299,6 +300,10 @@ func loadTeam(deps core.Deps, id string) (Card, error) {
 		return loadNation(deps, team)
 	}
 	c.Team = team
+	// The club's form, from its last games in every competition.
+	if recent, err := deps.Repos.RecentMatches(deps.Ctx, id, 5); err == nil {
+		c.Summary = models.SummarizeMatches(id, recent)
+	}
 	history, err := deps.Repos.TeamHistory(deps.Ctx, id)
 	if err != nil || len(history) == 0 {
 		return c, err

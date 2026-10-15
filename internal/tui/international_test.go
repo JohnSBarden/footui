@@ -9,6 +9,8 @@ import (
 
 	"github.com/JohnSBarden/footui/internal/data/models"
 	"github.com/JohnSBarden/footui/internal/tui/core"
+	"github.com/JohnSBarden/footui/internal/tui/screens/nation"
+	"github.com/JohnSBarden/footui/internal/tui/screens/team"
 	"github.com/JohnSBarden/footui/internal/tui/styles"
 )
 
@@ -79,10 +81,10 @@ func TestTheTeamRouteOpensANationForANationalTeam(t *testing.T) {
 	if got := deps.Nav.Team(deps, models.Team{ID: "nat-arcadia", Name: "Arcadia", National: true}, "", ""); got.Title() != "Arcadia" {
 		t.Fatalf("got %T", got)
 	}
-	if _, ok := deps.Nav.Team(deps, models.Team{ID: "nat-arcadia", Name: "Arcadia", National: true}, "", "").(core.RefreshRequester); !ok {
+	if _, ok := deps.Nav.Team(deps, models.Team{ID: "nat-arcadia", Name: "Arcadia", National: true}, "", "").(*nation.Model); !ok {
 		t.Error("a national team should open the nation screen")
 	}
-	if _, ok := NewTeamScreen(deps, models.Team{ID: "eng-arsenal", Name: "Arsenal"}).(core.RefreshRequester); ok {
+	if _, ok := deps.Nav.Team(deps, models.Team{ID: "eng-arsenal", Name: "Arsenal"}, "", "").(*team.Model); !ok {
 		t.Error("a club should open the team screen")
 	}
 }

@@ -26,7 +26,22 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 			}
 		}
 		m.loading = true
-		return m, m.Init()
+		return m, m.load()
+
+	case core.RefreshQueueMsg:
+		m.fetching = msg.Active != nil && msg.Active.TeamID == m.team.ID
+		m.queued = false
+		for _, r := range msg.Pending {
+			if r.TeamID == m.team.ID {
+				m.queued = true
+			}
+		}
+		return m, nil
+
+	case recentLoadedMsg:
+		m.recent, m.recentTeams, m.recentComps = msg.matches, msg.teams, msg.comps
+		m.recentLoaded = true
+		return m, nil
 
 	case historyLoadedMsg:
 		m.competitions = msg.competitions
@@ -115,6 +130,11 @@ func (m *Model) handleKey(msg tea.KeyMsg) (core.Screen, tea.Cmd) {
 		return m, m.setCursor(m.paneLen() - 1)
 	case "enter":
 		return m, m.drillDown()
+	case "m":
+		if m.deps.Nav.Games == nil {
+			return m, nil
+		}
+		return m, core.Push(m.deps.Nav.Games(m.deps, m.team))
 	}
 	return m, nil
 }
