@@ -33,17 +33,17 @@ func seedInternational(t *testing.T) *Store {
 	mustNoErr(t, s.UpsertMatches(ctx, []models.Match{
 		{ID: "m1", CompetitionID: "int-friendly", SeasonID: "int-friendly:2025", Kickoff: kick(2025, 3, 20),
 			Status: models.MatchFullTime, HomeTeamID: "nat-arcadia", AwayTeamID: "nat-borduria",
-			HomeScore: ptrI(2), AwayScore: ptrI(0),
-			HomeStats: &models.MatchTeamStats{Possession: ptrF(61), Shots: ptrI(14)},
-			AwayStats: &models.MatchTeamStats{Possession: ptrF(39), Shots: ptrI(4)},
+			HomeScore: new(2), AwayScore: new(0),
+			HomeStats: &models.MatchTeamStats{Possession: new(61.0), Shots: new(14)},
+			AwayStats: &models.MatchTeamStats{Possession: new(39.0), Shots: new(4)},
 			Source:    "test", UpdatedAt: fixtureTime},
 		{ID: "m2", CompetitionID: "wcq-uefa", SeasonID: "wcq-uefa:2025", Kickoff: kick(2025, 9, 6),
 			Status: models.MatchFullTime, HomeTeamID: "nat-carpania", AwayTeamID: "nat-arcadia",
-			HomeScore: ptrI(1), AwayScore: ptrI(1), Round: "Group K", Source: "test", UpdatedAt: fixtureTime},
+			HomeScore: new(1), AwayScore: new(1), Round: "Group K", Source: "test", UpdatedAt: fixtureTime},
 		{ID: "m3", CompetitionID: "world-cup", SeasonID: "world-cup:2026", Kickoff: kick(2026, 7, 4),
 			Status: models.MatchPens, HomeTeamID: "nat-arcadia", AwayTeamID: "nat-carpania", Neutral: true,
-			HomeScore: ptrI(0), AwayScore: ptrI(0), HomePens: ptrI(3), AwayPens: ptrI(4), Round: "Quarterfinal",
-			HomeStats: &models.MatchTeamStats{Possession: ptrF(55), Shots: ptrI(10), ShotsOnTarget: ptrI(3)},
+			HomeScore: new(0), AwayScore: new(0), HomePens: new(3), AwayPens: new(4), Round: "Quarterfinal",
+			HomeStats: &models.MatchTeamStats{Possession: new(55.0), Shots: new(10), ShotsOnTarget: new(3)},
 			Source:    "test", UpdatedAt: fixtureTime},
 		{ID: "m4", CompetitionID: "int-friendly", SeasonID: "int-friendly:2026", Kickoff: kick(2026, 11, 14),
 			Status: models.MatchScheduled, HomeTeamID: "nat-borduria", AwayTeamID: "nat-arcadia",
@@ -138,7 +138,7 @@ func TestARescheduledMatchUpdatesInPlaceAndKeepsItsStats(t *testing.T) {
 	s := seedInternational(t)
 	moved := models.Match{ID: "m1", CompetitionID: "int-friendly", SeasonID: "int-friendly:2025",
 		Kickoff: kick(2025, 3, 21), Status: models.MatchFullTime, HomeTeamID: "nat-arcadia", AwayTeamID: "nat-borduria",
-		HomeScore: ptrI(3), AwayScore: ptrI(0), HomeStats: &models.MatchTeamStats{Corners: ptrI(7)},
+		HomeScore: new(3), AwayScore: new(0), HomeStats: &models.MatchTeamStats{Corners: new(7)},
 		Source: "test", UpdatedAt: fixtureTime}
 	mustNoErr(t, s.UpsertMatches(ctx, []models.Match{moved}))
 	got, _ := s.MatchesForTeam(ctx, "nat-arcadia", models.MatchFilter{Competitions: []string{"int-friendly"}}, []int{2025})
@@ -178,8 +178,8 @@ func TestMatchXGRoundTrips(t *testing.T) {
 	s := seedInternational(t)
 	mustNoErr(t, s.UpsertMatches(ctx, []models.Match{{ID: "m5", CompetitionID: "int-friendly", SeasonID: "int-friendly:2026",
 		Kickoff: kick(2026, 3, 1), Status: models.MatchFullTime, HomeTeamID: "nat-arcadia", AwayTeamID: "nat-borduria",
-		HomeScore: ptrI(1), AwayScore: ptrI(1),
-		HomeStats: &models.MatchTeamStats{XG: ptrF(1.84)}, AwayStats: &models.MatchTeamStats{XG: ptrF(0.32), Shots: ptrI(5)},
+		HomeScore: new(1), AwayScore: new(1),
+		HomeStats: &models.MatchTeamStats{XG: new(1.84)}, AwayStats: &models.MatchTeamStats{XG: new(0.32), Shots: new(5)},
 		Source: "test", UpdatedAt: fixtureTime}}))
 	got, err := s.RecentMatches(ctx, "nat-borduria", 1)
 	if err != nil || len(got) != 1 || got[0].ID != "m5" {
@@ -292,7 +292,7 @@ func TestGroupLabelsOrderAStandingsTable(t *testing.T) {
 		mustNoErr(t, s.UpsertTeam(ctx, models.Team{ID: row.team, Name: row.team, Gender: "men", National: true}))
 		mustNoErr(t, s.LinkTeamCompetitionSeason(ctx, row.team, "world-cup", "world-cup:2026"))
 		mustNoErr(t, s.UpsertTeamSeasonStats(ctx, models.TeamSeasonStats{TeamID: row.team, CompetitionID: "world-cup",
-			SeasonID: "world-cup:2026", GroupLabel: row.group, Position: ptrI(row.pos), Points: 9 - i, Source: "test", UpdatedAt: fixtureTime}))
+			SeasonID: "world-cup:2026", GroupLabel: row.group, Position: new(row.pos), Points: 9 - i, Source: "test", UpdatedAt: fixtureTime}))
 	}
 	rows, err := s.Standings(ctx, "world-cup", "world-cup:2026")
 	mustNoErr(t, err)

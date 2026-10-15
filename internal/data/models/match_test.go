@@ -5,11 +5,9 @@ import (
 	"time"
 )
 
-func ip(n int) *int         { return &n }
-func fp(f float64) *float64 { return &f }
-func day(d int) time.Time   { return time.Date(2026, 3, d, 19, 0, 0, 0, time.UTC) }
+func day(d int) time.Time { return time.Date(2026, 3, d, 19, 0, 0, 0, time.UTC) }
 func stats(poss float64, shots int) *MatchTeamStats {
-	return &MatchTeamStats{Possession: fp(poss), Shots: ip(shots)}
+	return &MatchTeamStats{Possession: new(poss), Shots: new(shots)}
 }
 
 func TestSummarizeMatchesCountsResultsAndSkipsMissingStats(t *testing.T) {
@@ -18,11 +16,11 @@ func TestSummarizeMatchesCountsResultsAndSkipsMissingStats(t *testing.T) {
 		// Newest first, as storage returns them; the summary mustn't care.
 		{ID: "4", Kickoff: day(9), Status: MatchScheduled, HomeTeamID: me, AwayTeamID: "nat-x"},
 		{ID: "3", Kickoff: day(7), Status: MatchPens, HomeTeamID: "nat-x", AwayTeamID: me,
-			HomeScore: ip(1), AwayScore: ip(1), HomePens: ip(4), AwayPens: ip(5)},
+			HomeScore: new(1), AwayScore: new(1), HomePens: new(4), AwayPens: new(5)},
 		{ID: "2", Kickoff: day(5), Status: MatchFullTime, HomeTeamID: me, AwayTeamID: "nat-y",
-			HomeScore: ip(0), AwayScore: ip(2), HomeStats: &MatchTeamStats{Shots: ip(10)}},
+			HomeScore: new(0), AwayScore: new(2), HomeStats: &MatchTeamStats{Shots: new(10)}},
 		{ID: "1", Kickoff: day(3), Status: MatchAET, HomeTeamID: "nat-z", AwayTeamID: me,
-			HomeScore: ip(1), AwayScore: ip(3), AwayStats: stats(60, 20), HomeStats: stats(40, 2)},
+			HomeScore: new(1), AwayScore: new(3), AwayStats: stats(60, 20), HomeStats: stats(40, 2)},
 		{ID: "0", Kickoff: day(1), Status: MatchCancelled, HomeTeamID: me, AwayTeamID: "nat-q"},
 	}
 	s := SummarizeMatches(me, matches)
@@ -53,7 +51,7 @@ func TestFormKeepsTheLastFive(t *testing.T) {
 	var ms []Match
 	for d := 1; d <= 7; d++ {
 		ms = append(ms, Match{Kickoff: day(d), Status: MatchFullTime, HomeTeamID: "a", AwayTeamID: "b",
-			HomeScore: ip(d % 2), AwayScore: ip(0)})
+			HomeScore: new(d % 2), AwayScore: new(0)})
 	}
 	if got := SummarizeMatches("a", ms).Form; got != "WDWDW" {
 		t.Errorf("form %q", got)

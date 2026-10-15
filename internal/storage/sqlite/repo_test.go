@@ -12,9 +12,6 @@ import (
 
 var ctx = context.Background()
 
-func ptrF(v float64) *float64 { return &v }
-func ptrI(v int) *int         { return &v }
-
 func mustNoErr(t *testing.T, err error) {
 	t.Helper()
 	if err != nil {
@@ -181,9 +178,9 @@ func TestTeamSeasonStatsRoundTripKeepsNullsNull(t *testing.T) {
 	season := seedCompetitionSeason(t, s, "c", "2025", "club", "Club")
 	in := models.TeamSeasonStats{
 		TeamID: "club", CompetitionID: "c", SeasonID: season,
-		Position: ptrI(3), MatchesPlayed: 10, Wins: 6, Draws: 2, Losses: 2,
+		Position: new(3), MatchesPlayed: 10, Wins: 6, Draws: 2, Losses: 2,
 		GoalsFor: 20, GoalsAgainst: 9, GoalDiff: 11, Points: 20,
-		XG: ptrF(18.25), Source: "test",
+		XG: new(18.25), Source: "test",
 	}
 	mustNoErr(t, s.UpsertTeamSeasonStats(ctx, in))
 	// Upserting again with new numbers replaces, not duplicates.

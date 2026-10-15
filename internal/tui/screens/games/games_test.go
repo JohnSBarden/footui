@@ -20,9 +20,6 @@ import (
 
 var club = models.Team{ID: "eng-wessex", Name: "Wessex", Country: "England", Gender: "men"}
 
-func ip(n int) *int         { return &n }
-func fp(f float64) *float64 { return &f }
-
 // seed stores 32 finished games for the club, alternating home and away
 // against two fictional opponents, newest on 2026-03-31; the newest has
 // ESPN's box score, the one before understat's xG.
@@ -51,16 +48,16 @@ func seed(t *testing.T) storage.Repositories {
 		}
 		m := models.Match{ID: fmt.Sprintf("g%02d", i), CompetitionID: comp.ID, SeasonID: comp.ID + ":2025",
 			Kickoff: time.Date(2026, 3, 31, 15, 0, 0, 0, time.UTC).AddDate(0, 0, -i), Status: models.MatchFullTime,
-			HomeTeamID: club.ID, AwayTeamID: opp, HomeScore: ip(i % 3), AwayScore: ip(1), Source: "test", UpdatedAt: time.Now()}
+			HomeTeamID: club.ID, AwayTeamID: opp, HomeScore: new(i % 3), AwayScore: new(1), Source: "test", UpdatedAt: time.Now()}
 		if i%2 == 1 {
 			m.HomeTeamID, m.AwayTeamID = opp, club.ID
 		}
 		ms = append(ms, m)
 	}
-	ms[0].HomeStats = &models.MatchTeamStats{Possession: fp(57), Shots: ip(15), ShotsOnTarget: ip(6), Corners: ip(7), Fouls: ip(9)}
-	ms[0].AwayStats = &models.MatchTeamStats{Possession: fp(43), Shots: ip(8), ShotsOnTarget: ip(2), Corners: ip(3), Fouls: ip(12)}
-	ms[1].HomeStats = &models.MatchTeamStats{XG: fp(1.42)}
-	ms[1].AwayStats = &models.MatchTeamStats{XG: fp(0.37)}
+	ms[0].HomeStats = &models.MatchTeamStats{Possession: new(57.0), Shots: new(15), ShotsOnTarget: new(6), Corners: new(7), Fouls: new(9)}
+	ms[0].AwayStats = &models.MatchTeamStats{Possession: new(43.0), Shots: new(8), ShotsOnTarget: new(2), Corners: new(3), Fouls: new(12)}
+	ms[1].HomeStats = &models.MatchTeamStats{XG: new(1.42)}
+	ms[1].AwayStats = &models.MatchTeamStats{XG: new(0.37)}
 	must(repos.UpsertMatches(ctx, ms))
 	return repos
 }

@@ -175,14 +175,14 @@ func writeFixture(t *testing.T, path string) {
 	mustNoErr(t, s.LinkTeamCompetitionSeason(ctx, "eng-arsenal", "eng-premier-league", "eng-premier-league:2025"))
 	mustNoErr(t, s.UpsertTeamSeasonStats(ctx, models.TeamSeasonStats{
 		TeamID: "eng-arsenal", CompetitionID: "eng-premier-league", SeasonID: "eng-premier-league:2025",
-		Position: ptrI(1), MatchesPlayed: 38, Wins: 26, Draws: 7, Losses: 5, GoalsFor: 84, GoalsAgainst: 29,
-		GoalDiff: 55, Points: 85, XG: ptrF(77.5), XGA: ptrF(31.2),
+		Position: new(1), MatchesPlayed: 38, Wins: 26, Draws: 7, Losses: 5, GoalsFor: 84, GoalsAgainst: 29,
+		GoalDiff: 55, Points: 85, XG: new(77.5), XGA: new(31.2),
 		Extras: map[string]float64{models.StatPPDA: 10.3}, Source: "understat", UpdatedAt: fixtureTime,
 	}))
 	mustNoErr(t, s.UpsertPlayer(ctx, models.Player{ID: "p-saka", Name: "Bukayo Saka", Position: "M", Gender: "men"}))
 	mustNoErr(t, s.UpsertPlayerSeasonStats(ctx, models.PlayerSeasonStats{
 		PlayerID: "p-saka", TeamID: "eng-arsenal", CompetitionID: "eng-premier-league", SeasonID: "eng-premier-league:2025",
-		Appearances: 35, Minutes: 2900, Goals: 16, Assists: 11, XG: ptrF(14.1), Shots: ptrI(96),
+		Appearances: 35, Minutes: 2900, Goals: 16, Assists: 11, XG: new(14.1), Shots: new(96),
 		Source: "understat", UpdatedAt: fixtureTime,
 	}))
 	mustNoErr(t, s.InsertTrophy(ctx, models.Trophy{TeamID: "eng-arsenal", Title: "Premier League", SeasonLabel: "2003-04", TrophyType: "league_title", Source: "seed:v1"}))
@@ -207,12 +207,12 @@ func writeFixture(t *testing.T, path string) {
 		mustNoErr(t, s.LinkTeamCompetitionSeason(ctx, id, "world-cup", "world-cup:2026"))
 	}
 	mustNoErr(t, s.UpsertTeamSeasonStats(ctx, models.TeamSeasonStats{TeamID: "nat-england", CompetitionID: "world-cup",
-		SeasonID: "world-cup:2026", GroupLabel: "Group L", Position: ptrI(1), MatchesPlayed: 3, Wins: 3, Points: 9,
+		SeasonID: "world-cup:2026", GroupLabel: "Group L", Position: new(1), MatchesPlayed: 3, Wins: 3, Points: 9,
 		Source: "espn", UpdatedAt: fixtureTime}))
 	mustNoErr(t, s.UpsertMatches(ctx, []models.Match{{ID: "espn-900001", CompetitionID: "world-cup", SeasonID: "world-cup:2026",
 		Kickoff: fixtureTime, Status: models.MatchAET, Round: "Round of 16", HomeTeamID: "nat-england", AwayTeamID: "nat-arcadia",
-		Neutral: true, HomeScore: ptrI(2), AwayScore: ptrI(1),
-		HomeStats: &models.MatchTeamStats{Possession: ptrF(58.5), Shots: ptrI(17)}, Source: "espn", UpdatedAt: fixtureTime}}))
+		Neutral: true, HomeScore: new(2), AwayScore: new(1),
+		HomeStats: &models.MatchTeamStats{Possession: new(58.5), Shots: new(17)}, Source: "espn", UpdatedAt: fixtureTime}}))
 	mustNoErr(t, s.SetTeamMatchFilter(ctx, "nat-england", models.MatchFilter{Preset: models.PresetCompetitive}))
 	mustNoErr(t, s.RecordSyncRun(ctx, models.SyncRun{Provider: "espn", CompetitionID: "world-cup", Year: 2026,
 		StartedAt: fixtureTime, FinishedAt: fixtureTime, Status: models.SyncStatusOK, RowsUpserted: 1}))
@@ -226,13 +226,13 @@ func writeFixture(t *testing.T, path string) {
 	mustNoErr(t, s.UpsertMatches(ctx, []models.Match{
 		{ID: "understat-900002", CompetitionID: "eng-premier-league", SeasonID: "eng-premier-league:2025",
 			Kickoff: fixtureTime.Add(-72 * time.Hour), Status: models.MatchFullTime,
-			HomeTeamID: "eng-arsenal", AwayTeamID: "eng-wessex-rovers", HomeScore: ptrI(3), AwayScore: ptrI(1),
-			HomeStats: &models.MatchTeamStats{XG: ptrF(2.31)}, AwayStats: &models.MatchTeamStats{XG: ptrF(0.7)},
+			HomeTeamID: "eng-arsenal", AwayTeamID: "eng-wessex-rovers", HomeScore: new(3), AwayScore: new(1),
+			HomeStats: &models.MatchTeamStats{XG: new(2.31)}, AwayStats: &models.MatchTeamStats{XG: new(0.7)},
 			Source: "understat", UpdatedAt: fixtureTime},
 		{ID: "espn-900003", CompetitionID: "eng-fa-cup", SeasonID: "eng-fa-cup:2025",
 			Kickoff: fixtureTime.Add(-24 * time.Hour), Status: models.MatchPens, Round: "Third Round",
-			HomeTeamID: "eng-wessex-rovers", AwayTeamID: "eng-arsenal", HomeScore: ptrI(1), AwayScore: ptrI(1),
-			HomePens: ptrI(2), AwayPens: ptrI(4), Source: "espn", UpdatedAt: fixtureTime},
+			HomeTeamID: "eng-wessex-rovers", AwayTeamID: "eng-arsenal", HomeScore: new(1), AwayScore: new(1),
+			HomePens: new(2), AwayPens: new(4), Source: "espn", UpdatedAt: fixtureTime},
 	}))
 
 	mustNoErr(t, os.MkdirAll(filepath.Dir(path), 0o755))
@@ -344,8 +344,8 @@ func checkFixture(t *testing.T, s *Store) {
 	}
 	mustNoErr(t, s.UpsertMatches(ctx, []models.Match{{ID: "understat-1", CompetitionID: "eng-premier-league",
 		SeasonID: "eng-premier-league:2025", Kickoff: fixtureTime.Add(48 * time.Hour), Status: models.MatchFullTime,
-		HomeTeamID: "eng-arsenal", AwayTeamID: "nat-spain", HomeScore: ptrI(0), AwayScore: ptrI(0),
-		HomeStats: &models.MatchTeamStats{XG: ptrF(0.4)}, Source: "understat", UpdatedAt: fixtureTime}}))
+		HomeTeamID: "eng-arsenal", AwayTeamID: "nat-spain", HomeScore: new(0), AwayScore: new(0),
+		HomeStats: &models.MatchTeamStats{XG: new(0.4)}, Source: "understat", UpdatedAt: fixtureTime}}))
 }
 
 // A database folded by the old rules (which left Ø alone) is refolded on

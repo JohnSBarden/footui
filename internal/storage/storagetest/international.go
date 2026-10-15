@@ -19,8 +19,6 @@ var (
 	nationsByIDs = map[string]string{"nat-arcadia": "Arcadia", "nat-borduria": "Borduria", "nat-carpania": "Carpania", "nat-dravonia": "Dravonia"}
 )
 
-func ip(n int) *int                             { return &n }
-func fp(f float64) *float64                     { return &f }
 func kick(y int, m time.Month, d int) time.Time { return time.Date(y, m, d, 19, 0, 0, 0, time.UTC) }
 
 // SampleMatches is Arcadia's fictional 2025 and 2026: friendlies, a
@@ -30,7 +28,7 @@ func kick(y int, m time.Month, d int) time.Time { return time.Date(y, m, d, 19, 
 func SampleMatches() []models.Match {
 	m := func(id, comp string, edition int, at time.Time, status, round, home, away string, hs, as int) models.Match {
 		return models.Match{ID: id, CompetitionID: comp, SeasonID: comp + ":" + strconv.Itoa(edition), Kickoff: at,
-			Status: status, Round: round, HomeTeamID: home, AwayTeamID: away, HomeScore: ip(hs), AwayScore: ip(as),
+			Status: status, Round: round, HomeTeamID: home, AwayTeamID: away, HomeScore: new(hs), AwayScore: new(as),
 			Source: "test", UpdatedAt: Fixed}
 	}
 	ms := []models.Match{
@@ -44,11 +42,11 @@ func SampleMatches() []models.Match {
 		{ID: "m08", CompetitionID: "int-friendly", SeasonID: "int-friendly:2026", Kickoff: kick(2026, 11, 14),
 			Status: models.MatchScheduled, HomeTeamID: "nat-borduria", AwayTeamID: "nat-arcadia", Source: "test", UpdatedAt: Fixed},
 	}
-	ms[6].HomePens, ms[6].AwayPens = ip(3), ip(4)
+	ms[6].HomePens, ms[6].AwayPens = new(3), new(4)
 	ms[6].Neutral = true
-	ms[4].HomeStats = &models.MatchTeamStats{Possession: fp(61), Shots: ip(18), ShotsOnTarget: ip(7), Corners: ip(6), Fouls: ip(9)}
-	ms[4].AwayStats = &models.MatchTeamStats{Possession: fp(39), Shots: ip(6), ShotsOnTarget: ip(2), Corners: ip(2), Fouls: ip(14)}
-	ms[6].HomeStats = &models.MatchTeamStats{Possession: fp(55), Shots: ip(12)}
+	ms[4].HomeStats = &models.MatchTeamStats{Possession: new(61.0), Shots: new(18), ShotsOnTarget: new(7), Corners: new(6), Fouls: new(9)}
+	ms[4].AwayStats = &models.MatchTeamStats{Possession: new(39.0), Shots: new(6), ShotsOnTarget: new(2), Corners: new(2), Fouls: new(14)}
+	ms[6].HomeStats = &models.MatchTeamStats{Possession: new(55.0), Shots: new(12)}
 	return ms
 }
 
@@ -84,7 +82,7 @@ func SeedInternational(t *testing.T, repos storage.Repositories) {
 	} {
 		must(repos.LinkTeamCompetitionSeason(ctx, row.team, "world-cup", "world-cup:2026"))
 		must(repos.UpsertTeamSeasonStats(ctx, models.TeamSeasonStats{TeamID: row.team, CompetitionID: "world-cup",
-			SeasonID: "world-cup:2026", GroupLabel: row.group, Position: ip(row.pos), MatchesPlayed: 3,
+			SeasonID: "world-cup:2026", GroupLabel: row.group, Position: new(row.pos), MatchesPlayed: 3,
 			Points: row.pts, GoalsFor: 6 - i, Source: "test", UpdatedAt: Fixed}))
 	}
 }
