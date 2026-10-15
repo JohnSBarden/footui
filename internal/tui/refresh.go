@@ -121,6 +121,11 @@ func (a *App) enqueue(reqs ...core.RefreshRequest) tea.Cmd {
 		return nil
 	}
 	for _, req := range reqs {
+		if a.active != nil && len(mergeRequest([]core.RefreshRequest{*a.active}, req)) == 1 && len(req.Seasons) == 0 &&
+			(req.TeamID != "" || req.Nations != "" || req.Directory) {
+			// Already running: the same matches are being fetched now.
+			continue
+		}
 		a.queue = mergeRequest(a.queue, req)
 	}
 	if a.active != nil {
@@ -136,8 +141,11 @@ func mergeRequest(queue []core.RefreshRequest, req core.RefreshRequest) []core.R
 		if q.Key() != req.Key() {
 			continue
 		}
-		// The directory is the directory: asking twice is asking once.
-		if req.Directory {
+		// The directory is the directory: asking twice is asking once. So
+		// is a team's or a gender's matches with no years named — this
+		// year and last — which the stale check on open and the Team
+		// screen can both ask for.
+		if req.Directory || (req.TeamID != "" || req.Nations != "") && len(q.Seasons) == 0 && len(req.Seasons) == 0 {
 			return queue
 		}
 		// An empty season list means "the current season", which isn't

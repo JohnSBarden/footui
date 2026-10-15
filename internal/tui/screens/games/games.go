@@ -42,7 +42,7 @@ func New(deps core.Deps, team models.Team) *Model {
 }
 
 // Title implements core.Screen.
-func (m *Model) Title() string { return m.team.Name + " · games" }
+func (m *Model) Title() string { return "Games" }
 
 // Keys implements core.Screen.
 func (m *Model) Keys() core.KeyMap {

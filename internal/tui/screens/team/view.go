@@ -370,7 +370,7 @@ func (m *Model) paneTitle(label string, focused bool) string {
 // paneHeight splits the remaining vertical space between the two tables.
 func (m *Model) paneHeight() int {
 	const chrome = 18 // header, tabs, stat cards, both pane titles, footer
-	h := (m.height - chrome) / 2
+	h := (m.height - chrome - m.recentHeight()) / 2
 	if h < 4 {
 		return 4
 	}

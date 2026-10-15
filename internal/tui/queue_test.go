@@ -40,6 +40,19 @@ func TestRequestedRefreshesRunInOrderAndEveryScreenHears(t *testing.T) {
 	}
 }
 
+// A club's recent games asked for while they're already being fetched —
+// the stale check started them, then the Team screen opened — aren't
+// queued to run again.
+func TestRecentGamesAlreadyRunningAreNotQueuedAgain(t *testing.T) {
+	app := newAppWithRefresh(newFake("Team"), &fakeRefresher{summary: "ok"})
+	app.active = &core.RefreshRequest{TeamID: "eng-arsenal", Automatic: true}
+	app.enqueue(core.RefreshRequest{TeamID: "eng-arsenal", Automatic: true, Why: "opened"},
+		core.RefreshRequest{TeamID: "eng-chelsea", Automatic: true})
+	if len(app.queue) != 1 || app.queue[0].TeamID != "eng-chelsea" {
+		t.Errorf("queue %+v", app.queue)
+	}
+}
+
 // One league failing must neither stop the rest of the queue nor be
 // hidden by a later league succeeding.
 func TestABatchFailureIsReportedAfterTheRestRun(t *testing.T) {

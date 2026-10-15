@@ -38,6 +38,17 @@ func TestARateLimitDropsTheQueue(t *testing.T) {
 	}
 }
 
+// The stale check on open and the Team screen can both queue a club's
+// recent games; that is one refresh, not two.
+func TestAClubsRecentGamesAreQueuedOnce(t *testing.T) {
+	q := mergeRequest(nil, core.RefreshRequest{TeamID: "eng-arsenal", Automatic: true, Why: "starred"})
+	q = mergeRequest(q, core.RefreshRequest{TeamID: "eng-chelsea", Automatic: true})
+	q = mergeRequest(q, core.RefreshRequest{TeamID: "eng-arsenal", Automatic: true, Why: "opened"})
+	if len(q) != 2 || q[0].TeamID != "eng-arsenal" || q[1].TeamID != "eng-chelsea" {
+		t.Errorf("queue %+v", q)
+	}
+}
+
 func TestNationRequestsMergeByWhatTheyFetch(t *testing.T) {
 	q := mergeRequest(nil, core.RefreshRequest{Directory: true})
 	q = mergeRequest(q, core.RefreshRequest{Directory: true})

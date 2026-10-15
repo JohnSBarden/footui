@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 
 	"github.com/JohnSBarden/footui/internal/data/models"
 	"github.com/JohnSBarden/footui/internal/tui/components"
@@ -86,6 +87,12 @@ func (m *Model) recentStrip() string {
 		lines = append(lines, m.recentTable())
 	}
 	return strings.Join(lines, "\n")
+}
+
+// recentHeight is how many lines the strip and the gap beneath it take,
+// which the tables below give up so the screen still fits.
+func (m *Model) recentHeight() int {
+	return lipgloss.Height(m.recentStrip()) + 1
 }
 
 func (m *Model) recentTable() string {

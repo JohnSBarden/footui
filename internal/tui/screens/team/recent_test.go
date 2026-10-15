@@ -2,6 +2,7 @@ package team_test
 
 import (
 	"context"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -103,6 +104,42 @@ func TestTheRecentStripShowsFormAndTheLastFiveGames(t *testing.T) {
 	// The club's tables are still there beneath it.
 	if !strings.Contains(out, "Premier League") {
 		t.Errorf("the seasons are gone\n---\n%s", out)
+	}
+}
+
+// The strip takes rows from the tables beneath it, so the screen still
+// fits the window and its header isn't pushed off the top.
+func TestTheStripStillFitsTheScreen(t *testing.T) {
+	repos := seedTwoCompetitions(t)
+	seedGames(t, repos)
+	// Enough seasons and players to fill both tables.
+	for y := 2010; y < 2025; y++ {
+		storagetest.SeedCompetition(t, repos, storagetest.PremierLeague(), strconv.Itoa(y), []storagetest.TeamRow{
+			{ID: arsenal.ID, Name: "Arsenal", Position: 2, MP: 38, W: 20, D: 9, L: 9, GF: 60, GA: 40, Pts: 69},
+		})
+	}
+	var squad []models.Player
+	var lines []models.PlayerSeasonStats
+	for i := range 30 {
+		id := "p" + strings.Repeat("x", i+1)
+		squad = append(squad, models.Player{ID: id, Name: "Player " + id, Gender: "men"})
+		lines = append(lines, models.PlayerSeasonStats{PlayerID: id, TeamID: arsenal.ID, CompetitionID: "eng-premier-league",
+			SeasonID: "eng-premier-league:2025", Appearances: 10, Source: "test", UpdatedAt: time.Now()})
+	}
+	ctx := context.Background()
+	for i := range squad {
+		if err := repos.UpsertPlayer(ctx, squad[i]); err != nil {
+			t.Fatal(err)
+		}
+		if err := repos.UpsertPlayerSeasonStats(ctx, lines[i]); err != nil {
+			t.Fatal(err)
+		}
+	}
+	const height = 44
+	s := tuitest.Resize(t, tuitest.Settle(t, team.New(newDeps(repos), arsenal, "", "")), 110, height)
+	out := s.View()
+	if got := strings.Count(out, "\n") + 1; got > height {
+		t.Errorf("view is %d lines in a %d-line window\n---\n%s", got, height, out)
 	}
 }
 
