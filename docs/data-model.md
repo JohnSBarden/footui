@@ -33,8 +33,10 @@ National teams take the same idea one step further, to **the match**. A
 nation's year is a dozen matches across half a dozen competitions, and
 which of them count (friendlies? qualifiers?) is the user's choice, so
 every match is stored and a nation's record is computed from the matches a
-filter keeps, on read. Clubs are untouched; the `match` table is built so
-they could move to it later.
+filter keeps, on read. Clubs keep their season lines, and their games go
+in the same `match` table too (schema 0009): a club's recent games are its
+last matches in every competition — league, cups, Europe — read straight
+from it.
 
 ## Competition
 
@@ -47,8 +49,8 @@ they could move to it later.
 | `Gender` | string | `"men"` \| `"women"`. |
 | `Format` | string | `"league"` (default) or `"cup"`. |
 | `CalendarYear` | bool | Seasons fall within one calendar year (MLS, NWSL), so the 2026 season displays as `2026` rather than `2026-27`. |
-| `Category` | string | Empty for a club competition. International ones are `tournament` (World Cup, Euros, Copa América, AFCON, …), `qualifier`, `nations-league` or `friendly` — what a nation's filter presets select on. Schema 0008. |
-| `ShortName` | string | A compact label for tight columns: `WC`, `WCQ`, `UNL`, `FRI`. |
+| `Category` | string | Empty for a club league. International ones are `tournament` (World Cup, Euros, Copa América, AFCON, …), `qualifier`, `nations-league` or `friendly` — what a nation's filter presets select on (schema 0008). A domestic cup is `cup`: a source of clubs' games, never browsed or given a table, and not international (`Competition.Cup()`). |
+| `ShortName` | string | A compact label for tight columns: `WC`, `WCQ`, `UNL`, `FRI`, and for clubs `PL`, `UCL`, `FAC`. Stored with the competition; a row cached before club leagues had one gets it from the coverage registry when shown. |
 
 An international competition's season is an **edition**, keyed by the year
 it is named for — Euro 2024 is `2024`, the 2024-25 Nations League is
@@ -228,27 +230,30 @@ fetched again. A refusal for asking too often is logged with status
 
 ## Match
 
-One game, the grain national teams are tracked at (schema 0008).
-International matches are fetched a competition-year at a time — every
-nation's matches in, say, the 2025 friendlies, in one request — and
-upserted by ID, never deleted: a rescheduled fixture moves, a played one
-gets its score.
+One game, the grain national teams are tracked at (schema 0008) and clubs'
+recent games come from (schema 0009). ESPN's matches are fetched a
+competition-year at a time — every nation's matches in, say, the 2025
+friendlies, or every club's in the 2025 FA Cup, in one request; understat's
+league matches come with the league season's payload. All are upserted by
+ID, never deleted: a rescheduled fixture moves, a played one gets its
+score.
 
 | Field | Type | Notes |
 |---|---|---|
-| `ID` | string | Canonical, `espn-{event id}`, recorded in `external_ref` like a team. |
+| `ID` | string | Canonical, `espn-{event id}` or `understat-{match id}`, recorded in `external_ref` like a team. |
 | `CompetitionID`, `SeasonID` | string | The season is the **edition** ESPN files the match under, not the year it was fetched for: AFCON 2025's January matches are in `afcon:2025`. |
 | `Kickoff` | `time.Time` | UTC, stored as RFC3339 text. A nation's years are calendar years of kickoff. |
 | `Status` | string | `scheduled`, `in_play`, `ft`, `aet`, `pens`, `postponed`, `cancelled`. Only `ft`/`aet`/`pens` count in a record. |
 | `Round` | string | A display label: the group ("Group B") or the stage ("Quarterfinal"); empty for a friendly. |
 | `HomeTeamID`, `AwayTeamID` | string | Canonical team IDs. |
-| `Neutral` | bool | Played in a country neither side is from (from the venue; ESPN's scoreboard has no flag). |
+| `Neutral` | bool | ESPN's neutral-site flag where it sends one; otherwise, for internationals, played in a country neither side is from (from the venue). A club match without the flag is not neutral. |
 | `HomeScore`, `AwayScore` | `*int` | Nil until it starts. After a shoot-out, the score after extra time. |
 | `HomePens`, `AwayPens` | `*int` | The shoot-out, for a `pens` match. |
-| `HomeStats`, `AwayStats` | `*MatchTeamStats` | Nil when ESPN had none for that side. |
+| `HomeStats`, `AwayStats` | `*MatchTeamStats` | Nil when the source had none for that side. |
 
 `MatchTeamStats` (`match_team_stats`, keyed by match and team) holds
-possession, shots, shots on target, corners and fouls, each nullable. As
+possession, shots, shots on target, corners and fouls from ESPN, and xG
+from understat (schema 0009), each nullable. As
 with club seasons, impossible figures are dropped rather than stored
 (possession outside 0–100, more shots on target than shots), a side
 reporting nothing but zeroes has no stats, and a later fetch that lacks a

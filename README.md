@@ -7,7 +7,8 @@ A terminal dashboard for drillable football statistics.
 `footui` (binary: `footy`) fetches league, team, and player data into a local
 SQLite cache and lets you drill through it in an interactive TUI:
 **Browse → League → Team → Player**, with expected goals, pressing metrics,
-squad breakdowns, and club honours along the way. National teams and
+squad breakdowns, club honours, and every club's recent games — league,
+cups and Europe — along the way. National teams and
 international tournaments are covered too: every match a nation plays,
 friendlies included, filterable down to the competitions you care about.
 
@@ -120,7 +121,8 @@ On the dashboard the arrow keys (or `hjkl`) move between cards. On the
 League screen `←`/`→` change season; for a tournament, `[`/`]` step through
 its groups and `m` switches to every fixture by round. On Team and Player
 `←`/`→` change competition, and on Team `tab` moves between the seasons and
-the squad. On a nation, `←`/`→` change year, `tab` moves into the
+the squad, and `m` opens the club's last 30 games (`enter` for a box score,
+`o` to open the opponent). On a nation, `←`/`→` change year, `tab` moves into the
 competition filter (`←`/`→` along it, `space` to apply), and `enter` opens a
 match's box score.
 
@@ -142,8 +144,9 @@ starred, `footy` opens on a dashboard of them instead of the search box:
 
 - **League cards** show the top of the current table, with any club you've
   starred picked out, even if it's further down.
-- **Club cards** show league position, points, the season's record, and xG
-  against goals where understat covers the league.
+- **Club cards** show league position, points, the season's record, xG
+  against goals where understat covers the league, and form over the last
+  five games in every competition.
 - **Player cards** show the season's goals and assists, plus xG and xA
   where available, for the club and competition they've played most in.
 
@@ -158,6 +161,30 @@ seasons of it before.
 Favourites are kept in the database and survive refreshes. They're keyed by
 footy's own IDs, so a club starred from its Premier League page is the same
 favourite when you reach it through the Champions League.
+
+### Recent games
+
+A club's screen opens with its form and its last five games in every
+competition — its league, its country's cups, and Europe — each with the
+score from the club's side, extra time and shoot-outs marked, and xG where
+understat covers the league. `m` lists the last 30, with a box score for
+each (possession, shots, corners and fouls from ESPN; xG from understat).
+
+They arrive on their own: opening a club fetches what its games need, if
+anything, and a starred club is kept current when footy opens. A league's
+games come with its table — understat lists them in the payload footy
+already downloads — and everything else comes from ESPN's yearly match
+lists, shared by every club. So the first English club costs about ten
+requests (the FA Cup, the League Cup and the three European competitions,
+this year and last), and every English club after it costs none. The same
+rules as national teams keep it polite: a year that has ended is never
+fetched again, and a rate limit stops footy at once.
+
+Cup opponents from outside the leagues footy covers are clubs of their own:
+open one from a game and you get its games, without a table. The cups are
+the FA Cup, League Cup, Copa del Rey, DFB-Pokal, Coppa Italia, Coupe de
+France and U.S. Open Cup, men's only; super cups and CONCACAF's club
+competitions aren't included.
 
 ### National teams and tournaments
 
@@ -256,8 +283,10 @@ League and 2025 for the women's one. Each match has the result and, where
 ESPN has them, both sides' possession, shots, shots on target, corners and
 fouls; cards and saves aren't in the data footy fetches.
 
-Not covered: the German and Italian women's leagues, third tiers and
-below, domestic cups, and player stats for national teams.
+Domestic cups (the seven listed under [Recent games](#recent-games)) are
+there as clubs' games only, with no tables of their own. Not covered: the
+German and Italian women's leagues, third tiers and below as competitions,
+women's cups, and player stats for national teams.
 
 A club or player reached through both sources is one entity: Arsenal's
 Champions League seasons sit on the same dashboard as its Premier League
@@ -298,7 +327,7 @@ easiest way to improve coverage.
 | `footy league <name>` | Open a competition's standings |
 | `footy team <name>` | Open a club's dashboard, or a national team's matches |
 | `footy player <name>` | Open a player's career dashboard |
-| `footy refresh` | Fetch data (`--all`, `--years N`, `--season YYYY`, `--team NATION`, `--max-age D`, `--dry-run`) |
+| `footy refresh` | Fetch data (`--all`, `--years N`, `--season YYYY`, `--team NATION|CLUB`, `--max-age D`, `--dry-run`) |
 | `footy status` | Show what's cached and how fresh it is |
 | `footy competitions` | List what can be refreshed |
 | `footy colors` | Apply curated club colors and report coverage |

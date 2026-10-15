@@ -9,7 +9,8 @@ import (
 // grain — every match is stored, and a nation's record is computed from
 // whichever of its matches a filter selects — rather than as a season line
 // per competition, because a nation's year is a dozen matches spread over
-// half a dozen competitions.
+// half a dozen competitions. A club's recent games are matches too, in
+// its league, cups and European competitions.
 type Match struct {
 	ID            string
 	CompetitionID string

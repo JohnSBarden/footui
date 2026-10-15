@@ -112,12 +112,15 @@ it complete), and `provider.ErrNoTable` (no table for that season).
   goals. It reads understat.com's JSON endpoint
   (`GET /getLeagueData/{league}/{season}`, the one its own frontend uses —
   see `client.go`), and implements `StandingsProvider`, `XGProvider`,
-  `PlayerStatsProvider`, `TeamsProvider`, and `LeaguePlayersProvider`.
+  `PlayerStatsProvider`, `TeamsProvider`, `LeaguePlayersProvider`, and
+  `SeasonMatchesProvider` — the season's matches with each side's xG, from
+  the same payload, so they cost no request of their own.
 - `internal/data/provider/espn` serves everything else: MLS and USL, the
   second divisions, the women's leagues, the European competitions, and
   international football. It has possession, shots, corners, fouls and
-  cards, but no expected goals. For internationals it implements
-  `MatchesProvider` from the scoreboard endpoint, `NationalTeamsProvider`
+  cards, but no expected goals. It implements `MatchesProvider` from the
+  scoreboard endpoint — for internationals, and for clubs' games in its
+  leagues, the European competitions and seven domestic cups — `NationalTeamsProvider`
   from the friendlies' (and women's tournaments') team lists, and
   `StandingsProvider` with group labels kept — one request, no rosters.
 
@@ -336,6 +339,33 @@ that trips a breaker shared by every client in the process, so for an hour
 every request fails at once with `provider.ErrRateLimited`. Sync stops the
 run there, the unit is logged `rate_limited`, the TUI drops its queue, and
 the stale check on open stands down for the hour.
+
+## A club's recent games
+
+The Team screen's strip and the Games screen read a club's last finished
+matches in every competition (`RecentMatches`). They come from two places:
+
+- **Its understat league**, with the season: `Syncer` stores whatever a
+  `SeasonMatchesProvider` returns alongside the table. A season cached
+  before this has standings but no matches, which is how it is known to be
+  due once more (`CountSeasonMatches`).
+- **ESPN units**, the same competition-year unit and `UnitDue` rules as
+  internationals: the club's ESPN league, Europe's competitions (for a
+  club from England, Spain, Germany, Italy or France), and its country's
+  cups (men only). `MatchSyncer` resolves a club unit's teams as clubs,
+  never as nations, and never links a club to a cup or European season —
+  its season lines come from tables. In a cup, a name that merely contains
+  a cached club's ("FC United of Manchester") is only matched when the
+  words that differ are club suffixes ("Leeds United" = "Leeds").
+
+`sync.PlanClub` works out both for this calendar year and last.
+`cli.clubDue` asks it without fetching anything: the Team screen calls it
+on open (through `core.Deps.ClubDue`) and queues the club's refresh only
+when something is due, and the stale check on open does the same for
+starred clubs. So the first English club opened costs about ten requests
+and the next none. A season row stored only because a club's matches came
+from it doesn't make its competition "followed": the stale check counts
+seasons refreshed for their table, and skips cups.
 
 ## Curated datasets
 
