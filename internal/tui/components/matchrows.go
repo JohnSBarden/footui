@@ -124,9 +124,9 @@ func BoxScore(th styles.Theme, m models.Match, teamID string, lead int) [][]Cell
 	for _, l := range counts {
 		espn = espn || has(l.has)
 	}
-	// ESPN's figures are shown as a set, as the box score always has;
-	// expected goals only where a source has them — an understat league
-	// match has nothing else.
+	// ESPN's counts are shown as a set when either side has any; expected
+	// goals only where a source has them — an understat league match has
+	// nothing else.
 	var show []line
 	if espn {
 		show = counts

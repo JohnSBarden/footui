@@ -13,8 +13,8 @@ import (
 
 // A club's recent games come from two places. Its understat league's
 // matches arrive with the league season — the payload footy downloads for
-// the table already lists them — so a league season is refreshed as it
-// always was. Everything else is ESPN's yearly match lists, the same
+// the table already lists them — so they cost no extra request. Everything
+// else is ESPN's yearly match lists, the same
 // units national teams use: its ESPN league, if it plays in one, Europe's
 // competitions, and its country's cups. Those are shared, so the first
 // club of a country costs a request per unit and every club after it
@@ -22,9 +22,9 @@ import (
 
 // ClubPlan is what a club's recent games need fetched.
 type ClubPlan struct {
-	// Leagues are the understat league seasons that are due, for the club
-	// syncer: a season cached before club matches were has none stored,
-	// and the current season goes stale like any other.
+	// Leagues are the understat league seasons that are due: one with no
+	// matches stored though the club played in it, or the current season
+	// once stale.
 	Leagues []Job
 	// Units are the ESPN units the club plays in, due or not —
 	// MatchSyncer.SyncUnits skips what isn't.

@@ -232,9 +232,8 @@ func (s *Store) UpsertSeason(ctx context.Context, se models.Season) error {
 }
 
 // ListSeasons returns a competition's seasons most recent first. Season
-// labels are understat.com-style start years ("2025"), which sort
-// correctly as text, so ordering by label descending is the same as
-// ordering by recency.
+// labels are start years ("2025"), which sort correctly as text, so
+// ordering by label descending is the same as ordering by recency.
 func (s *Store) ListSeasons(ctx context.Context, competitionID string) ([]models.Season, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT se.id, se.competition_id, se.label, se.start_date, se.end_date,
@@ -355,7 +354,7 @@ func scanTeam(sc interface{ Scan(...any) error }) (models.Team, error) {
 }
 
 // GetTeams resolves a batch of team IDs in one query. IDs with no cached
-// team row are simply absent from the returned map rather than an error —
+// team row are absent from the returned map rather than an error —
 // a stats row can outlive the team row it references only if the database
 // was hand-edited, and a screen should render "unknown team" instead of
 // failing the whole view.
