@@ -93,7 +93,7 @@ type SyncLogRepo interface {
 }
 
 // MatchesRepo persists and queries individual matches — the grain
-// national teams are tracked at.
+// national teams are tracked at, and a club's recent games come from.
 type MatchesRepo interface {
 	// UpsertMatches writes matches and their per-team stats in one
 	// transaction, by match ID. Matches are never deleted, so a
@@ -106,6 +106,13 @@ type MatchesRepo interface {
 	// MatchesForCompetitionSeason returns every match of one edition of a
 	// competition, in kickoff order.
 	MatchesForCompetitionSeason(ctx context.Context, competitionID, seasonID string) ([]models.Match, error)
+	// RecentMatches returns a team's last limit finished matches in every
+	// competition, newest first, with stats.
+	RecentMatches(ctx context.Context, teamID string, limit int) ([]models.Match, error)
+	// CountSeasonMatches counts the matches stored for one season of a
+	// competition: none for a league season cached before club matches
+	// were, which is how that season is known to need fetching again.
+	CountSeasonMatches(ctx context.Context, competitionID, seasonID string) (int, error)
 	// TeamMatchSummary is a team's record over the matches MatchesForTeam
 	// would return.
 	TeamMatchSummary(ctx context.Context, teamID string, filter models.MatchFilter, years []int) (models.MatchSummary, error)

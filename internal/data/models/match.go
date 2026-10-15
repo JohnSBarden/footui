@@ -49,6 +49,9 @@ type MatchTeamStats struct {
 	ShotsOnTarget *int
 	Corners       *int
 	Fouls         *int
+	// XG is the side's expected goals, which only understat's league
+	// matches carry.
+	XG *float64
 }
 
 // Match statuses.

@@ -18,10 +18,10 @@ type Competition struct {
 	// calendar year (MLS, NWSL): its 2026 season is "2026", not
 	// "2026-27".
 	CalendarYear bool
-	// Category is empty for a club competition. An international one is
-	// a CategoryTournament, CategoryQualifier, CategoryNationsLeague or
+	// Category is empty for a club league. An international one is a
+	// CategoryTournament, CategoryQualifier, CategoryNationsLeague or
 	// CategoryFriendly, which is what a nation's competition filter
-	// presets select on.
+	// presets select on. A domestic cup is CategoryCup.
 	Category string
 	// ShortName is a compact label for tight columns ("WC", "UNL"); empty
 	// when there isn't one.
@@ -36,14 +36,21 @@ const (
 	CategoryFriendly      = "friendly"
 )
 
+// CategoryCup is a domestic club cup (the FA Cup, the DFB-Pokal): a
+// source of a club's matches, not a competition with a table to browse.
+const CategoryCup = "cup"
+
 // International reports whether this is a competition between national
 // teams.
-func (c Competition) International() bool { return c.Category != "" }
+func (c Competition) International() bool { return c.Category != "" && c.Category != CategoryCup }
+
+// Cup reports whether this is a domestic club cup.
+func (c Competition) Cup() bool { return c.Category == CategoryCup }
 
 // HasTable reports whether an international competition publishes group
-// tables. Friendlies have none.
+// tables. Friendlies have none, and nor does a domestic cup.
 func (c Competition) HasTable() bool {
-	return c.Category != "" && c.Category != CategoryFriendly
+	return c.International() && c.Category != CategoryFriendly
 }
 
 // Abbrev is ShortName, or Name when there is no short form.

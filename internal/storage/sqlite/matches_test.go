@@ -174,6 +174,36 @@ func TestTeamMatchYearsAndKickedOff(t *testing.T) {
 	}
 }
 
+func TestMatchXGRoundTrips(t *testing.T) {
+	s := seedInternational(t)
+	mustNoErr(t, s.UpsertMatches(ctx, []models.Match{{ID: "m5", CompetitionID: "int-friendly", SeasonID: "int-friendly:2026",
+		Kickoff: kick(2026, 3, 1), Status: models.MatchFullTime, HomeTeamID: "nat-arcadia", AwayTeamID: "nat-borduria",
+		HomeScore: ptrI(1), AwayScore: ptrI(1),
+		HomeStats: &models.MatchTeamStats{XG: ptrF(1.84)}, AwayStats: &models.MatchTeamStats{XG: ptrF(0.32), Shots: ptrI(5)},
+		Source: "test", UpdatedAt: fixtureTime}}))
+	got, err := s.RecentMatches(ctx, "nat-borduria", 1)
+	if err != nil || len(got) != 1 || got[0].ID != "m5" {
+		t.Fatalf("recent %v, %v", got, err)
+	}
+	m := got[0]
+	if m.HomeStats == nil || m.HomeStats.XG == nil || *m.HomeStats.XG != 1.84 || *m.AwayStats.XG != 0.32 || *m.AwayStats.Shots != 5 {
+		t.Errorf("stats %+v / %+v", m.HomeStats, m.AwayStats)
+	}
+}
+
+func TestRecentMatchesAreFinishedNewestFirstAndLimited(t *testing.T) {
+	s := seedInternational(t)
+	got, err := s.RecentMatches(ctx, "nat-arcadia", 2)
+	mustNoErr(t, err)
+	// m4 is scheduled, so it is not a recent game.
+	if ids := matchIDs(got); len(ids) != 2 || ids[0] != "m3" || ids[1] != "m2" {
+		t.Errorf("recent %v, want [m3 m2]", ids)
+	}
+	if n, err := s.CountSeasonMatches(ctx, "int-friendly", "int-friendly:2025"); err != nil || n != 1 {
+		t.Errorf("season matches %d, %v", n, err)
+	}
+}
+
 func TestTeamMatchFilterRoundTrips(t *testing.T) {
 	s := newTestStore(t)
 	f, err := s.GetTeamMatchFilter(ctx, "nat-arcadia")

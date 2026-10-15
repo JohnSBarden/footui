@@ -217,6 +217,24 @@ func writeFixture(t *testing.T, path string) {
 	mustNoErr(t, s.RecordSyncRun(ctx, models.SyncRun{Provider: "espn", CompetitionID: "world-cup", Year: 2026,
 		StartedAt: fixtureTime, FinishedAt: fixtureTime, Status: models.SyncStatusOK, RowsUpserted: 1}))
 
+	// From schema 0009: a club's league match with xG, and a cup tie
+	// against a club that has nothing but matches.
+	mustNoErr(t, s.UpsertCompetition(ctx, models.Competition{ID: "eng-fa-cup", Name: "FA Cup", ShortName: "FAC",
+		Country: "England", Gender: "men", Format: "cup", Category: models.CategoryCup}))
+	mustNoErr(t, s.UpsertSeason(ctx, models.Season{ID: "eng-fa-cup:2025", CompetitionID: "eng-fa-cup", Label: "2025"}))
+	mustNoErr(t, s.UpsertTeam(ctx, models.Team{ID: "eng-wessex-rovers", Name: "Wessex Rovers", Country: "England", Gender: "men"}))
+	mustNoErr(t, s.UpsertMatches(ctx, []models.Match{
+		{ID: "understat-900002", CompetitionID: "eng-premier-league", SeasonID: "eng-premier-league:2025",
+			Kickoff: fixtureTime.Add(-72 * time.Hour), Status: models.MatchFullTime,
+			HomeTeamID: "eng-arsenal", AwayTeamID: "eng-wessex-rovers", HomeScore: ptrI(3), AwayScore: ptrI(1),
+			HomeStats: &models.MatchTeamStats{XG: ptrF(2.31)}, AwayStats: &models.MatchTeamStats{XG: ptrF(0.7)},
+			Source: "understat", UpdatedAt: fixtureTime},
+		{ID: "espn-900003", CompetitionID: "eng-fa-cup", SeasonID: "eng-fa-cup:2025",
+			Kickoff: fixtureTime.Add(-24 * time.Hour), Status: models.MatchPens, Round: "Third Round",
+			HomeTeamID: "eng-wessex-rovers", AwayTeamID: "eng-arsenal", HomeScore: ptrI(1), AwayScore: ptrI(1),
+			HomePens: ptrI(2), AwayPens: ptrI(4), Source: "espn", UpdatedAt: fixtureTime},
+	}))
+
 	mustNoErr(t, os.MkdirAll(filepath.Dir(path), 0o755))
 	_ = os.Remove(path)
 	if _, err := db.Exec(`VACUUM INTO ?`, path); err != nil {
@@ -307,11 +325,27 @@ func checkFixture(t *testing.T, s *Store) {
 			t.Errorf("year run %+v, %v", run, err)
 		}
 	}
+	// Fixtures from 0009 on carry a club's cup match and a league match
+	// with xG.
+	if cup, err := s.GetCompetition(ctx, "eng-fa-cup"); err == nil {
+		if !cup.Cup() || cup.International() {
+			t.Errorf("cup %+v", cup)
+		}
+		recent, err := s.RecentMatches(ctx, "eng-arsenal", 5)
+		if err != nil || len(recent) != 2 || recent[0].CompetitionID != "eng-fa-cup" ||
+			recent[1].HomeStats == nil || recent[1].HomeStats.XG == nil || *recent[1].HomeStats.XG != 2.31 {
+			t.Errorf("club matches %+v, %v", recent, err)
+		}
+	}
 	// Every fixture accepts the new rows once upgraded.
 	mustNoErr(t, s.UpsertTeam(ctx, models.Team{ID: "nat-spain", Name: "Spain", Gender: "men", National: true}))
 	if nations, _ := s.NationalTeams(ctx, "men"); len(nations) == 0 {
 		t.Error("national teams can't be read back")
 	}
+	mustNoErr(t, s.UpsertMatches(ctx, []models.Match{{ID: "understat-1", CompetitionID: "eng-premier-league",
+		SeasonID: "eng-premier-league:2025", Kickoff: fixtureTime.Add(48 * time.Hour), Status: models.MatchFullTime,
+		HomeTeamID: "eng-arsenal", AwayTeamID: "nat-spain", HomeScore: ptrI(0), AwayScore: ptrI(0),
+		HomeStats: &models.MatchTeamStats{XG: ptrF(0.4)}, Source: "understat", UpdatedAt: fixtureTime}}))
 }
 
 // A database folded by the old rules (which left Ø alone) is refolded on

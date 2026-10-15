@@ -57,16 +57,17 @@ func (s *Store) UpsertMatches(ctx context.Context, matches []models.Match) error
 			}
 			st := side.stats
 			_, err := tx.ExecContext(ctx, `
-				INSERT INTO match_team_stats (match_id, team_id, possession, shots, shots_on_target, corners, fouls)
-				VALUES (?, ?, ?, ?, ?, ?, ?)
+				INSERT INTO match_team_stats (match_id, team_id, possession, shots, shots_on_target, corners, fouls, xg)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 				ON CONFLICT(match_id, team_id) DO UPDATE SET
 					possession = COALESCE(excluded.possession, match_team_stats.possession),
 					shots = COALESCE(excluded.shots, match_team_stats.shots),
 					shots_on_target = COALESCE(excluded.shots_on_target, match_team_stats.shots_on_target),
 					corners = COALESCE(excluded.corners, match_team_stats.corners),
-					fouls = COALESCE(excluded.fouls, match_team_stats.fouls)`,
+					fouls = COALESCE(excluded.fouls, match_team_stats.fouls),
+					xg = COALESCE(excluded.xg, match_team_stats.xg)`,
 				m.ID, side.team, nullFloat(st.Possession), nullInt(st.Shots), nullInt(st.ShotsOnTarget),
-				nullInt(st.Corners), nullInt(st.Fouls))
+				nullInt(st.Corners), nullInt(st.Fouls), nullFloat(st.XG))
 			if err != nil {
 				return fmt.Errorf("sqlite: upsert match_team_stats %s/%s: %w", m.ID, side.team, err)
 			}
@@ -86,8 +87,8 @@ const matchSelect = `
 	SELECT m.id, m.competition_id, m.season_id, m.kickoff, m.status, COALESCE(m.round, ''),
 		m.home_team_id, m.away_team_id, m.neutral, m.home_score, m.away_score, m.home_pens, m.away_pens,
 		m.source, m.updated_at,
-		hs.match_id IS NOT NULL, hs.possession, hs.shots, hs.shots_on_target, hs.corners, hs.fouls,
-		aws.match_id IS NOT NULL, aws.possession, aws.shots, aws.shots_on_target, aws.corners, aws.fouls
+		hs.match_id IS NOT NULL, hs.possession, hs.shots, hs.shots_on_target, hs.corners, hs.fouls, hs.xg,
+		aws.match_id IS NOT NULL, aws.possession, aws.shots, aws.shots_on_target, aws.corners, aws.fouls, aws.xg
 	FROM match m
 	JOIN competition c ON c.id = m.competition_id
 	LEFT JOIN match_team_stats hs ON hs.match_id = m.id AND hs.team_id = m.home_team_id
@@ -102,8 +103,8 @@ func scanMatches(rows *sql.Rows) ([]models.Match, error) {
 		var home, away statCols
 		if err := rows.Scan(&m.ID, &m.CompetitionID, &m.SeasonID, &kickoff, &m.Status, &m.Round,
 			&m.HomeTeamID, &m.AwayTeamID, &m.Neutral, &hs, &as, &hp, &ap, &m.Source, &updated,
-			&home.present, &home.poss, &home.shots, &home.sot, &home.corners, &home.fouls,
-			&away.present, &away.poss, &away.shots, &away.sot, &away.corners, &away.fouls); err != nil {
+			&home.present, &home.poss, &home.shots, &home.sot, &home.corners, &home.fouls, &home.xg,
+			&away.present, &away.poss, &away.shots, &away.sot, &away.corners, &away.fouls, &away.xg); err != nil {
 			return nil, fmt.Errorf("sqlite: scan match: %w", err)
 		}
 		var err error
@@ -125,7 +126,7 @@ func scanMatches(rows *sql.Rows) ([]models.Match, error) {
 
 type statCols struct {
 	present                    bool
-	poss                       sql.NullFloat64
+	poss, xg                   sql.NullFloat64
 	shots, sot, corners, fouls sql.NullInt64
 }
 
@@ -139,6 +140,7 @@ func (c statCols) stats() *models.MatchTeamStats {
 	scanNullInt(&st.ShotsOnTarget, c.sot)
 	scanNullInt(&st.Corners, c.corners)
 	scanNullInt(&st.Fouls, c.fouls)
+	scanNullFloat(&st.XG, c.xg)
 	return st
 }
 
@@ -191,6 +193,29 @@ func (s *Store) MatchesForTeam(ctx context.Context, teamID string, filter models
 	}
 	defer rows.Close()
 	return scanMatches(rows)
+}
+
+func (s *Store) RecentMatches(ctx context.Context, teamID string, limit int) ([]models.Match, error) {
+	rows, err := s.db.QueryContext(ctx, matchSelect+`
+		WHERE (m.home_team_id = ? OR m.away_team_id = ?)
+			AND m.status IN (?, ?, ?) AND m.home_score IS NOT NULL AND m.away_score IS NOT NULL
+		ORDER BY m.kickoff DESC, m.id DESC
+		LIMIT ?`, teamID, teamID, models.MatchFullTime, models.MatchAET, models.MatchPens, limit)
+	if err != nil {
+		return nil, fmt.Errorf("sqlite: recent matches for team %s: %w", teamID, err)
+	}
+	defer rows.Close()
+	return scanMatches(rows)
+}
+
+func (s *Store) CountSeasonMatches(ctx context.Context, competitionID, seasonID string) (int, error) {
+	var n int
+	err := s.db.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM match WHERE competition_id = ? AND season_id = ?`, competitionID, seasonID).Scan(&n)
+	if err != nil {
+		return 0, fmt.Errorf("sqlite: count matches %s/%s: %w", competitionID, seasonID, err)
+	}
+	return n, nil
 }
 
 func (s *Store) MatchesForCompetitionSeason(ctx context.Context, competitionID, seasonID string) ([]models.Match, error) {

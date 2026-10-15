@@ -83,3 +83,17 @@ func TestFilterPresets(t *testing.T) {
 		}
 	}
 }
+
+func TestCupsAreClubCompetitionsNotInternationalOnes(t *testing.T) {
+	cup := Competition{ID: "eng-fa-cup", Category: CategoryCup}
+	if cup.International() || cup.HasTable() || !cup.Cup() {
+		t.Errorf("a domestic cup: international %v, table %v, cup %v", cup.International(), cup.HasTable(), cup.Cup())
+	}
+	wc := Competition{ID: "world-cup", Category: CategoryTournament}
+	if !wc.International() || wc.Cup() {
+		t.Error("a tournament is international, and not a domestic cup")
+	}
+	if (Competition{ID: "eng-premier-league"}).Cup() {
+		t.Error("a league is not a cup")
+	}
+}
