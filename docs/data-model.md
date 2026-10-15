@@ -2,7 +2,7 @@
 
 Canonical Go types live in `internal/data/models` (package `models`). Every
 provider maps its own source-specific shape into these types; the SQLite
-schema (`internal/storage/sqlite/migrations/0001_init.sql`) is their
+schema (`internal/storage/sqlite/migrations/`) is their
 persisted form; nothing outside `internal/data/provider/*` ever sees a
 provider-specific type. See [architecture.md](architecture.md) for how these
 move between layers.

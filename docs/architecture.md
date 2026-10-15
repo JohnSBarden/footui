@@ -77,6 +77,12 @@ type NationalTeamsProvider interface {
 type MatchesProvider interface {
     CompetitionMatches(ctx context.Context, comp CompetitionRef, year int) ([]models.Match, []models.Team, error)
 }
+
+// SeasonMatches returns every match of one competition-season, for a
+// source whose season payload already carries them.
+type SeasonMatchesProvider interface {
+    SeasonMatches(ctx context.Context, comp CompetitionRef, season SeasonRef) ([]models.Match, error)
+}
 ```
 
 Three sentinel errors cross the boundary: `provider.ErrRateLimited` (the
@@ -120,6 +126,13 @@ type Repositories interface {
     TeamStatsRepo
     PlayersRepo
     PlayerStatsRepo
+    TeamColorsRepo
+    TrophiesRepo
+    SyncLogRepo
+    CacheRepo
+    ExternalRefRepo
+    FavoritesRepo
+    MatchesRepo
 }
 
 type CompetitionsRepo interface {
@@ -150,7 +163,7 @@ type MatchesRepo interface {
 
 `internal/storage/sqlite.Store` is the only implementation: it holds the
 `*sql.DB`, and every SQL statement in the codebase lives in
-`internal/storage/sqlite/store.go`. The sync layer
+`internal/storage/sqlite`. The sync layer
 (`internal/data/sync.Syncer`) is constructed with a `storage.Repositories`
 value, not a `*sqlite.Store`, so `Syncer` can be tested against a fake
 store with no real database (see the pattern used the other direction in

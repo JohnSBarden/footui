@@ -327,7 +327,7 @@ easiest way to improve coverage.
 | `footy league <name>` | Open a competition's standings |
 | `footy team <name>` | Open a club's dashboard, or a national team's matches |
 | `footy player <name>` | Open a player's career dashboard |
-| `footy refresh` | Fetch data (`--all`, `--years N`, `--season YYYY`, `--team NATION|CLUB`, `--max-age D`, `--dry-run`) |
+| `footy refresh` | Fetch data (`--competition ID`, `--all`, `--years N`, `--season YYYY`, `--team NATION|CLUB`, `--max-age D`, `--dry-run`) |
 | `footy status` | Show what's cached and how fresh it is |
 | `footy competitions` | List what can be refreshed |
 | `footy colors` | Apply curated club colors and report coverage |
