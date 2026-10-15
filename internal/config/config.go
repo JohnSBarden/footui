@@ -1,5 +1,5 @@
-// Package config resolves footui's on-disk locations (currently just the
-// SQLite database path), following the XDG base directory convention.
+// Package config resolves footui's on-disk locations, following the XDG
+// base directory convention, and reads the user's settings file.
 package config
 
 import (

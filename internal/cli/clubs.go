@@ -108,32 +108,3 @@ func exactClub(ctx context.Context, repos storage.Repositories, query string) (m
 	}
 	return found[0], true
 }
-
-// summarizeClub is the TUI's line for a club's refresh.
-func summarizeClub(results []sync.UnitResult) (string, error) {
-	if rateLimited(results) {
-		return "", core.ErrRateLimited
-	}
-	sum := sync.Summarize(results)
-	if sum.Units == 0 {
-		return "nothing to fetch", nil
-	}
-	if sum.Succeeded == 0 && sum.Fresh == 0 {
-		for _, r := range results {
-			if r.Err != nil {
-				return "", tuiError(r.Err)
-			}
-		}
-	}
-	if sum.Succeeded == 0 && sum.Failed == 0 {
-		return "recent games up to date", nil
-	}
-	line := fmt.Sprintf("fetched %d, %d matches", sum.Succeeded, sum.Totals.Matches)
-	if sum.Fresh > 0 {
-		line += fmt.Sprintf("; %d already up to date", sum.Fresh)
-	}
-	if sum.Failed > 0 {
-		line += fmt.Sprintf("; %d failed", sum.Failed)
-	}
-	return line, nil
-}

@@ -216,7 +216,7 @@ type FavoritesRepo interface {
 
 // Repositories bundles every repo interface — the shape the sync layer and
 // CLI/TUI construction code depend on, so wiring up storage is passing one
-// value rather than six.
+// value rather than one per repo.
 type Repositories interface {
 	CompetitionsRepo
 	SeasonsRepo

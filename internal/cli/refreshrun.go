@@ -68,11 +68,7 @@ func runRefresh(ctx context.Context, store storage.Repositories, jobs []sync.Job
 		}
 		syncer := sync.New(source, store).WithProviderName(group.provider)
 		syncer.MaxAge = maxAge
-		results = append(results, syncer.SyncJobs(ctx, group.jobs, func(u sync.UnitResult) {
-			if ev.unit != nil {
-				ev.unit(u)
-			}
-		})...)
+		results = append(results, syncer.SyncJobs(ctx, group.jobs, ev.unitFunc())...)
 	}
 	reseed(ctx, store, ev)
 	return results
@@ -261,7 +257,7 @@ func tuiRefresher(store storage.Repositories, staleAfter time.Duration) core.Ref
 					if err != nil {
 						return "", err
 					}
-					return summarizeClub(results)
+					return summarizeMatches(results, "recent games up to date", false)
 				}
 				gender = team.Gender
 			}
@@ -282,7 +278,7 @@ func tuiRefresher(store storage.Repositories, staleAfter time.Duration) core.Ref
 				}
 				progress(fmt.Sprintf("%s %s %s (%d of %d)", u.Competition.Abbrev(), u.Season.Label, outcome, done, len(units)))
 			}
-			return summarizeMatchUnits(runNations(ctx, store, gender, years, stale, ev))
+			return summarizeMatches(runNations(ctx, store, gender, years, stale, ev), "already up to date", true)
 		}
 
 		cov, ok := sync.FindCoverage(req.CompetitionID)
@@ -299,7 +295,7 @@ func tuiRefresher(store storage.Repositories, staleAfter time.Duration) core.Ref
 			ev.unit = func(u sync.UnitResult) {
 				progress(fmt.Sprintf("%s %s %s", comp.Abbrev(), components.SeasonName(u.Season), unitOutcome(u)))
 			}
-			return summarizeMatchUnits(runRefresh(ctx, store, []sync.Job{{Competition: comp, Seasons: seasons}}, stale, ev))
+			return summarizeMatches(runRefresh(ctx, store, []sync.Job{{Competition: comp, Seasons: seasons}}, stale, ev), "already up to date", true)
 		}
 
 		done := 0
@@ -357,12 +353,14 @@ func unitOutcome(u sync.UnitResult) string {
 	return "fetched"
 }
 
-// summarizeMatchUnits turns a refresh of international matches into the
-// line the TUI shows: how much was fetched, how much was already up to
-// date — usually all of it, which is the politeness rules working — and
-// what failed. Being rate-limited is reported as such, so the app stops
-// its queue; otherwise it only errors when nothing could be fetched.
-func summarizeMatchUnits(results []sync.UnitResult) (string, error) {
+// summarizeMatches turns a refresh of matches into the line the TUI
+// shows: how much was fetched, how much was already up to date — usually
+// all of it, which is the politeness rules working — and what failed.
+// Being rate-limited is reported as such, so the app stops its queue;
+// otherwise it only errors when nothing could be fetched. upToDate is the
+// line when nothing needed fetching; nameFailures lists each failed unit
+// rather than counting them.
+func summarizeMatches(results []sync.UnitResult, upToDate string, nameFailures bool) (string, error) {
 	if rateLimited(results) {
 		return "", core.ErrRateLimited
 	}
@@ -377,15 +375,18 @@ func summarizeMatchUnits(results []sync.UnitResult) (string, error) {
 			}
 		}
 	}
-	var line string
-	switch {
-	case sum.Succeeded == 0 && sum.Failed == 0:
-		line = "already up to date"
-	default:
+	line := upToDate
+	if sum.Succeeded > 0 || sum.Failed > 0 {
 		line = fmt.Sprintf("fetched %d, %d matches", sum.Succeeded, sum.Totals.Matches)
 		if sum.Fresh > 0 {
 			line += fmt.Sprintf("; %d already up to date", sum.Fresh)
 		}
+	}
+	if !nameFailures {
+		if sum.Failed > 0 {
+			line += fmt.Sprintf("; %d failed", sum.Failed)
+		}
+		return line, nil
 	}
 	var failed []string
 	for _, r := range results {
