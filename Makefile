@@ -67,7 +67,7 @@ vet:
 
 # staticcheck is pinned and run through `go run`, so neither a developer
 # nor CI needs it installed.
-STATICCHECK := honnef.co/go/tools/cmd/staticcheck@v0.8.1
+STATICCHECK := honnef.co/go/tools/cmd/staticcheck@v0.8.2
 
 lint:
 	go run $(STATICCHECK) ./...
