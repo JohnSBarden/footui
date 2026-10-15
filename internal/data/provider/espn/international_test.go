@@ -110,6 +110,50 @@ func TestCompetitionMatchesMapsAYearInOneRequest(t *testing.T) {
 	}
 }
 
+// A domestic cup's scoreboard is clubs, not nations: they get their
+// country from the cup, and a ground is neutral only when ESPN says so —
+// a club's "location" is its name, so the venue's country proves nothing.
+func TestACupScoreboardIsClubs(t *testing.T) {
+	var requests int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&requests, 1)
+		if r.URL.Path != "/site/site/v2/sports/soccer/eng.fa/scoreboard" || r.URL.Query().Get("dates") != "2026" {
+			http.NotFound(w, r)
+			return
+		}
+		body, err := os.ReadFile("testdata/scoreboard_eng.fa_2026.json")
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, _ = w.Write(body)
+	}))
+	t.Cleanup(srv.Close)
+	p := newWithClient(NewClient().withBaseURLs(srv.URL+"/site", srv.URL+"/core"))
+
+	matches, teams, err := p.CompetitionMatches(ctxBkgnd, provider.CompetitionRef{CompetitionID: "eng-fa-cup", Name: "FA Cup"}, 2026)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if requests != 1 || len(matches) != 2 || len(teams) != 3 {
+		t.Fatalf("%d requests, %d matches, %d teams", requests, len(matches), len(teams))
+	}
+	for _, team := range teams {
+		if team.National || team.Country != "England" || team.Gender != "men" {
+			t.Errorf("team %+v: a cup's clubs are England's clubs", team)
+		}
+	}
+	tie := matchByID(t, matches, "espn:4001")
+	if tie.SeasonID != "eng-fa-cup:2025" || tie.Status != models.MatchPens || *tie.AwayPens != 4 || tie.Neutral || tie.Round != "Third Round" {
+		t.Errorf("tie %+v", tie)
+	}
+	if tie.AwayStats == nil || *tie.AwayStats.Possession != 68.8 {
+		t.Errorf("stats %+v", tie.AwayStats)
+	}
+	if final := matchByID(t, matches, "espn:4002"); !final.Neutral || final.HomeScore != nil {
+		t.Errorf("final %+v", final)
+	}
+}
+
 // 0% possession is unknown, more shots on target than shots is
 // impossible, and a side reporting nothing but zeroes reported nothing.
 func TestMatchStatsDropTheImplausible(t *testing.T) {

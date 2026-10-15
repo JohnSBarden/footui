@@ -27,6 +27,16 @@ var leagueSlugs = map[string]string{
 	"eur-conference-league":       "uefa.europa.conf",
 	"eur-womens-champions-league": "uefa.wchampions",
 
+	// Domestic cups, a club's matches only. Each was checked against
+	// ESPN on 2026-10-14.
+	"eng-fa-cup":          "eng.fa",
+	"eng-league-cup":      "eng.league_cup",
+	"esp-copa-del-rey":    "esp.copa_del_rey",
+	"ger-dfb-pokal":       "ger.dfb_pokal",
+	"ita-coppa-italia":    "ita.coppa_italia",
+	"fra-coupe-de-france": "fra.coupe_de_france",
+	"usa-open-cup":        "usa.open",
+
 	// International. Each was checked against ESPN; the women's Nations
 	// League is "uefa.w.nations" and the Asian Cup "afc.asian.cup" (the
 	// obvious spellings return 400).

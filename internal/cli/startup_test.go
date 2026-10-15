@@ -85,9 +85,9 @@ func TestStaleRefreshesCanBeDisabled(t *testing.T) {
 
 func TestCatalogOffersEverySeasonBackTo2014(t *testing.T) {
 	cat := tuiCatalog(september)
-	// Every competition but the two friendlies, and a national teams line
-	// per gender.
-	if len(cat) != len(sync.Coverages)-2+2 {
+	// Every competition but the two friendlies and the seven domestic
+	// cups, and a national teams line per gender.
+	if len(cat) != len(sync.Coverages)-2-7+2 {
 		t.Fatalf("catalog has %d entries", len(cat))
 	}
 	byID := map[string]core.CatalogEntry{}

@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 	"os"
 	"testing"
+	"time"
+
+	"github.com/JohnSBarden/footui/internal/data/models"
 )
 
 func loadFixture(t *testing.T) *leagueData {
@@ -85,6 +88,39 @@ func TestMapPlayerEntitiesExtractsIdentity(t *testing.T) {
 		if p.Name == "" {
 			t.Errorf("expected non-empty player name for id %q", p.ID)
 		}
+	}
+}
+
+func TestMapMatchesReadsResultsFixturesAndXG(t *testing.T) {
+	data := loadFixture(t)
+	updated := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	matches := mapMatches(data, "eng-premier-league", "eng-premier-league:2025", updated)
+
+	// The third entry names a club the payload has no team for, so it
+	// can't be stored against anyone.
+	if len(matches) != 2 {
+		t.Fatalf("got %d matches, want 2: %+v", len(matches), matches)
+	}
+	m := matches[0]
+	if m.ID != "understat:900101" || m.HomeTeamID != "understat:eng-arsenal" || m.AwayTeamID != "understat:eng-chelsea" {
+		t.Errorf("identity %+v", m)
+	}
+	if m.Status != models.MatchFullTime || *m.HomeScore != 2 || *m.AwayScore != 0 {
+		t.Errorf("result %+v", m)
+	}
+	if !m.Kickoff.Equal(time.Date(2025, 8, 16, 14, 0, 0, 0, time.UTC)) {
+		t.Errorf("kickoff %v: understat's times are UTC", m.Kickoff)
+	}
+	if m.HomeStats == nil || *m.HomeStats.XG != 2.1043 || *m.AwayStats.XG != 0.81 {
+		t.Errorf("xG %+v / %+v", m.HomeStats, m.AwayStats)
+	}
+	if m.CompetitionID != "eng-premier-league" || m.SeasonID != "eng-premier-league:2025" || m.Source != "understat" || !m.UpdatedAt.Equal(updated) {
+		t.Errorf("provenance %+v", m)
+	}
+
+	fixture := matches[1]
+	if fixture.Status != models.MatchScheduled || fixture.HomeScore != nil || fixture.HomeStats != nil {
+		t.Errorf("an unplayed fixture has no score or stats: %+v", fixture)
 	}
 }
 

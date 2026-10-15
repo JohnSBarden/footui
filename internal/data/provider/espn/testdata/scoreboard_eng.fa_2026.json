@@ -1,0 +1,55 @@
+{
+  "events": [
+    {
+      "id": "4001",
+      "date": "2026-01-10T15:00Z",
+      "season": {"year": 2025, "slug": "third-round"},
+      "competitions": [
+        {
+          "date": "2026-01-10T15:00Z",
+          "status": {"type": {"name": "STATUS_FINAL_PEN", "state": "post", "completed": true}},
+          "venue": {"address": {"city": "Wessexford", "country": "England"}},
+          "competitors": [
+            {
+              "homeAway": "home", "score": "1", "shootoutScore": 2,
+              "team": {"id": "7101", "displayName": "Wessex Rovers", "shortDisplayName": "Wessex", "location": "Wessex Rovers"},
+              "statistics": [
+                {"name": "possessionPct", "displayValue": "31.2"},
+                {"name": "totalShots", "displayValue": "6"},
+                {"name": "shotsOnTarget", "displayValue": "2"}
+              ]
+            },
+            {
+              "homeAway": "away", "score": "1", "shootoutScore": 4,
+              "team": {"id": "7102", "displayName": "Northbridge City", "shortDisplayName": "Northbridge", "location": "Northbridge City"},
+              "statistics": [
+                {"name": "possessionPct", "displayValue": "68.8"},
+                {"name": "totalShots", "displayValue": "21"},
+                {"name": "shotsOnTarget", "displayValue": "8"}
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "4002",
+      "date": "2026-05-16T14:00Z",
+      "season": {"year": 2025, "slug": "final"},
+      "competitions": [
+        {
+          "date": "2026-05-16T14:00Z",
+          "status": {"type": {"name": "STATUS_SCHEDULED", "state": "pre", "completed": false}},
+          "neutralSite": true,
+          "venue": {"address": {"city": "Capital", "country": "England"}},
+          "competitors": [
+            {"homeAway": "home", "score": "0",
+              "team": {"id": "7102", "displayName": "Northbridge City", "shortDisplayName": "Northbridge", "location": "Northbridge City"}},
+            {"homeAway": "away", "score": "0",
+              "team": {"id": "7103", "displayName": "Fenmoor Athletic", "shortDisplayName": "Fenmoor", "location": "Fenmoor Athletic"}}
+          ]
+        }
+      ]
+    }
+  ]
+}

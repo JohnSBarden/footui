@@ -27,13 +27,14 @@ const failureBackoff = 10 * time.Minute
 //
 // International competitions follow the clubs: tournaments by edition,
 // qualifiers and nations leagues by calendar year. Friendlies aren't
-// offered on their own — they come with a nation — but each gender gets a
+// offered on their own — they come with a nation — and nor are domestic
+// cups, which come with a club. Each gender gets a
 // national teams line, whose years are every international competition's
 // match lists for that year.
 func tuiCatalog(now time.Time) []core.CatalogEntry {
 	out := make([]core.CatalogEntry, 0, len(sync.Coverages)+2)
 	for _, c := range sync.Coverages {
-		if c.Competition.Category == models.CategoryFriendly {
+		if c.Competition.Category == models.CategoryFriendly || c.Competition.Cup() {
 			continue
 		}
 		out = append(out, core.CatalogEntry{Competition: c.Competition, Seasons: c.AvailableSeasons(now),

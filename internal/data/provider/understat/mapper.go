@@ -47,11 +47,35 @@ var countryName = map[string]string{
 
 // leagueData is the raw shape of a GET /getLeagueData/{league}/{season}
 // response. Only the fields footui uses are modeled; unrecognized fields
-// (understat.com also returns "dates", used for its calendar view) are
-// ignored by encoding/json rather than erroring.
+// are ignored by encoding/json rather than erroring.
 type leagueData struct {
 	Teams   map[string]teamEntry `json:"teams"`
 	Players []playerEntry        `json:"players"`
+	// Dates is every match of the season, played or not — understat's
+	// calendar view, and a club's league games.
+	Dates []dateEntry `json:"dates"`
+}
+
+// dateEntry is one match. Goals and xG arrive as strings, null until the
+// match is played; datetime is UTC.
+type dateEntry struct {
+	ID       string      `json:"id"`
+	IsResult bool        `json:"isResult"`
+	Home     dateTeam    `json:"h"`
+	Away     dateTeam    `json:"a"`
+	Goals    dateFigures `json:"goals"`
+	XG       dateFigures `json:"xG"`
+	Datetime string      `json:"datetime"`
+}
+
+type dateTeam struct {
+	ID    string `json:"id"`
+	Title string `json:"title"`
+}
+
+type dateFigures struct {
+	Home *string `json:"h"`
+	Away *string `json:"a"`
 }
 
 type teamEntry struct {
@@ -326,4 +350,63 @@ func mapPlayers(data *leagueData, compID, seasonID string) []models.PlayerSeason
 	}
 
 	return out
+}
+
+// mapMatches turns the season's calendar into matches under understat's
+// own IDs ("understat:28778"), which the sync layer maps to canonical
+// ones like a team's. A match naming a club the payload has no team for
+// is dropped: there would be no team row to store it against.
+func mapMatches(data *leagueData, compID, seasonID string, updated time.Time) []models.Match {
+	known := map[string]bool{}
+	for _, t := range data.Teams {
+		known[t.ID] = true
+	}
+	out := make([]models.Match, 0, len(data.Dates))
+	for _, d := range data.Dates {
+		if d.ID == "" || !known[d.Home.ID] || !known[d.Away.ID] {
+			continue
+		}
+		kickoff, err := time.Parse("2006-01-02 15:04:05", d.Datetime)
+		if err != nil {
+			continue
+		}
+		m := models.Match{
+			ID:            "understat:" + d.ID,
+			CompetitionID: compID,
+			SeasonID:      seasonID,
+			Kickoff:       kickoff.UTC(),
+			Status:        models.MatchScheduled,
+			HomeTeamID:    teamID(compID, d.Home.Title),
+			AwayTeamID:    teamID(compID, d.Away.Title),
+			Source:        "understat",
+			UpdatedAt:     updated,
+		}
+		home, away := figure(d.Goals.Home), figure(d.Goals.Away)
+		if d.IsResult && home != nil && away != nil {
+			m.Status = models.MatchFullTime
+			h, a := int(*home), int(*away)
+			m.HomeScore, m.AwayScore = &h, &a
+			if xg := figure(d.XG.Home); xg != nil {
+				m.HomeStats = &models.MatchTeamStats{XG: xg}
+			}
+			if xg := figure(d.XG.Away); xg != nil {
+				m.AwayStats = &models.MatchTeamStats{XG: xg}
+			}
+		}
+		out = append(out, m)
+	}
+	return out
+}
+
+// figure reads one of a match's string-encoded numbers; nil when absent,
+// unreadable or negative.
+func figure(raw *string) *float64 {
+	if raw == nil {
+		return nil
+	}
+	v := optionalFloat(*raw)
+	if v == nil || *v < 0 {
+		return nil
+	}
+	return v
 }

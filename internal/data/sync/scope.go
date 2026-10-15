@@ -73,6 +73,18 @@ var Coverages = []Coverage{
 	{men("eur-conference-league", "Conference League", "Europe", 1), ProviderESPN, 2021, nil},
 	{women("eur-womens-champions-league", "Women's Champions League", "Europe", 1), ProviderESPN, 2021, nil},
 
+	// Domestic cups — ESPN. Not competitions to browse: a club's cup ties
+	// are fetched as its matches, a calendar year at a time like
+	// international football. Only recent years are ever asked for, so
+	// FirstSeason is a conservative floor rather than a checked one.
+	{cup("eng-fa-cup", "FA Cup", "FAC", "England"), ProviderESPN, 2015, nil},
+	{cup("eng-league-cup", "League Cup", "EFL", "England"), ProviderESPN, 2015, nil},
+	{cup("esp-copa-del-rey", "Copa del Rey", "CDR", "Spain"), ProviderESPN, 2015, nil},
+	{cup("ger-dfb-pokal", "DFB-Pokal", "DFB", "Germany"), ProviderESPN, 2015, nil},
+	{cup("ita-coppa-italia", "Coppa Italia", "CI", "Italy"), ProviderESPN, 2015, nil},
+	{cup("fra-coupe-de-france", "Coupe de France", "CDF", "France"), ProviderESPN, 2015, nil},
+	{calendar(cup("usa-open-cup", "U.S. Open Cup", "USOC", "USA")), ProviderESPN, 2015, nil},
+
 	// International football — ESPN. A nation's matches come from every
 	// one of these of its gender; each first year was checked against
 	// ESPN, and anything that didn't answer was left out. An edition is
@@ -121,6 +133,12 @@ func international(id, name, short, gender, category string) models.Competition 
 	}
 }
 
+// cup builds a men's domestic cup.
+func cup(id, name, short, country string) models.Competition {
+	return models.Competition{ID: id, Name: name, ShortName: short, Country: country, Gender: "men",
+		Format: "cup", Category: models.CategoryCup}
+}
+
 func men(id, name, country string, tier int) models.Competition {
 	return models.Competition{ID: id, Name: name, Country: country, Tier: tier, Gender: "men"}
 }
@@ -136,14 +154,14 @@ func calendar(c models.Competition) models.Competition {
 	return c
 }
 
-// Scope is every syncable club competition, in Coverages order: what
-// `refresh --all` covers. International competitions are left out — a
-// nation's matches are fetched for the nations someone follows, not for
-// every competition on a schedule.
+// Scope is every syncable club league, in Coverages order: what `refresh
+// --all` covers. International competitions and domestic cups are left
+// out — their matches are fetched for the nations and clubs someone
+// follows, not for every competition on a schedule.
 var Scope = func() []models.Competition {
 	var out []models.Competition
 	for _, c := range Coverages {
-		if !c.Competition.International() {
+		if !c.Competition.International() && !c.Competition.Cup() {
 			out = append(out, c.Competition)
 		}
 	}

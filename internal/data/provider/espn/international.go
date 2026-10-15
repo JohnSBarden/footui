@@ -246,9 +246,10 @@ func mapScoreboard(events []scoreboardEvent, comp models.Competition, updated ti
 			groupName = c.Group.Name
 		}
 		m.Round = roundLabel(e.Season.Slug, groupName)
-		if c.NeutralSite != nil {
+		switch {
+		case c.NeutralSite != nil:
 			m.Neutral = *c.NeutralSite
-		} else {
+		case comp.International():
 			m.Neutral = neutralGround(c.Venue.Address.Country, home, away)
 		}
 		if started(m.Status) {
@@ -263,7 +264,8 @@ func mapScoreboard(events []scoreboardEvent, comp models.Competition, updated ti
 		for _, side := range []*scoreboardCompetitor{home, away} {
 			if !seenTeam[side.Team.ID] {
 				seenTeam[side.Team.ID] = true
-				teams = append(teams, nationalTeam(side.Team.ID, side.Team.DisplayName, side.Team.ShortDisplayName, comp.Gender))
+				teams = append(teams, mapTeam(wireTeam{ID: side.Team.ID, DisplayName: side.Team.DisplayName,
+					ShortDisplayName: side.Team.ShortDisplayName}, comp))
 			}
 		}
 	}

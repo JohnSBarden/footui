@@ -40,6 +40,7 @@ var _ provider.XGProvider = (*Provider)(nil)
 var _ provider.PlayerStatsProvider = (*Provider)(nil)
 var _ provider.TeamsProvider = (*Provider)(nil)
 var _ provider.LeaguePlayersProvider = (*Provider)(nil)
+var _ provider.SeasonMatchesProvider = (*Provider)(nil)
 
 func (p *Provider) fetch(ctx context.Context, comp provider.CompetitionRef, season provider.SeasonRef) (*leagueData, string, error) {
 	leagueKey, ok := leagueKeys[comp.CompetitionID]
@@ -145,6 +146,17 @@ func (p *Provider) AllRosterStats(ctx context.Context, comp provider.Competition
 		return nil, err
 	}
 	return mapPlayers(data, comp.CompetitionID, season.SeasonID), nil
+}
+
+// SeasonMatches implements provider.SeasonMatchesProvider from the same
+// payload as everything else, so a league's matches cost no request of
+// their own.
+func (p *Provider) SeasonMatches(ctx context.Context, comp provider.CompetitionRef, season provider.SeasonRef) ([]models.Match, error) {
+	data, _, err := p.fetch(ctx, comp, season)
+	if err != nil {
+		return nil, err
+	}
+	return mapMatches(data, comp.CompetitionID, season.SeasonID, time.Now().UTC()), nil
 }
 
 // Players returns the Player identity rows (name/position/gender) for an

@@ -61,12 +61,12 @@ func TestCoverageIDsAreUniqueAndScopeMatches(t *testing.T) {
 	}
 	clubs := 0
 	for _, c := range Coverages {
-		if !c.Competition.International() {
+		if !c.Competition.International() && !c.Competition.Cup() {
 			clubs++
 		}
 	}
 	if len(Scope) != clubs {
-		t.Errorf("Scope has %d entries, want the %d club competitions", len(Scope), clubs)
+		t.Errorf("Scope has %d entries, want the %d club leagues", len(Scope), clubs)
 	}
 }
 

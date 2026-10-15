@@ -35,5 +35,17 @@
       "xG": "0.1", "assists": "0", "xA": "0.0",
       "yellow_cards": "0", "red_cards": "0", "position": "D", "team_title": "Arsenal"
     }
+  ],
+  "dates": [
+    {"id": "900101", "isResult": true, "h": {"id": "1", "title": "Arsenal", "short_title": "ARS"},
+      "a": {"id": "2", "title": "Chelsea", "short_title": "CHE"}, "goals": {"h": "2", "a": "0"},
+      "xG": {"h": "2.1043", "a": "0.81"}, "datetime": "2025-08-16 14:00:00",
+      "forecast": {"w": "0.6", "d": "0.2", "l": "0.2"}},
+    {"id": "900102", "isResult": false, "h": {"id": "2", "title": "Chelsea", "short_title": "CHE"},
+      "a": {"id": "1", "title": "Arsenal", "short_title": "ARS"}, "goals": {"h": null, "a": null},
+      "xG": {"h": null, "a": null}, "datetime": "2026-01-03 17:30:00"},
+    {"id": "900103", "isResult": true, "h": {"id": "99", "title": "Nowhere Town", "short_title": "NOW"},
+      "a": {"id": "1", "title": "Arsenal", "short_title": "ARS"}, "goals": {"h": "1", "a": "1"},
+      "xG": {"h": "1.0", "a": "1.0"}, "datetime": "2025-08-23 14:00:00"}
   ]
 }

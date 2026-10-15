@@ -110,6 +110,13 @@ type MatchesProvider interface {
 	CompetitionMatches(ctx context.Context, comp CompetitionRef, year int) ([]models.Match, []models.Team, error)
 }
 
+// SeasonMatchesProvider supplies every match of one competition-season,
+// for a source whose season payload already carries them (understat's
+// league data). Team IDs are the provider's, as in Teams.
+type SeasonMatchesProvider interface {
+	SeasonMatches(ctx context.Context, comp CompetitionRef, season SeasonRef) ([]models.Match, error)
+}
+
 // ErrRateLimited means the source refused footy for asking too often, and
 // kept refusing after the polite retries. Nothing more should be asked of
 // it for a while: a refresh that gets this stops rather than carrying on.
