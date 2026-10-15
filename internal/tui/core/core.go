@@ -51,6 +51,11 @@ type Deps struct {
 	// Favorites are the user's starred entities, shared by every screen
 	// so a toggle shows everywhere at once.
 	Favorites *Favorites
+	// ClubDue reports whether a club's recent games need fetching, and
+	// why, without fetching anything; the Team screen asks it on open and
+	// queues the club's refresh when they do. Nil means never (tests, or
+	// the stale check turned off).
+	ClubDue func(club models.Team) (why string, due bool)
 }
 
 // ThemeMode is the current theme mode, weak when none was configured.

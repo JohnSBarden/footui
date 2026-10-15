@@ -252,7 +252,16 @@ func tuiRefresher(store storage.Repositories, staleAfter time.Duration) core.Ref
 					return "", err
 				}
 				if !team.National {
-					return "", fmt.Errorf("%s isn't a national team", team.Name)
+					// A club: its recent games, from its league and the
+					// shared lists of its cups and Europe's competitions.
+					ev.unit = func(u sync.UnitResult) {
+						progress(fmt.Sprintf("%s %s %s", u.Competition.Abbrev(), components.SeasonName(u.Season), unitOutcome(u)))
+					}
+					results, err := runClub(ctx, store, team, stale, ev)
+					if err != nil {
+						return "", err
+					}
+					return summarizeClub(results)
 				}
 				gender = team.Gender
 			}

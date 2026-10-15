@@ -109,6 +109,9 @@ type Refreshable interface {
 // visible one, which the user may pop back to.
 type RefreshedMsg struct {
 	CompetitionID string
+	// TeamID is the team whose matches were fetched: a nation, or a club's
+	// recent games.
+	TeamID string
 	// International is set when what landed was international matches
 	// (a nation's, or every nation's of a gender), which any screen
 	// showing a nation or a tournament may want to re-read.

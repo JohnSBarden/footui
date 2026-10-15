@@ -70,6 +70,11 @@ func (g *globalFlags) launchTUI(ctx context.Context, build func(core.Deps) (core
 	now := time.Now()
 	deps := tui.NewDeps(ctx, repos, styles.BaseFor(g.settings.theme, g.settings.noColor))
 	deps.Refresh = tuiRefresher(repos, g.settings.staleAfter)
+	if stale := g.settings.staleAfter; stale > 0 {
+		deps.ClubDue = func(club models.Team) (string, bool) {
+			return clubDue(ctx, repos, club, time.Now(), stale)
+		}
+	}
 	deps.Catalog = tuiCatalog(now)
 	deps.Appearance = &styles.Appearance{Mode: g.settings.theme}
 	deps.SaveTheme = g.saveTheme

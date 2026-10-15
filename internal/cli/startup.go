@@ -100,23 +100,16 @@ func staleRefreshes(ctx context.Context, repos storage.Repositories, now time.Ti
 	var out []core.RefreshRequest
 	for _, comp := range comps {
 		cov, covered := sync.FindCoverage(comp.ID)
-		if !covered || comp.International() {
+		if !covered || comp.International() || comp.Cup() {
 			// International competitions follow the nations and
-			// tournaments starred, below.
+			// tournaments starred, below; cups follow starred clubs.
 			continue
 		}
 		// Each competition's own calendar: in February MLS's current
 		// season is last year's, the Premier League's is this one.
 		current := cov.CurrentSeason(now)
 		previous := previousSeason(current)
-		seasons, err := repos.ListSeasons(ctx, comp.ID)
-		if err != nil {
-			continue
-		}
-		newest := ""
-		if len(seasons) > 0 {
-			newest = seasons[0].Label
-		}
+		newest := newestDownloaded(ctx, repos, comp.ID)
 		if newest != current && newest != previous && !favorites[comp.ID] {
 			continue
 		}
@@ -130,7 +123,26 @@ func staleRefreshes(ctx context.Context, repos storage.Repositories, now time.Ti
 		}
 		out = append(out, core.RefreshRequest{CompetitionID: comp.ID, Seasons: []string{current}, Why: why, Automatic: true})
 	}
-	return append(out, internationalRefreshes(ctx, repos, now, maxAge)...)
+	out = append(out, internationalRefreshes(ctx, repos, now, maxAge)...)
+	return append(out, clubRefreshes(ctx, repos, now, maxAge)...)
+}
+
+// newestDownloaded is the newest season of a competition that was
+// downloaded as a season — refreshed for its table — or "" if none was.
+// A season row can also exist because a club's matches were fetched from
+// it (a Champions League tie), which is not someone following the
+// competition.
+func newestDownloaded(ctx context.Context, repos storage.Repositories, compID string) string {
+	seasons, err := repos.ListSeasons(ctx, compID)
+	if err != nil {
+		return ""
+	}
+	for _, se := range seasons {
+		if _, err := repos.LatestSyncRun(ctx, compID, se.ID); err == nil {
+			return se.Label
+		}
+	}
+	return ""
 }
 
 // rateLimitPause is how long automatic refreshes stand down after a

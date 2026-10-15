@@ -30,7 +30,11 @@ func (m *Model) search(query string) tea.Cmd {
 			}
 			results := make([]Result, 0, len(comps))
 			for _, c := range comps {
-				results = append(results, Result{Kind: KindCompetition, Competition: c})
+				// A cup is stored for its matches, which show on a
+				// club's screen; it has no table to open.
+				if !c.Cup() {
+					results = append(results, Result{Kind: KindCompetition, Competition: c})
+				}
 			}
 			return resultsMsg{query: query, results: results}
 		}
@@ -52,7 +56,9 @@ func (m *Model) search(query string) tea.Cmd {
 		// the more likely it is what a short query meant.
 		var results []Result
 		for _, c := range rank(comps, func(c models.Competition) string { return c.Name }, query) {
-			results = append(results, Result{Kind: KindCompetition, Competition: c})
+			if !c.Cup() {
+				results = append(results, Result{Kind: KindCompetition, Competition: c})
+			}
 		}
 		for _, t := range rank(teams, func(t models.Team) string { return t.Name }, query) {
 			results = append(results, Result{Kind: KindTeam, Team: t})

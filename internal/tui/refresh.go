@@ -294,6 +294,7 @@ func (a *App) handleRefreshEvent(msg refreshMsg) tea.Cmd {
 func refreshedMsg(req core.RefreshRequest) core.RefreshedMsg {
 	return core.RefreshedMsg{
 		CompetitionID: req.CompetitionID,
+		TeamID:        req.TeamID,
 		International: req.TeamID != "" || req.Nations != "" || req.Directory,
 	}
 }

@@ -36,7 +36,8 @@ func newRefreshCmd(g *globalFlags) *cobra.Command {
 			"club competition footy covers, and --years to go back through previous seasons. " +
 			"--team england fetches a national team's matches (this year and last by default); " +
 			"they come from yearly match lists shared by every nation, so a second nation costs " +
-			"nothing, and a year that has ended is never fetched twice. A failure " +
+			"nothing, and a year that has ended is never fetched twice. --team arsenal fetches a " +
+			"cached club's recent games — its league, cups and European matches — the same way. A failure " +
 			"in one competition-season does not abort the rest of the run; the summary at the end " +
 			"lists exactly what failed.\n\n" +
 			"See `footy competitions` for valid --competition values.",
@@ -104,7 +105,8 @@ func newRefreshCmd(g *globalFlags) *cobra.Command {
 	cmd.Flags().IntVar(&f.years, "years", 1,
 		"how many recent seasons to refresh, counting back from the current one")
 	cmd.Flags().StringVar(&f.team, "team", "",
-		"a national team whose matches to fetch, e.g. england or \"england women\" (default --years: this year and last)")
+		"a national team whose matches to fetch, e.g. england or \"england women\" (default --years: this year and last), "+
+			"or a cached club whose recent games to fetch, e.g. arsenal")
 	cmd.Flags().BoolVar(&f.dryRun, "dry-run", false,
 		"print what would be fetched without making any network or database changes")
 	cmd.Flags().DurationVar(&f.maxAge, "max-age", 0,
@@ -235,6 +237,18 @@ func (f *refreshFlags) runTeam(cmd *cobra.Command, g *globalFlags) error {
 		retry: func(attempt, of int, err error) {
 			fmt.Fprintf(out, "  retry attempt %d of %d failed, trying again: %v\n", attempt, of, err)
 		},
+	}
+	if _, nation := exactNation(ctx, store, f.team); !nation {
+		if club, ok := exactClub(ctx, store, f.team); ok {
+			// A club's recent games: this year and last, whatever --years
+			// says, since that is what the Team screen shows.
+			fmt.Fprintf(out, "Refreshing %s's recent games: its league, cups and European matches…\n\n", club.Name)
+			results, err := runClub(ctx, store, club, f.maxAge, ev)
+			if err != nil {
+				return err
+			}
+			return report(out, results, g.dbPathOrDefault())
+		}
 	}
 	team, err := resolveNation(ctx, store, f.team, func() error {
 		fmt.Fprintln(out, "Fetching the list of national teams first…")
