@@ -269,9 +269,9 @@ func (s *MatchSyncer) fetchUnit(ctx context.Context, u Unit) (Result, error) {
 		return res, fetchErr
 	}
 
-	rows, teamIDs, err := nations(ctx, s.repos, teams)
+	rows, teamIDs, err := s.resolveTeams(ctx, comp, teams)
 	if err != nil {
-		return res, fmt.Errorf("sync: resolve nations: %w", err)
+		return res, err
 	}
 	if err := s.repos.UpsertCompetition(ctx, comp); err != nil {
 		return res, err
@@ -294,7 +294,7 @@ func (s *MatchSyncer) fetchUnit(ctx context.Context, u Unit) (Result, error) {
 		if mapped, ok := teamIDs[m.AwayTeamID]; ok {
 			m.AwayTeamID = mapped
 		}
-		if m.ID, err = s.matchID(ctx, m.ID); err != nil {
+		if m.ID, err = canonicalMatchID(ctx, s.repos, m.ID); err != nil {
 			return res, fmt.Errorf("sync: resolve match: %w", err)
 		}
 		if !seasons[m.SeasonID] {
@@ -303,6 +303,12 @@ func (s *MatchSyncer) fetchUnit(ctx context.Context, u Unit) (Result, error) {
 			if err := s.repos.UpsertSeason(ctx, NewSeason(comp.ID, label)); err != nil {
 				return res, err
 			}
+		}
+		if !comp.International() {
+			// A club's season lines come from its league tables. A cup
+			// tie or a European qualifier would otherwise give it an
+			// empty line among its seasons.
+			continue
 		}
 		for _, team := range []string{m.HomeTeamID, m.AwayTeamID} {
 			key := [2]string{team, m.SeasonID}
@@ -321,21 +327,42 @@ func (s *MatchSyncer) fetchUnit(ctx context.Context, u Unit) (Result, error) {
 	return res, fetchErr
 }
 
-// matchID maps a provider's match ID to a canonical one, recorded in
-// external_ref like a team's, so a match fetched again — rescheduled, or
-// now with a result — updates the same row.
-func (s *MatchSyncer) matchID(ctx context.Context, native string) (string, error) {
+// resolveTeams maps a unit's teams to canonical ones: nations among
+// nations, clubs among clubs, never one for the other.
+func (s *MatchSyncer) resolveTeams(ctx context.Context, comp models.Competition, teams []models.Team) ([]models.Team, map[string]string, error) {
+	if comp.International() {
+		rows, ids, err := nations(ctx, s.repos, teams)
+		if err != nil {
+			return nil, nil, fmt.Errorf("sync: resolve nations: %w", err)
+		}
+		return rows, ids, nil
+	}
+	r, err := newResolver(ctx, s.repos, comp)
+	if err != nil {
+		return nil, nil, fmt.Errorf("sync: resolve clubs: %w", err)
+	}
+	rows, err := r.teams(ctx, teams)
+	if err != nil {
+		return nil, nil, fmt.Errorf("sync: resolve clubs: %w", err)
+	}
+	return rows, r.teamOf, nil
+}
+
+// canonicalMatchID maps a provider's match ID to a canonical one, recorded
+// in external_ref like a team's, so a match fetched again — rescheduled,
+// or now with a result — updates the same row.
+func canonicalMatchID(ctx context.Context, repos storage.Repositories, native string) (string, error) {
 	prov, local, ok := nativeID(native)
 	if !ok {
 		return native, nil
 	}
-	if id, err := s.repos.ExternalRef(ctx, "match", prov, local); err == nil {
+	if id, err := repos.ExternalRef(ctx, "match", prov, local); err == nil {
 		return id, nil
 	} else if !errors.Is(err, storage.ErrNotFound) {
 		return "", err
 	}
 	id := prov + "-" + local
-	return id, s.repos.PutExternalRef(ctx, "match", id, prov, local)
+	return id, repos.PutExternalRef(ctx, "match", id, prov, local)
 }
 
 // SyncNations fetches the units a gender's nations play in over the given

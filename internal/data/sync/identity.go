@@ -28,7 +28,10 @@ import (
 //     word-subset match also counts ("Coventry City" = "Coventry"), which
 //     is what follows a club between divisions. A European competition's
 //     clubs come from everywhere, so there it's exact or alias only:
-//     "Paris Saint-Germain" must never become "Paris FC".
+//     "Paris Saint-Germain" must never become "Paris FC". A domestic
+//     cup's word-subset match only counts when the words that differ are
+//     club suffixes ("Leeds United" = "Leeds", but "FC United of
+//     Manchester" is not Manchester United).
 //  3. Otherwise a new canonical club.
 //
 // A player is matched within the squad of the club they were resolved
@@ -124,6 +127,40 @@ func subset(a, b string) bool {
 		return x != ""
 	}
 	return in(a, b) || in(b, a)
+}
+
+// clubSuffixes are the words a club's name can gain or lose between
+// sources and still be the same club: "Leeds United" is "Leeds".
+var clubSuffixes = map[string]bool{
+	"united": true, "city": true, "town": true, "county": true, "rovers": true, "wanderers": true,
+	"athletic": true, "albion": true, "hotspur": true, "villa": true, "rangers": true, "argyle": true,
+	"alexandra": true, "orient": true, "calcio": true, "balompie": true, "1899": true, "1846": true,
+}
+
+// suffixesOnly reports whether every word one name has and the other
+// lacks is a club suffix. A cup brings in clubs no league table had, and
+// a word-subset alone would make "FC United of Manchester" Manchester
+// United; this keeps a loose match to the differences that don't matter.
+func suffixesOnly(a, b string) bool {
+	count := func(s string) map[string]int {
+		m := map[string]int{}
+		for _, w := range strings.Fields(s) {
+			m[w]++
+		}
+		return m
+	}
+	wa, wb := count(a), count(b)
+	for w, n := range wa {
+		if wb[w] < n && !clubSuffixes[w] {
+			return false
+		}
+	}
+	for w, n := range wb {
+		if wa[w] < n && !clubSuffixes[w] {
+			return false
+		}
+	}
+	return true
 }
 
 var countryPrefixes = map[string]string{
@@ -237,7 +274,7 @@ func (r *resolver) match(t models.Team) (models.Team, bool) {
 		switch {
 		case cn == name:
 			exact = append(exact, c)
-		case !europe && subset(cn, name):
+		case !europe && subset(cn, name) && (!r.comp.Cup() || suffixesOnly(cn, name)):
 			loose = append(loose, c)
 		}
 	}

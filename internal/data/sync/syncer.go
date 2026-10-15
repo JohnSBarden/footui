@@ -167,6 +167,15 @@ func (s *Syncer) syncCompetitionSeason(ctx context.Context, comp models.Competit
 		return res, fmt.Errorf("sync: fetch roster stats: %w", err)
 	}
 
+	// A source whose season payload lists the matches (understat) gives
+	// clubs their recent league games at no extra cost.
+	var matches []models.Match
+	if ms, ok := s.source.(provider.SeasonMatchesProvider); ok {
+		if matches, err = ms.SeasonMatches(ctx, compRef, seasonRef); err != nil {
+			return res, fmt.Errorf("sync: fetch matches: %w", err)
+		}
+	}
+
 	// A provider that returns its own IDs has them mapped to canonical
 	// ones before anything is written; see identity.go.
 	var ids *resolver
@@ -189,6 +198,15 @@ func (s *Syncer) syncCompetitionSeason(ctx context.Context, comp models.Competit
 			if c, ok := playerIDs[playerStats[i].PlayerID]; ok {
 				playerStats[i].PlayerID = c
 			}
+		}
+		for i := range matches {
+			matches[i].HomeTeamID = ids.canonicalTeam(matches[i].HomeTeamID)
+			matches[i].AwayTeamID = ids.canonicalTeam(matches[i].AwayTeamID)
+		}
+	}
+	for i := range matches {
+		if matches[i].ID, err = canonicalMatchID(ctx, s.repos, matches[i].ID); err != nil {
+			return res, fmt.Errorf("sync: resolve match: %w", err)
 		}
 	}
 
@@ -229,6 +247,11 @@ func (s *Syncer) syncCompetitionSeason(ctx context.Context, comp models.Competit
 		}
 		res.PlayerStats++
 	}
+
+	if err := s.repos.UpsertMatches(ctx, matches); err != nil {
+		return res, fmt.Errorf("sync: upsert matches: %w", err)
+	}
+	res.Matches = len(matches)
 
 	s.applyProviderColors(ctx, compRef, seasonRef, ids)
 	return res, nil
