@@ -16,7 +16,7 @@ import (
 )
 
 // Source is the slice of the provider contract a full league/season sync
-// needs. Any provider implementing all four interfaces can be synced with
+// needs. Any provider implementing all three interfaces can be synced with
 // Syncer without Syncer knowing which concrete provider it is.
 type Source interface {
 	provider.StandingsProvider
@@ -82,8 +82,7 @@ func (s *Syncer) maxConsecutiveFailures() int {
 	return s.MaxConsecutiveFailures
 }
 
-// Result summarizes what a SyncCompetitionSeason call did, for CLI output
-// and eventually the TUI's staleness indicator (sync_log in the schema).
+// Result summarizes what a SyncCompetitionSeason call did, for CLI output.
 type Result struct {
 	Teams       int
 	TeamStats   int

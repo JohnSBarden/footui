@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/JohnSBarden/footui/internal/data/models"
@@ -299,7 +298,7 @@ func (s *MatchSyncer) fetchUnit(ctx context.Context, u Unit) (Result, error) {
 		}
 		if !seasons[m.SeasonID] {
 			seasons[m.SeasonID] = true
-			label := strings.TrimPrefix(m.SeasonID, comp.ID+":")
+			label := seasonLabel(m.SeasonID, comp.ID)
 			if err := s.repos.UpsertSeason(ctx, NewSeason(comp.ID, label)); err != nil {
 				return res, err
 			}

@@ -36,22 +36,3 @@ func CurrentSeasonStartYear(now time.Time) string {
 	}
 	return strconv.Itoa(year)
 }
-
-// RecentSeasonYears returns the start years of the n most recent seasons,
-// most recent first. n < 1 is treated as 1, so a caller passing a
-// zero-valued flag still gets the current season rather than nothing.
-func RecentSeasonYears(now time.Time, n int) []string {
-	if n < 1 {
-		n = 1
-	}
-	start, err := strconv.Atoi(CurrentSeasonStartYear(now))
-	if err != nil {
-		return nil
-	}
-
-	years := make([]string, 0, n)
-	for i := 0; i < n; i++ {
-		years = append(years, strconv.Itoa(start-i))
-	}
-	return years
-}

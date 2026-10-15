@@ -29,32 +29,6 @@ func TestCurrentSeasonStartYearRollsOverInAugust(t *testing.T) {
 	}
 }
 
-func TestRecentSeasonYearsCountsBackwards(t *testing.T) {
-	now := time.Date(2026, time.September, 9, 0, 0, 0, 0, time.UTC)
-
-	got := RecentSeasonYears(now, 3)
-	want := []string{"2026", "2025", "2024"}
-	if len(got) != len(want) {
-		t.Fatalf("RecentSeasonYears(_, 3) = %v", got)
-	}
-	for i := range want {
-		if got[i] != want[i] {
-			t.Errorf("season %d = %q, want %q", i, got[i], want[i])
-		}
-	}
-}
-
-func TestRecentSeasonYearsTreatsZeroAsOne(t *testing.T) {
-	now := time.Date(2026, time.September, 9, 0, 0, 0, 0, time.UTC)
-
-	for _, n := range []int{0, -5} {
-		got := RecentSeasonYears(now, n)
-		if len(got) != 1 || got[0] != "2026" {
-			t.Errorf("RecentSeasonYears(_, %d) = %v, want just the current season", n, got)
-		}
-	}
-}
-
 func TestNewSeasonBuildsAStableID(t *testing.T) {
 	s := NewSeason("eng-premier-league", "2025")
 	if s.ID != "eng-premier-league:2025" {

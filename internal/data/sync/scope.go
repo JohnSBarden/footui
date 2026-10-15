@@ -202,7 +202,7 @@ func InternationalCoverages(gender string) []Coverage {
 	return out
 }
 
-// FindCompetition returns the in-Scope competition matching id, or false.
+// FindCompetition returns the covered competition matching id, or false.
 func FindCompetition(id string) (models.Competition, bool) {
 	c, ok := FindCoverage(id)
 	return c.Competition, ok
