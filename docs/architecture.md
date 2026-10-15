@@ -24,8 +24,7 @@ sync layer never touches a provider's raw JSON/HTML shapes, and the CLI/TUI
 never open the database or call a provider directly. Everything that crosses
 a boundary is a value from `internal/data/models` (see
 [data-model.md](data-model.md)) or a small `*Ref` struct
-(`provider.CompetitionRef`, `provider.SeasonRef`, `provider.TeamRef`,
-`provider.PlayerRef`).
+(`provider.CompetitionRef`, `provider.SeasonRef`).
 
 Status: both boundaries are built and exercised end to end. The source
 contract has two implementations: `internal/data/provider/understat` (the
@@ -52,27 +51,6 @@ source can actually supply:
 ```go
 type StandingsProvider interface {
     Standings(ctx context.Context, comp CompetitionRef, season SeasonRef) ([]models.TeamSeasonStats, error)
-}
-
-type TeamStatsProvider interface {
-    TeamSeasonStats(ctx context.Context, comp CompetitionRef, season SeasonRef, team TeamRef) (models.TeamSeasonStats, error)
-}
-
-type XGProvider interface {
-    TeamXG(ctx context.Context, comp CompetitionRef, season SeasonRef, team TeamRef) (xg, xga float64, err error)
-    PlayerXG(ctx context.Context, comp CompetitionRef, season SeasonRef, player PlayerRef) (xg, xa float64, err error)
-}
-
-type PlayerStatsProvider interface {
-    RosterStats(ctx context.Context, comp CompetitionRef, season SeasonRef, team TeamRef) ([]models.PlayerSeasonStats, error)
-}
-
-type TrophyProvider interface {
-    TeamTrophies(ctx context.Context, team TeamRef) ([]models.Trophy, error)
-}
-
-type TeamResolver interface {
-    ResolveTeam(ctx context.Context, name string) ([]TeamRef, error)
 }
 
 // Bulk-fetch counterparts: a full sync needs "every team in this league"
@@ -111,8 +89,8 @@ it complete), and `provider.ErrNoTable` (no table for that season).
 - `internal/data/provider/understat` serves the six leagues with expected
   goals. It reads understat.com's JSON endpoint
   (`GET /getLeagueData/{league}/{season}`, the one its own frontend uses —
-  see `client.go`), and implements `StandingsProvider`, `XGProvider`,
-  `PlayerStatsProvider`, `TeamsProvider`, `LeaguePlayersProvider`, and
+  see `client.go`), and implements `StandingsProvider`,
+  `TeamsProvider`, `LeaguePlayersProvider`, and
   `SeasonMatchesProvider` — the season's matches with each side's xG, from
   the same payload, so they cost no request of their own.
 - `internal/data/provider/espn` serves everything else: MLS and USL, the

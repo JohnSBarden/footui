@@ -241,7 +241,7 @@ func TestEveryRoutedCompetitionHasASlug(t *testing.T) {
 		if c.Provider != footysync.ProviderESPN {
 			continue
 		}
-		if !Covers(c.Competition.ID) {
+		if _, ok := leagueSlugs[c.Competition.ID]; !ok {
 			t.Errorf("%s is routed to espn but has no leagueSlugs entry", c.Competition.ID)
 		}
 	}

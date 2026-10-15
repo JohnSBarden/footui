@@ -57,10 +57,9 @@ const (
 )
 
 // Client fetches and caches per-(league,season) payloads from
-// understat.com. A single payload contains everything needed to satisfy
-// StandingsProvider, TeamStatsProvider, XGProvider, and PlayerStatsProvider
-// for that league/season, so callers of different interface methods for the
-// same league/season only trigger one HTTP fetch.
+// understat.com. A single payload holds everything Provider serves for that league/season,
+// so calls to its different methods for the same league/season trigger only
+// one HTTP fetch.
 type Client struct {
 	httpClient *http.Client
 	baseURL    string
@@ -88,15 +87,6 @@ func NewClient(minGap time.Duration) *Client {
 		cacheDir:   os.Getenv(CacheDirEnv),
 		cache:      make(map[string]*leagueData),
 	}
-}
-
-// WithCacheDir returns a copy of the client that reads and writes raw
-// responses under dir, overriding the environment variable.
-func (c *Client) WithCacheDir(dir string) *Client {
-	clone := NewClient(c.minGap)
-	clone.baseURL = c.baseURL
-	clone.cacheDir = dir
-	return clone
 }
 
 func cacheKey(leagueKey, season string) string {

@@ -42,12 +42,6 @@ func (p *Provider) OnRetry(fn func(attempt, of int, err error)) *Provider {
 	return p
 }
 
-// Covers reports whether this provider knows a competition.
-func Covers(competitionID string) bool {
-	_, ok := leagueSlugs[competitionID]
-	return ok
-}
-
 // bundle is everything one competition-season refresh needs. The sync
 // layer asks for teams, standings, players, and stats separately; they
 // are fetched together once and served from here.
