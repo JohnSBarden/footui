@@ -85,6 +85,10 @@ pick a league, tick the seasons you want and press `enter`. Downloads run in
 the background, one league at a time, with progress on the status line, so
 you can keep browsing while they finish.
 
+Each launch opens on footui's wordmark for a moment, listing the leagues it
+is bringing up to date (and saying so if ESPN has paused footui for asking
+too often); any key skips it.
+
 From then on, opening footui keeps what you follow current. A league whose
 current season you have is refreshed once it's more than six hours old, and
 when a new season starts, the one you followed last season gets it.
@@ -141,6 +145,7 @@ Every screen shows its bindings along the bottom; `?` expands the full set.
 | `t` | Switch theme, and remember the choice |
 | `?` | Show every key |
 | `q` | Quit |
+| `ctrl+k` | A surprise, listed only under `?` |
 
 The search box takes letters as text, so while you type there use `ctrl+f`,
 `ctrl+r`, `ctrl+g`, `ctrl+t` and `ctrl+c` instead, or press `tab` to move
@@ -215,6 +220,26 @@ FIFA records it. There are no player stats for national teams.
 
 A tournament opens on the League screen: its groups one at a time, or `m`
 for every fixture by round through to the final.
+
+### The look
+
+One night-match palette, called Floodlit: footui's own purple for the
+wordmark, focus and the cursor, and a club's colours wherever the screen
+belongs to a club — the band across the top of its page, the dot beside its
+name in tables and search, the scarf along its dashboard card. Everything
+else carries a number:
+
+- Form is a row of letter chips, **W** green, **D** amber, **L** red. Each
+  game in a list leads with ● won, ◐ drawn or ○ lost.
+- Bars show points against the leader, xG against goals, and expected goal
+  difference either side of zero.
+- On a league table a coloured `▌` marks the Champions League places
+  (cyan), the Europa League place (orange) and relegation (red), where
+  footui knows that season's rule; without colour they're `C`, `E` and `↓`.
+- A goal or assist count is green where it beat its expected value and
+  orange where it fell short.
+
+Nothing depends on colour alone: `--no-color` keeps every letter and glyph.
 
 ### Themes
 

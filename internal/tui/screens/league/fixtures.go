@@ -68,7 +68,7 @@ func (m *Model) fixturesView() string {
 				lines = append(lines, line{"", -1})
 			}
 			stage = s
-			lines = append(lines, line{th.PanelTitle.Render(s), -1})
+			lines = append(lines, line{components.Label(th, s), -1})
 		}
 		score := components.Score(mt)
 		if score == "" {

@@ -232,11 +232,16 @@ toggle is saved through `core.Deps.SaveTheme` so it survives a restart.
 
 ```
 internal/tui/
-├── app.go            # the navigation stack, global keys, chrome
+├── app.go            # the navigation stack, global keys, chrome (splash.go: the launch splash)
 ├── core/             # the rendering contract: Screen, Deps, Navigator, nav messages
 ├── keys/             # every key binding, paired with its help text
 ├── styles/           # the theme, and team-brand theming with contrast adjustment
-├── components/       # table, stat cards, tabs, freshness, formatting
+├── components/       # table, stat cards, tabs, freshness, formatting; the
+│                     #   Floodlit pieces: hero band, chips, bars, dots,
+│                     #   scarf, block digits, tone, labels
+├── kickabout/        # the ctrl+k game: a snapshot of the screen as a pitch,
+│                     #   pure ball physics, and its Bubble Tea model, held by
+│                     #   the app as an overlay above the screen stack
 └── screens/{dashboard,browse,catalog,league,team,nation,player}/
 ```
 

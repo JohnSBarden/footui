@@ -56,10 +56,10 @@ func (m *Model) header() string {
 		meta = append(meta, m.player.Nationality)
 	}
 	metaLine := strings.Join(meta, " · ")
-	if pos := positionWord(m.player.Position); pos != "" {
-		badge := fill.Reverse(true).Bold(true).Render(" " + strings.ToUpper(pos) + " ")
+	if pos := positionBadge(m.player.Position); pos != "" {
+		badge := fill.Reverse(true).Bold(true).Render(" " + pos + " ")
 		if th.NoColor {
-			badge = "[" + strings.ToUpper(pos) + "]"
+			badge = "[" + pos + "]"
 		}
 		metaLine = badge + fill.Render(" ") + fill.Render(metaLine)
 	}
@@ -85,24 +85,25 @@ func (m *Model) header() string {
 	return line + "\n" + components.Tabs(th, tabs, m.compIdx)
 }
 
-// positionWord names an understat position code ("F M S", "D M S", "GK")
-// by its first role; any other provider's wording passes through.
-func positionWord(code string) string {
-	fields := strings.Fields(code)
-	if len(fields) == 0 {
-		return ""
+// positionBadge names the positions in an understat code ("F M S" is
+// forward, midfield and substitute): every one played, since understat
+// lists them alphabetically rather than by how often, so none can be
+// called the main one. S is dropped, being no position. Another
+// provider's wording passes through in capitals.
+func positionBadge(code string) string {
+	names := map[string]string{"F": "FWD", "M": "MID", "D": "DEF", "GK": "GK"}
+	var out []string
+	for _, f := range strings.Fields(code) {
+		if f == "S" {
+			continue
+		}
+		name, ok := names[f]
+		if !ok {
+			return strings.ToUpper(code)
+		}
+		out = append(out, name)
 	}
-	switch fields[0] {
-	case "F":
-		return "forward"
-	case "M":
-		return "midfield"
-	case "D":
-		return "defence"
-	case "GK":
-		return "keeper"
-	}
-	return code
+	return strings.Join(out, "·")
 }
 
 // chartSeasons is how many seasons the band's chart covers.
@@ -116,7 +117,14 @@ const chartBarWidth = 12
 // for everyone else. A competition without expected numbers gets none.
 func (m *Model) chart() []string {
 	rows := m.CurrentRows() // newest first
-	forward := positionWord(m.player.Position) == "forward"
+	// What the player produces decides the chart: a scorer's goals, a
+	// creator's assists. Positions can't say which (see positionBadge).
+	goals, assists := 0, 0
+	for _, r := range rows {
+		goals += r.Stats.Goals
+		assists += r.Stats.Assists
+	}
+	forward := goals > assists
 	type point struct {
 		season           string
 		actual, expected float64
@@ -145,8 +153,17 @@ func (m *Model) chart() []string {
 	out := []string{title}
 	for _, p := range pts {
 		bar := components.Bar(p.actual, scale, chartBarWidth)
-		out = append(out, fmt.Sprintf("%-7s %s %s / %.1f", p.season,
-			bar+strings.Repeat(" ", chartBarWidth-lipgloss.Width(bar)), strconv.Itoa(int(p.actual)), p.expected))
+		out = append(out, fmt.Sprintf("%-7s %s %3d / %.1f", p.season,
+			bar+strings.Repeat(" ", chartBarWidth-lipgloss.Width(bar)), int(p.actual), p.expected))
+	}
+	// The band right-aligns each line, so they're padded to one width to
+	// keep the chart's columns straight.
+	width := 0
+	for _, l := range out {
+		width = max(width, lipgloss.Width(l))
+	}
+	for i, l := range out {
+		out[i] = l + strings.Repeat(" ", width-lipgloss.Width(l))
 	}
 	return out
 }

@@ -517,24 +517,30 @@ func (a *App) View() string {
 
 // baseView is the screen with the app's chrome around it.
 func (a *App) baseView() string {
-	var b strings.Builder
+	var top, bottom strings.Builder
 
 	if crumb := a.breadcrumb(); crumb != "" {
-		b.WriteString(crumb)
-		b.WriteString("\n\n")
+		top.WriteString(crumb)
+		top.WriteString("\n\n")
 	}
 
-	b.WriteString(a.current().View())
-
-	b.WriteString("\n\n")
-	b.WriteString(a.footer())
-
+	bottom.WriteString("\n\n")
+	bottom.WriteString(a.footer())
 	if line := a.statusLine(); line != "" {
-		b.WriteString("\n")
-		b.WriteString(line)
+		bottom.WriteString("\n")
+		bottom.WriteString(line)
 	}
 
-	return styles.Paint(b.String(), a.theme(), a.width, a.height)
+	// A screen taller than what's left is cut from the bottom. Drawn
+	// whole, the terminal would scroll its top away instead — the header
+	// that says whose screen this is.
+	room := a.height - strings.Count(top.String(), "\n") - strings.Count(bottom.String(), "\n") - 1
+	body := a.current().View()
+	if lines := strings.Split(body, "\n"); room > 0 && len(lines) > room {
+		body = strings.Join(lines[:room], "\n")
+	}
+
+	return styles.Paint(top.String()+body+bottom.String(), a.theme(), a.width, a.height)
 }
 
 func (a *App) breadcrumb() string {

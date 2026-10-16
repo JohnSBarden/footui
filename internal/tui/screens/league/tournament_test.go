@@ -74,7 +74,7 @@ func TestMatchesViewListsFixturesByRound(t *testing.T) {
 		t.Fatal("m should switch to the fixtures")
 	}
 	out := m.View()
-	gs, qf := strings.Index(out, "Group stage"), strings.Index(out, "Quarterfinal")
+	gs, qf := strings.Index(out, "GROUP STAGE"), strings.Index(out, "QUARTERFINAL")
 	if gs < 0 || qf < gs {
 		t.Errorf("stages out of order:\n%s", out)
 	}
