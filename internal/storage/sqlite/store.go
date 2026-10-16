@@ -536,6 +536,31 @@ func (s *Store) GetTeamColors(ctx context.Context, teamID string) (models.TeamCo
 	return c, nil
 }
 
+func (s *Store) TeamColorsFor(ctx context.Context, teamIDs []string) (map[string]models.TeamColors, error) {
+	out := make(map[string]models.TeamColors, len(teamIDs))
+	if len(teamIDs) == 0 {
+		return out, nil
+	}
+	in, args := inClause(teamIDs)
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT team_id, primary_hex, secondary_hex, tertiary_hex, source
+		FROM team_colors WHERE team_id IN (`+in+`)`, args...)
+	if err != nil {
+		return nil, fmt.Errorf("sqlite: team_colors for %d teams: %w", len(teamIDs), err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var c models.TeamColors
+		var secondary, tertiary sql.NullString
+		if err := rows.Scan(&c.TeamID, &c.PrimaryHex, &secondary, &tertiary, &c.Source); err != nil {
+			return nil, fmt.Errorf("sqlite: scan team_colors: %w", err)
+		}
+		c.SecondaryHex, c.TertiaryHex = secondary.String, tertiary.String
+		out[c.TeamID] = c
+	}
+	return out, rows.Err()
+}
+
 // --- TeamStatsRepo ---
 
 func (s *Store) LinkTeamCompetitionSeason(ctx context.Context, teamID, competitionID, seasonID string) error {

@@ -181,8 +181,12 @@ func (m *Model) tournamentLines(c Card, inner int) []string {
 		context = c.RoundLabel + " · " + context
 	}
 	lines = append(lines, th.Muted.Render(components.Truncate(context, inner)))
+	maxPts := 0
 	for _, r := range c.Table {
-		lines = append(lines, m.standingLine(r, inner))
+		maxPts = max(maxPts, r.Points)
+	}
+	for _, r := range c.Table {
+		lines = append(lines, m.standingLine(c, r, maxPts, inner))
 	}
 	for _, mt := range c.Results {
 		score := components.Score(mt)

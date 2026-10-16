@@ -101,6 +101,13 @@ type Card struct {
 	// Teams and Comps name the sides and competitions in match lines.
 	Teams map[string]models.Team
 	Comps map[string]models.Competition
+
+	// Colors are the brand colours of the clubs on the card, keyed by
+	// team ID, for its dots and scarf. A club without any is absent.
+	Colors map[string]models.TeamColors
+	// LeagueSize is how many teams are in a club card's table, so the
+	// card can tell the bottom three; zero when unknown.
+	LeagueSize int
 }
 
 // Name is the card's heading.
@@ -220,8 +227,38 @@ func (m *Model) load() tea.Cmd {
 		// ListFavorites is oldest first; a stable sort keeps that order
 		// within each group.
 		sort.SliceStable(cards, func(i, j int) bool { return cards[i].Group < cards[j].Group })
+		colors, err := deps.Repos.TeamColorsFor(deps.Ctx, clubIDs(cards))
+		if err != nil {
+			return core.ErrMsg{Err: err}
+		}
+		for i := range cards {
+			cards[i].Colors = colors
+		}
 		return cardsLoadedMsg{cards: cards}
 	}
+}
+
+// clubIDs are the clubs whose colours the cards draw: each club card's
+// own, and every club on a league card.
+func clubIDs(cards []Card) []string {
+	var ids []string
+	for _, c := range cards {
+		if c.Missing {
+			continue
+		}
+		switch c.Group {
+		case GroupClubs:
+			ids = append(ids, c.Team.ID)
+		case GroupLeagues:
+			for _, r := range c.Table {
+				ids = append(ids, r.Team.ID)
+			}
+			for _, r := range c.Starred {
+				ids = append(ids, r.Team.ID)
+			}
+		}
+	}
+	return ids
 }
 
 func loadCard(deps core.Deps, f models.Favorite) (Card, error) {
@@ -342,6 +379,11 @@ func loadTeam(deps core.Deps, id string) (Card, error) {
 		c.Competition = models.Competition{ID: stats.CompetitionID, Name: stats.CompetitionID}
 	}
 	c.LastSync = lastSync(deps, stats.CompetitionID, stats.SeasonID)
+	if stats.Position != nil {
+		if table, err := deps.Repos.Standings(deps.Ctx, stats.CompetitionID, stats.SeasonID); err == nil {
+			c.LeagueSize = len(table)
+		}
+	}
 	return c, nil
 }
 

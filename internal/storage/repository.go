@@ -146,6 +146,9 @@ type TeamColorsRepo interface {
 	// GetTeamColors returns a team's colors, or ErrNotFound when none are
 	// seeded — a normal, expected state for a club not yet curated.
 	GetTeamColors(ctx context.Context, teamID string) (models.TeamColors, error)
+	// TeamColorsFor returns the colors of every listed team that has any,
+	// keyed by team ID, in one query. Teams without colors are absent.
+	TeamColorsFor(ctx context.Context, teamIDs []string) (map[string]models.TeamColors, error)
 }
 
 // TeamStatsRepo persists and queries TeamSeasonStats rows, and the

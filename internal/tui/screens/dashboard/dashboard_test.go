@@ -8,6 +8,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/JohnSBarden/footui/internal/data/models"
 	"github.com/JohnSBarden/footui/internal/storage"
@@ -121,7 +122,7 @@ func TestAClubCardShowsItsForm(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if view := load(t, deps, 120).View(); !strings.Contains(view, "Form L W") {
+	if view := load(t, deps, 120).View(); !strings.Contains(view, "form L W") {
 		t.Errorf("no form line:\n%s", view)
 	}
 }
@@ -136,7 +137,7 @@ func TestCardsShowWhereEachFavouriteStands(t *testing.T) {
 		"★ Arsenal",           // the starred club in the league table
 		"1st · 90 pts",        // the club card's headline
 		"P38  W28  D6  L4",    // its record
-		"goals +6.8",          // 91 scored against 84.2 xG
+		"84.2",                // xG, drawn against the 91 scored
 		"★ Bukayo Saka",       // the player card
 		"7 goals · 5 assists", // their season
 		"xG 8.7 · xA 8.6",     // with understat's expected numbers
@@ -248,7 +249,7 @@ func TestLeagueCardShowsAStarredClubOutsideTheTopRows(t *testing.T) {
 	}
 	deps := core.Deps{Ctx: ctx, Repos: repos, Theme: styles.Plain(), Favorites: core.NewFavorites(favs)}
 	view := load(t, deps, 120).View()
-	if !strings.Contains(view, "7 ★ Leeds United") {
+	if !strings.Contains(view, "7 ● ★ Leeds United") {
 		t.Errorf("the starred club in 7th is missing:\n%s", view)
 	}
 }
@@ -291,3 +292,66 @@ func TestRefreshQueueShowsOnTheCards(t *testing.T) {
 		t.Error("cards from the competition being refreshed should say so")
 	}
 }
+
+func TestClubCardShowsXGAndGoalsAsBars(t *testing.T) {
+	_, deps, _ := seed(t)
+	view := load(t, deps, 120).View()
+	for _, want := range []string{"xG    ", "84.2", "goals ", "█", "matchday", "● footui"} {
+		if !strings.Contains(view, want) {
+			t.Errorf("missing %q:\n%s", want, view)
+		}
+	}
+}
+
+func TestClubCardWithoutXGSaysSo(t *testing.T) {
+	repos, deps, _ := seed(t)
+	luton := models.Favorite{Kind: models.FavoriteTeam, ID: "eng-luton-town", AddedAt: storagetest.Fixed.Add(time.Hour)}
+	if err := repos.AddFavorite(ctx, luton); err != nil {
+		t.Fatal(err)
+	}
+	deps.Favorites = core.NewFavorites(append(mustFavorites(t, repos), luton))
+	view := load(t, deps, 120).View()
+	if !strings.Contains(view, "no xG for this league") || !strings.Contains(view, "GF 39 · GA 85") {
+		t.Errorf("no-xG club card:\n%s", view)
+	}
+}
+
+func TestStarredClubCardWearsItsScarf(t *testing.T) {
+	repos, deps, _ := seed(t)
+	if err := repos.UpsertTeamColors(ctx, models.TeamColors{TeamID: "eng-arsenal", PrimaryHex: "#EF0107", SecondaryHex: "#FFFFFF", Source: "test"}); err != nil {
+		t.Fatal(err)
+	}
+	deps.Theme = styles.Default()
+	view := lipgloss.NewStyle().Render(load(t, deps, 120).View())
+	if !strings.Contains(stripANSI(view), "╭━━━") {
+		t.Errorf("no scarf on the Arsenal card:\n%s", stripANSI(view))
+	}
+}
+
+func TestLeagueCardRowsHaveDots(t *testing.T) {
+	_, deps, _ := seed(t)
+	view := load(t, deps, 120).View()
+	if !strings.Contains(view, "● ★ Arsenal") {
+		t.Errorf("league rows should start with a club dot:\n%s", view)
+	}
+}
+
+func TestDashboardFitsEightyColumns(t *testing.T) {
+	_, deps, _ := seed(t)
+	for _, l := range strings.Split(load(t, deps, 80).View(), "\n") {
+		if lipgloss.Width(l) > 80 {
+			t.Errorf("overflow %d: %q", lipgloss.Width(l), l)
+		}
+	}
+}
+
+func mustFavorites(t *testing.T, repos storage.Repositories) []models.Favorite {
+	t.Helper()
+	favs, err := repos.ListFavorites(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return favs
+}
+
+func stripANSI(s string) string { return ansi.Strip(s) }

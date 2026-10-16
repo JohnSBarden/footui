@@ -336,6 +336,21 @@ func TestTeamColorsUpsertAndNotFound(t *testing.T) {
 	}
 }
 
+func TestTeamColorsForReturnsOnlyKnownTeams(t *testing.T) {
+	s := newTestStore(t)
+	mustNoErr(t, s.UpsertTeam(ctx, models.Team{ID: "a", Name: "A", Gender: "men"}))
+	mustNoErr(t, s.UpsertTeam(ctx, models.Team{ID: "b", Name: "B", Gender: "men"}))
+	mustNoErr(t, s.UpsertTeamColors(ctx, models.TeamColors{TeamID: "a", PrimaryHex: "#DA291C", SecondaryHex: "#FBE122", Source: "test"}))
+	got, err := s.TeamColorsFor(ctx, []string{"a", "b", "zz"})
+	mustNoErr(t, err)
+	if len(got) != 1 || got["a"].PrimaryHex != "#DA291C" || got["a"].SecondaryHex != "#FBE122" {
+		t.Fatalf("got %+v, want only a's colours", got)
+	}
+	if got, err := s.TeamColorsFor(ctx, nil); err != nil || len(got) != 0 {
+		t.Errorf("no ids: %+v, %v", got, err)
+	}
+}
+
 // The schema allows NULL in several descriptive columns. footui writes
 // empty strings there, but a row from another writer, an older build, or
 // a future provider may hold NULL, and reading it must not fail the query.

@@ -39,8 +39,7 @@ func (m *Model) columns() int {
 func (m *Model) View() string {
 	th := m.deps.Theme
 	var b strings.Builder
-	b.WriteString(components.Wordmark(th))
-	b.WriteString(th.Subtitle.Render("  your favourites"))
+	b.WriteString(m.header())
 	b.WriteString("\n\n")
 
 	switch {
@@ -60,6 +59,20 @@ func (m *Model) View() string {
 		b.WriteString(m.cardsView())
 	}
 	return b.String()
+}
+
+// header is the wordmark, what the screen is, and today's date on the
+// right — the day is what "updated 3 hours ago" is measured from.
+func (m *Model) header() string {
+	th := m.deps.Theme
+	left := components.Wordmark(th) + " " + th.Accent.Bold(true).Render("matchday") +
+		th.Subtitle.Render("  your favourites")
+	date := th.Muted.Render(now().Format("Mon 2 Jan"))
+	gap := m.width - lipgloss.Width(left) - lipgloss.Width(date)
+	if gap < 2 {
+		return left
+	}
+	return left + strings.Repeat(" ", gap) + date
 }
 
 // block is one vertical slice of the card area: a group heading or a row
@@ -179,13 +192,23 @@ func (m *Model) renderCard(c Card, selected bool) string {
 	}
 
 	style := th.Panel.Width(inner + 2).Height(cardLines)
+	body := strings.Join(lines[:cardLines], "\n")
 	if selected {
 		style = style.Border(lipgloss.ThickBorder()).BorderForeground(th.Palette.Accent)
 		if th.NoColor {
 			style = style.UnsetBorderForeground()
 		}
+		return style.Render(body)
 	}
-	return style.Render(strings.Join(lines[:cardLines], "\n"))
+	// An unselected club card wears its club's scarf along the top edge;
+	// the selected one keeps the plain heavy border, so selection stays
+	// the loudest thing on the screen.
+	if c.Group == GroupClubs && !c.Missing {
+		col := c.Colors[c.Team.ID]
+		return components.ScarfTop(th, col.PrimaryHex, col.SecondaryHex, inner+4) + "\n" +
+			style.BorderTop(false).Render(body)
+	}
+	return style.Render(body)
 }
 
 func (m *Model) heading(c Card, inner int) string {
@@ -227,8 +250,12 @@ func (m *Model) leagueLines(c Card, inner int) []string {
 			rows = rows[:tableRows]
 		}
 	}
+	maxPts := 0
 	for _, r := range rows {
-		lines = append(lines, m.standingLine(r, inner))
+		maxPts = max(maxPts, r.Points)
+	}
+	for _, r := range rows {
+		lines = append(lines, m.standingLine(c, r, maxPts, inner))
 	}
 	for len(lines) < cardLines-1 {
 		lines = append(lines, "")
@@ -236,8 +263,12 @@ func (m *Model) leagueLines(c Card, inner int) []string {
 	return append(lines, m.freshness(c, inner))
 }
 
-// standingLine is "  1  Arsenal ……… 85", a starred club picked out.
-func (m *Model) standingLine(r StandingRow, inner int) string {
+// pointsBarWidth is the points bar on a league card's rows.
+const pointsBarWidth = 5
+
+// standingLine is "  1 ● Arsenal ……… ███▌ 85": position, the club's dot,
+// its name (a starred club picked out) and points as a bar and a number.
+func (m *Model) standingLine(c Card, r StandingRow, maxPts, inner int) string {
 	th := m.deps.Theme
 	pos := "–"
 	if r.Position != nil {
@@ -249,15 +280,20 @@ func (m *Model) standingLine(r StandingRow, inner int) string {
 	if starred {
 		name = "★ " + name
 	}
-	nameWidth := inner - 4 - len(pts) - 1
+	nameWidth := inner - 4 - 2 - len(pts) - 1 - (pointsBarWidth + 1)
 	name = components.Truncate(name, nameWidth)
+	nameStyle := th.TableCell
+	if starred {
+		nameStyle = th.Accent.Bold(true)
+	}
+	bar := components.Bar(float64(r.Points), float64(maxPts), pointsBarWidth)
 	// Padded by display width, not with %-*s, which counts bytes and
 	// would misalign names with accents.
-	line := fmt.Sprintf("%3s ", pos) + name + strings.Repeat(" ", max(nameWidth-lipgloss.Width(name), 0)) + " " + pts
-	if starred {
-		return th.Accent.Bold(true).Render(line)
-	}
-	return th.TableCell.Render(line)
+	return th.TableCell.Render(fmt.Sprintf("%3s ", pos)) +
+		components.Dot(th, c.Colors[r.Team.ID].PrimaryHex) + " " +
+		nameStyle.Render(name+strings.Repeat(" ", max(nameWidth-lipgloss.Width(name), 0))) + " " +
+		th.Accent.Faint(true).Render(bar+strings.Repeat(" ", pointsBarWidth-lipgloss.Width(bar))) + " " +
+		nameStyle.Render(pts)
 }
 
 func (m *Model) teamLines(c Card, inner int) []string {
@@ -270,28 +306,35 @@ func (m *Model) teamLines(c Card, inner int) []string {
 	lines = append(lines, th.Muted.Render(components.Truncate(c.Competition.Name+" "+components.SeasonName(c.Season), inner)))
 
 	headline := strconv.Itoa(s.Points) + " pts"
+	headStyle := th.Accent.Bold(true)
 	if s.Position != nil {
 		headline = ordinal(*s.Position) + " · " + headline
+		// The bottom three are where a season is going wrong.
+		if c.LeagueSize > 3 && *s.Position > c.LeagueSize-3 {
+			headStyle = th.Negative.Bold(true)
+		}
 	}
 	lines = append(lines,
-		th.Accent.Bold(true).Render(components.Truncate(headline, inner)),
-		th.TableCell.Render(components.Truncate(fmt.Sprintf("P%d  W%d  D%d  L%d", s.MatchesPlayed, s.Wins, s.Draws, s.Losses), inner)),
-		th.TableCell.Render(components.Truncate(fmt.Sprintf("GF %d  GA %d  GD %s", s.GoalsFor, s.GoalsAgainst, components.Signed(s.GoalDiff)), inner)),
+		headStyle.Render(components.Truncate(headline, inner)),
+		th.TableCell.Render(components.Truncate(fmt.Sprintf("P%d  W%d  D%d  L%d  GD %s", s.MatchesPlayed, s.Wins, s.Draws, s.Losses, components.Signed(s.GoalDiff)), inner)),
 	)
 	if s.XG != nil {
-		diff := float64(s.GoalsFor) - *s.XG
-		style := th.Positive
-		if diff < 0 {
-			style = th.Negative
-		}
-		xg := "xG " + components.Float(s.XG, 1)
-		if s.XGA != nil {
-			xg += "  xGA " + components.Float(s.XGA, 1)
-		}
-		lines = append(lines, th.TableCell.Render(xg+"  ")+style.Render("goals "+components.SignedFloat(diff, 1)))
+		// Expected and actual goals on one scale, so the gap between the
+		// bars is the over- or under-performance.
+		scale := max(*s.XG, float64(s.GoalsFor))
+		barWidth := inner - 6 - 6
+		lines = append(lines,
+			th.Muted.Render("xG    ")+th.Info.Render(padBar(components.Bar(*s.XG, scale, barWidth), barWidth))+" "+th.TableCell.Render(components.Float(s.XG, 1)),
+			th.Muted.Render("goals ")+th.TableCell.Render(padBar(components.Bar(float64(s.GoalsFor), scale, barWidth), barWidth))+" "+th.TableCell.Render(strconv.Itoa(s.GoalsFor)),
+		)
+	} else {
+		lines = append(lines,
+			th.TableCell.Render(components.Truncate(fmt.Sprintf("GF %d · GA %d", s.GoalsFor, s.GoalsAgainst), inner)),
+			th.Faint.Render(components.Truncate("no xG for this league", inner)),
+		)
 	}
 	if form := c.Summary.Form; form != "" {
-		lines = append(lines, th.Muted.Render("Form ")+components.FormChips(th, form))
+		lines = append(lines, th.Muted.Render("form ")+components.FormChips(th, form))
 	}
 	for len(lines) < cardLines-1 {
 		lines = append(lines, "")
@@ -340,9 +383,9 @@ func (m *Model) freshness(c Card, inner int) string {
 	running, waiting := m.inFlight(c)
 	switch {
 	case running:
-		return th.Status.Render(components.Truncate("refreshing now…", inner))
+		return th.Status.Render(components.Truncate("◐ refreshing now…", inner))
 	case waiting:
-		return th.Status.Render(components.Truncate("queued for refresh", inner))
+		return th.Faint.Render(components.Truncate("◌ queued for refresh", inner))
 	case c.Group == GroupNations && !c.Updated.IsZero():
 		text = "updated " + components.Freshness(c.Updated, now())
 	case c.LastSync == nil:
@@ -353,6 +396,11 @@ func (m *Model) freshness(c Card, inner int) string {
 		text = "updated " + components.Freshness(c.LastSync.FinishedAt, now())
 	}
 	return th.Muted.Render(components.Truncate(text, inner))
+}
+
+// padBar pads a bar to width so the number after it lines up.
+func padBar(bar string, width int) string {
+	return bar + strings.Repeat(" ", max(width-lipgloss.Width(bar), 0))
 }
 
 // ordinal is 1st, 2nd, 3rd, 4th … 11th, 12th, 13th, 21st.
