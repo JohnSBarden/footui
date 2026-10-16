@@ -52,6 +52,10 @@ type Model struct {
 	// lastSync is the most recent refresh attempt for the displayed
 	// season, or nil when it has never been attempted.
 	lastSync *models.SyncRun
+	// colors are the clubs' brand colours, for their dots; xpts each
+	// club's expected points, where the provider has them.
+	colors map[string]models.TeamColors
+	xpts   map[string]float64
 
 	width  int
 	height int
@@ -193,6 +197,8 @@ type standingsLoadedMsg struct {
 	// refreshed — a normal state for data loaded before sync logging
 	// existed, or seeded by hand.
 	lastSync *models.SyncRun
+	colors   map[string]models.TeamColors
+	xpts     map[string]float64
 }
 
 // --- commands ---
@@ -273,8 +279,16 @@ func loadTable(deps core.Deps, compID, seasonID string) (standingsLoadedMsg, err
 	if run, err := deps.Repos.LatestSyncRun(deps.Ctx, compID, seasonID); err == nil {
 		lastSync = &run
 	}
+	colors, err := deps.Repos.TeamColorsFor(deps.Ctx, ids)
+	if err != nil {
+		return standingsLoadedMsg{}, err
+	}
+	xpts, err := deps.Repos.SeasonStatExtra(deps.Ctx, compID, seasonID, models.StatExpectedPoints)
+	if err != nil {
+		return standingsLoadedMsg{}, err
+	}
 
-	return standingsLoadedMsg{seasonID: seasonID, rows: rows, lastSync: lastSync}, nil
+	return standingsLoadedMsg{seasonID: seasonID, rows: rows, lastSync: lastSync, colors: colors, xpts: xpts}, nil
 }
 
 // currentSeason returns the season currently being displayed, if any.

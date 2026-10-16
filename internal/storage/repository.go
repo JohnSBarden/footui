@@ -168,6 +168,9 @@ type TeamStatsRepo interface {
 	// table needs 20 rows of core columns, not 20 rows plus seven
 	// key/value lookups each.
 	TeamSeasonStatExtras(ctx context.Context, teamID, competitionID, seasonID string) (map[string]float64, error)
+	// SeasonStatExtra returns one long-tail stat for every team in a
+	// competition-season, keyed by team ID; teams without it are absent.
+	SeasonStatExtra(ctx context.Context, competitionID, seasonID, key string) (map[string]float64, error)
 }
 
 // PlayersRepo persists and queries Player rows.

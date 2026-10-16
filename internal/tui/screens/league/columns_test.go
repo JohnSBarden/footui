@@ -38,7 +38,7 @@ func TestColumnsFollowTheDataTheCompetitionHas(t *testing.T) {
 	}
 
 	m.rows = []Row{{Stats: models.TeamSeasonStats{}}}
-	if got := titles(m); len(got) != 10 {
+	if got := titles(m); len(got) != 11 { // the base table, with its zone gutter
 		t.Errorf("with nothing optional, only the base table: %v", got)
 	}
 }

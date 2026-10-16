@@ -336,6 +336,29 @@ func TestTeamColorsUpsertAndNotFound(t *testing.T) {
 	}
 }
 
+func TestSeasonStatExtraReadsOneKeyForEveryTeam(t *testing.T) {
+	s := newTestStore(t)
+	season := seedCompetitionSeason(t, s, "c", "2025", "a", "A")
+	seedCompetitionSeason(t, s, "c", "2025", "b", "B")
+	for _, row := range []struct {
+		team string
+		xpts float64
+	}{{"a", 30.5}, {"b", 12.25}} {
+		mustNoErr(t, s.UpsertTeamSeasonStats(ctx, models.TeamSeasonStats{
+			TeamID: row.team, CompetitionID: "c", SeasonID: season, Source: "test",
+			Extras: map[string]float64{models.StatExpectedPoints: row.xpts, models.StatPPDA: 9},
+		}))
+	}
+	got, err := s.SeasonStatExtra(ctx, "c", season, models.StatExpectedPoints)
+	mustNoErr(t, err)
+	if len(got) != 2 || got["a"] != 30.5 || got["b"] != 12.25 {
+		t.Fatalf("got %+v", got)
+	}
+	if got, err := s.SeasonStatExtra(ctx, "c", "c:1999", models.StatExpectedPoints); err != nil || len(got) != 0 {
+		t.Errorf("another season: %+v, %v", got, err)
+	}
+}
+
 func TestTeamColorsForReturnsOnlyKnownTeams(t *testing.T) {
 	s := newTestStore(t)
 	mustNoErr(t, s.UpsertTeam(ctx, models.Team{ID: "a", Name: "A", Gender: "men"}))

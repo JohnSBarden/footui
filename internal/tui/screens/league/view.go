@@ -2,6 +2,7 @@ package league
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -21,15 +22,19 @@ const (
 	xgWidth    = 6 // xG, xGA, xGD
 	// wantTeamCol is wide enough for the longest club names footui covers
 	// ("Wolverhampton Wanderers", "Borussia Mönchengladbach") to stay
-	// distinguishable from each other. It never shrinks; see
-	// components.FitColumns for why.
-	wantTeamCol = 24
+	// distinguishable from each other, after the club's dot. It never
+	// shrinks; see components.FitColumns.
+	wantTeamCol = 26
+	// pointsBarWidth and xgdHalf size the two bars at the end of a row.
+	pointsBarWidth = 10
+	xgdHalf        = 6
 )
 
 func (m *Model) columns() []components.Column {
 	base := []components.Column{
+		{Title: "", Width: 1},
 		{Title: "#", Width: posWidth, Right: true},
-		{Title: "Team", Width: wantTeamCol},
+		{Title: "TEAM", Width: wantTeamCol},
 		{Title: "MP", Width: smallWidth, Right: true},
 		{Title: "W", Width: smallWidth, Right: true},
 		{Title: "D", Width: smallWidth, Right: true},
@@ -37,7 +42,7 @@ func (m *Model) columns() []components.Column {
 		{Title: "GF", Width: goalWidth, Right: true},
 		{Title: "GA", Width: goalWidth, Right: true},
 		{Title: "GD", Width: goalWidth, Right: true},
-		{Title: "Pts", Width: goalWidth, Right: true},
+		{Title: "PTS", Width: goalWidth, Right: true},
 	}
 
 	// The team column is already in base, so nothing extra is reserved.
@@ -61,6 +66,7 @@ type extraGroup struct {
 // have possession and shots instead. A column nobody in the table has a
 // value for is never shown: a column of dashes is just noise.
 func (m *Model) extraGroups() []extraGroup {
+	var groups []extraGroup
 	has := func(f func(models.TeamSeasonStats) bool) bool {
 		for _, r := range m.rows {
 			if f(r.Stats) {
@@ -69,7 +75,6 @@ func (m *Model) extraGroups() []extraGroup {
 		}
 		return false
 	}
-	var groups []extraGroup
 	if has(func(s models.TeamSeasonStats) bool { return s.XG != nil }) {
 		// xG and xGA go together: attacking output means little without
 		// what the team conceded. xGD is derived from the pair.
@@ -96,7 +101,7 @@ func (m *Model) extraGroups() []extraGroup {
 					return []components.Cell{components.Styled(components.SignedFloat(diff, 1), m.deltaStyle(diff))}
 				},
 			})
-		return groups
+		return append(groups, m.pointsBarGroup(), m.xgdBarGroup())
 	}
 	if has(func(s models.TeamSeasonStats) bool { return s.PossessionAvg != nil }) {
 		groups = append(groups, extraGroup{
@@ -123,7 +128,112 @@ func (m *Model) extraGroups() []extraGroup {
 			},
 		})
 	}
-	return groups
+	return append(groups, m.pointsBarGroup())
+}
+
+// pointsBarGroup is each club's points as a bar against the leader's: the
+// table's shape — a runaway leader, a bunched middle — at a glance.
+func (m *Model) pointsBarGroup() extraGroup {
+	top := 0
+	for _, r := range m.rows {
+		top = max(top, r.Stats.Points)
+	}
+	return extraGroup{
+		columns: []components.Column{{Title: "", Width: pointsBarWidth}},
+		cells: func(s models.TeamSeasonStats) []components.Cell {
+			return []components.Cell{components.Styled(
+				components.Bar(float64(s.Points), float64(top), pointsBarWidth), m.deps.Theme.Accent.Faint(true))}
+		},
+	}
+}
+
+// xgdBarGroup draws expected goal difference either side of zero, so the
+// clubs whose chances deserved better stand out from their position.
+func (m *Model) xgdBarGroup() extraGroup {
+	th := m.deps.Theme
+	maxAbs := 0.0
+	for _, r := range m.rows {
+		if r.Stats.XG != nil && r.Stats.XGA != nil {
+			maxAbs = max(maxAbs, math.Abs(*r.Stats.XG-*r.Stats.XGA))
+		}
+	}
+	return extraGroup{
+		columns: []components.Column{{Title: "−  xGD  +", Width: 2*xgdHalf + 1}},
+		cells: func(s models.TeamSeasonStats) []components.Cell {
+			if s.XG == nil || s.XGA == nil {
+				return []components.Cell{components.Text("")}
+			}
+			neg, pos := components.Diverging(*s.XG-*s.XGA, maxAbs, xgdHalf)
+			return []components.Cell{components.Text(
+				strings.Repeat(" ", xgdHalf-lipgloss.Width(neg)) + th.Below.Render(neg) +
+					th.Faint.Render("┃") + th.Info.Render(pos))}
+		},
+	}
+}
+
+// zoneCell marks what a position leads to: a coloured bar, or a letter
+// without colour (C Champions League, E Europa League, ↓ relegation).
+func (m *Model) zoneCell(pos *int) components.Cell {
+	th := m.deps.Theme
+	season, _ := m.currentSeason()
+	p := 0
+	if pos != nil {
+		p = *pos
+	}
+	z := zoneFor(m.compID, startYear(season.Label), p)
+	if th.NoColor {
+		return components.Text(map[zone]string{zoneNone: " ", zoneUCL: "C", zoneUEL: "E", zoneDown: "↓"}[z])
+	}
+	switch z {
+	case zoneUCL:
+		return components.Styled("▌", th.Info)
+	case zoneUEL:
+		return components.Styled("▌", th.Below)
+	case zoneDown:
+		return components.Styled("▌", th.Negative)
+	}
+	return components.Text(" ")
+}
+
+// zoneLegend explains the gutter, for a season that has zones.
+func (m *Model) zoneLegend() string {
+	th := m.deps.Theme
+	season, ok := m.currentSeason()
+	if !ok || !hasZones(m.compID, startYear(season.Label)) {
+		return ""
+	}
+	if th.NoColor {
+		return "C Champions L.  E Europa L.  ↓ relegation"
+	}
+	return th.Info.Render("▌") + th.Muted.Render(" Champions L.  ") +
+		th.Below.Render("▌") + th.Muted.Render(" Europa L.  ") +
+		th.Negative.Render("▌") + th.Muted.Render(" relegation")
+}
+
+// insightGap is the least shortfall against expected points worth a line.
+const insightGap = 1.0
+
+// insight names the club furthest below its expected points, the table's
+// hard-luck story, where the provider supplies expected points.
+func (m *Model) insight() string {
+	var best Row
+	gap := insightGap
+	found := false
+	for _, r := range m.visibleRows() {
+		x, ok := m.xpts[r.Team.ID]
+		if !ok {
+			continue
+		}
+		// Rows run top to bottom, so on a tie the higher club keeps it.
+		if g := x - float64(r.Stats.Points); g >= gap && (!found || g > gap) {
+			best, gap, found = r, g, true
+		}
+	}
+	if !found {
+		return ""
+	}
+	return m.deps.Theme.Faint.Render(fmt.Sprintf("%s: %d pts from %.1f xPts · biggest gap in the table",
+		best.Team.Name, best.Stats.Points, m.xpts[best.Team.ID]))
 }
 
 // View implements core.Screen.
@@ -149,6 +259,9 @@ func (m *Model) View() string {
 			"No standings cached for %s.", components.SeasonName(season))))
 	default:
 		b.WriteString(m.table())
+		if line := m.insight(); line != "" {
+			b.WriteString("\n" + line)
+		}
 	}
 
 	return b.String()
@@ -203,6 +316,9 @@ func (m *Model) header() string {
 			seasonBar += "   " + freshness
 		}
 		line += "\n" + seasonBar
+	}
+	if legend := m.zoneLegend(); legend != "" && !m.matchesView {
+		line += "\n" + legend
 	}
 	if groups := m.groupBar(); groups != "" && !m.matchesView {
 		line += "\n" + groups
@@ -303,8 +419,10 @@ func (m *Model) table() string {
 		s := r.Stats
 
 		row := []components.Cell{
+			m.zoneCell(s.Position),
 			components.Text(components.Int(s.Position)),
-			components.Text(m.deps.Star(models.FavoriteTeam, r.Team.ID, r.Team.Name)),
+			components.Text(components.Dot(th, m.colors[r.Team.ID].PrimaryHex) + " " +
+				m.deps.Star(models.FavoriteTeam, r.Team.ID, r.Team.Name)),
 			components.Text(strconv.Itoa(s.MatchesPlayed)),
 			components.Text(strconv.Itoa(s.Wins)),
 			components.Text(strconv.Itoa(s.Draws)),
@@ -355,6 +473,12 @@ func (m *Model) tableHeight() int {
 	chrome := 9
 	if len(m.groups) > 1 {
 		chrome++ // the group bar
+	}
+	if m.zoneLegend() != "" {
+		chrome++
+	}
+	if m.insight() != "" {
+		chrome++
 	}
 	h := m.height - chrome
 	if h < 5 {

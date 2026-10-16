@@ -42,7 +42,7 @@ func TestViewRendersStandingsInPositionOrder(t *testing.T) {
 	s, _ := screen(t, storagetest.SampleStandings())
 	out := s.View()
 
-	for _, want := range []string{"Premier League", "England", "tier 1", "2025-26", "Arsenal", "Manchester City", "Pts"} {
+	for _, want := range []string{"Premier League", "England", "tier 1", "2025-26", "Arsenal", "Manchester City", "PTS"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("view missing %q\n---\n%s", want, out)
 		}
@@ -448,7 +448,7 @@ func TestNarrowTerminalsDropStatColumnsNotTeamNames(t *testing.T) {
 			}
 		}
 		// The core table is never sacrificed.
-		for _, col := range []string{"MP", "GD", "Pts"} {
+		for _, col := range []string{"MP", "GD", "PTS"} {
 			if !strings.Contains(out, col) {
 				t.Errorf("width %d dropped the core column %q\n---\n%s", width, col, out)
 			}

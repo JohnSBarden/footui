@@ -67,6 +67,7 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 		group := m.Group()
 		m.rows = msg.rows
 		m.lastSync = msg.lastSync
+		m.colors, m.xpts = msg.colors, msg.xpts
 		m.matches, m.matchTeams = displayOrder(msg.matches), msg.matchTeams
 		m.setGroups(group)
 		m.cursor = headerRow

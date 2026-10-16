@@ -668,6 +668,30 @@ func (s *Store) TeamSeasonStatExtras(ctx context.Context, teamID, competitionID,
 	return out, rows.Err()
 }
 
+func (s *Store) SeasonStatExtra(ctx context.Context, competitionID, seasonID, key string) (map[string]float64, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT team_id, stat_value FROM team_season_stat_extra
+		WHERE competition_id = ? AND season_id = ? AND stat_key = ?`,
+		competitionID, seasonID, key)
+	if err != nil {
+		return nil, fmt.Errorf("sqlite: team_season_stat_extra %s/%s %s: %w", competitionID, seasonID, key, err)
+	}
+	defer rows.Close()
+
+	out := map[string]float64{}
+	for rows.Next() {
+		var team string
+		var value sql.NullFloat64
+		if err := rows.Scan(&team, &value); err != nil {
+			return nil, fmt.Errorf("sqlite: scan team_season_stat_extra: %w", err)
+		}
+		if value.Valid {
+			out[team] = value.Float64
+		}
+	}
+	return out, rows.Err()
+}
+
 func (s *Store) Standings(ctx context.Context, competitionID, seasonID string) ([]models.TeamSeasonStats, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT team_id, competition_id, season_id, position, matches_played, wins, draws, losses,
