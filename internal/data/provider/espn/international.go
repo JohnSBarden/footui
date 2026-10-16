@@ -285,8 +285,8 @@ func parseKickoff(values ...string) (time.Time, bool) {
 	return time.Time{}, false
 }
 
-// matchStatus maps ESPN's status to footy's. Anything ESPN marks
-// completed without a status footy knows is a finished match.
+// matchStatus maps ESPN's status to footui's. Anything ESPN marks
+// completed without a status footui knows is a finished match.
 func matchStatus(name, state string, completed bool) string {
 	switch name {
 	case "STATUS_FULL_TIME", "STATUS_FINAL":
@@ -325,7 +325,7 @@ func score(n flexNum) *int {
 	return &v
 }
 
-// roundNames are the round slugs ESPN uses, as footy shows them.
+// roundNames are the round slugs ESPN uses, as footui shows them.
 var roundNames = map[string]string{
 	"group-stage":     "Group stage",
 	"league-stage":    "League stage",

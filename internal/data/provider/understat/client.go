@@ -38,16 +38,16 @@ const defaultBaseURL = "https://understat.com"
 // responses on disk. When it's set, a league/season payload is read from
 // there if present and written there after a successful fetch.
 //
-// This is deliberately opt-in and off by default: `footy refresh` means
+// This is deliberately opt-in and off by default: `footui refresh` means
 // "go get the current numbers", and silently serving yesterday's file
 // would make that a lie. It exists so that developing against the data
 // (and running the opt-in live tests) doesn't hammer an undocumented
 // third-party endpoint with identical requests.
-const CacheDirEnv = "FOOTY_HTTP_CACHE"
+const CacheDirEnv = "FOOTUI_HTTP_CACHE"
 
 // Retry policy. The request timeout is kept short enough that a full
 // retry cycle against a dead host costs well under a minute, because
-// `footy refresh --all` multiplies whatever this is by every
+// `footui refresh --all` multiplies whatever this is by every
 // competition-season in the run.
 const (
 	requestTimeout = 15 * time.Second

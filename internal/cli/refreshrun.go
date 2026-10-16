@@ -30,7 +30,7 @@ type refreshEvents struct {
 	note func(text string)
 }
 
-// runRefresh is the one refresh pipeline, shared by `footy refresh` and
+// runRefresh is the one refresh pipeline, shared by `footui refresh` and
 // the TUI's refresh key: fetch each competition-season from the provider
 // that covers it, then re-seed curated colors and honours so a newly
 // cached competition picks up its clubs' branding and trophies with no
@@ -55,7 +55,7 @@ func runRefresh(ctx context.Context, store storage.Repositories, jobs []sync.Job
 		ms.StaleAfter = maxAge
 		for _, season := range j.Seasons {
 			if rateLimited(results) {
-				break // ESPN asked footy to stop; the client refuses anyway
+				break // ESPN asked footui to stop; the client refuses anyway
 			}
 			results = append(results, ms.SyncEdition(ctx, j.Competition, season, ev.unitFunc())...)
 		}
@@ -283,7 +283,7 @@ func tuiRefresher(store storage.Repositories, staleAfter time.Duration) core.Ref
 
 		cov, ok := sync.FindCoverage(req.CompetitionID)
 		if !ok {
-			return "", fmt.Errorf("footy doesn't cover %q — see `footy competitions`", req.CompetitionID)
+			return "", fmt.Errorf("footui doesn't cover %q — see `footui competitions`", req.CompetitionID)
 		}
 		comp := cov.Competition
 		seasons := req.Seasons

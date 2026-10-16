@@ -14,7 +14,7 @@
 # 110 of 112 match an entry (Akron and Rodina are still uncurated). Clubs
 # from earlier seasons that aren't in the top flight now are still the
 # usual-spelling guesses, with aliases. An entry that matches nothing is simply
-# never applied — a wrong guess is inert, not harmful. Run `footy colors`
+# never applied — a wrong guess is inert, not harmful. Run `footui colors`
 # after refreshing a competition to see which cached clubs still lack
 # colors, then add or correct an entry here.
 #

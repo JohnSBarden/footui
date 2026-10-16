@@ -25,7 +25,7 @@ func (m Mode) String() string {
 	return "weak"
 }
 
-// ParseMode reads a mode name, as given to --theme or FOOTY_THEME.
+// ParseMode reads a mode name, as given to --theme or FOOTUI_THEME.
 func ParseMode(s string) (Mode, error) {
 	switch strings.ToLower(strings.TrimSpace(s)) {
 	case "", "weak":

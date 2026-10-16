@@ -35,7 +35,7 @@ const (
 	// CacheDirEnv is shared with the understat client: one directory of
 	// raw responses for development, so iterating doesn't hammer either
 	// host.
-	CacheDirEnv = "FOOTY_HTTP_CACHE"
+	CacheDirEnv = "FOOTUI_HTTP_CACHE"
 
 	requestTimeout = 15 * time.Second
 	maxAttempts    = 3
@@ -48,16 +48,16 @@ const (
 	// matches is up to a couple of megabytes, and a nation's first
 	// download is thirty of them.
 	scoreboardGap = time.Second
-	// maxRetryAfter caps how long a Retry-After header can make footy
+	// maxRetryAfter caps how long a Retry-After header can make footui
 	// wait in one go; a longer ask is treated as "not now" and gives up.
 	maxRetryAfter = 2 * time.Minute
 	// breakerOpen is how long every request is refused after ESPN kept
-	// rate-limiting footy through all its retries.
+	// rate-limiting footui through all its retries.
 	breakerOpen = time.Hour
 )
 
 // rateLimitBackoff is how long to wait after each successive 429 when
-// ESPN doesn't say: generous, because a 429 means footy was already
+// ESPN doesn't say: generous, because a 429 means footui was already
 // asking too much.
 var rateLimitBackoff = []time.Duration{5 * time.Second, 20 * time.Second, 60 * time.Second}
 
@@ -173,8 +173,8 @@ func (e *statusError) Error() string {
 }
 
 // errRateLimited is what every request gets once ESPN has kept refusing
-// footy: no request is made at all.
-var errRateLimited = fmt.Errorf("espn is rate-limiting footy; try again later: %w", provider.ErrRateLimited)
+// footui: no request is made at all.
+var errRateLimited = fmt.Errorf("espn is rate-limiting footui; try again later: %w", provider.ErrRateLimited)
 
 // get fetches url, retrying what is worth retrying. A 429 is handled on
 // its own schedule: Retry-After when ESPN gives one, otherwise a backoff
@@ -208,7 +208,7 @@ func (c *Client) get(ctx context.Context, url string, gap time.Duration) ([]byte
 			}
 			refusals++
 			if c.OnRetry != nil {
-				c.OnRetry(refusals, len(c.rateWaits)+1, fmt.Errorf("ESPN asked footy to slow down; waiting %s", wait))
+				c.OnRetry(refusals, len(c.rateWaits)+1, fmt.Errorf("ESPN asked footui to slow down; waiting %s", wait))
 			}
 			if err := c.wait(ctx, wait); err != nil {
 				return nil, err
@@ -242,7 +242,7 @@ func (c *Client) attempt(ctx context.Context, url string, gap time.Duration) ([]
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("User-Agent", "footy (github.com/JohnSBarden/footui)")
+	req.Header.Set("User-Agent", "footui (github.com/JohnSBarden/footui)")
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		var ne net.Error
@@ -317,7 +317,7 @@ func (c *Client) throttle(ctx context.Context, gap time.Duration) error {
 	return nil
 }
 
-// breaker remembers that ESPN rate-limited footy through every retry, so
+// breaker remembers that ESPN rate-limited footui through every retry, so
 // that nothing else in the process asks again for a while. One is shared
 // by every client: the TUI builds a provider per queued refresh, and the
 // next one in the queue must not start the whole dance again.

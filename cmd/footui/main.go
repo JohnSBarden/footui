@@ -1,4 +1,4 @@
-// Command footy is the entrypoint for the footui terminal dashboard.
+// Command footui is the entrypoint for the footui terminal dashboard.
 package main
 
 import "github.com/JohnSBarden/footui/internal/cli"

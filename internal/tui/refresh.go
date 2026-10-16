@@ -102,9 +102,9 @@ func (a *App) startRefresh() tea.Cmd {
 	}
 	if a.deps.Refresh == nil {
 		if req.TeamID != "" {
-			a.status = "refresh isn't available in this view — run  footy refresh --team " + req.Label()
+			a.status = "refresh isn't available in this view — run  footui refresh --team " + req.Label()
 		} else {
-			a.status = fmt.Sprintf("refresh isn't available in this view — run  footy refresh --competition %s", req.CompetitionID)
+			a.status = fmt.Sprintf("refresh isn't available in this view — run  footui refresh --competition %s", req.CompetitionID)
 		}
 		return nil
 	}
@@ -117,7 +117,7 @@ func (a *App) startRefresh() tea.Cmd {
 // is queued doesn't fetch it twice.
 func (a *App) enqueue(reqs ...core.RefreshRequest) tea.Cmd {
 	if a.deps.Refresh == nil {
-		a.status = "downloading isn't available in this view — run  footy refresh"
+		a.status = "downloading isn't available in this view — run  footui refresh"
 		return nil
 	}
 	for _, req := range reqs {
@@ -270,7 +270,7 @@ func (a *App) handleRefreshEvent(msg refreshMsg) tea.Cmd {
 		return tea.Batch(a.broadcast(refreshedMsg(req)), a.broadcastQueue())
 	}
 	if errors.Is(ev.err, core.ErrRateLimited) {
-		// The source has asked footy to stop: everything still queued
+		// The source has asked footui to stop: everything still queued
 		// would only be refused too, so it's dropped, and the user is told
 		// why. What landed before the refusal is still worth showing.
 		a.queue = nil

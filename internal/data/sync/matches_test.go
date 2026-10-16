@@ -240,7 +240,7 @@ func TestTheCurrentYearIsRefetchedOnlyWhenMatchesHaveBeenPlayed(t *testing.T) {
 	s, _ := newMatchSyncer(t, src, &now)
 	unit := []sync.Unit{{Competition: mustComp(t, "int-friendly"), Year: 2026}}
 	s.SyncUnits(context.Background(), unit, nil)
-	// From here on ESPN has the scheduled match's result; footy only
+	// From here on ESPN has the scheduled match's result; footui only
 	// learns it by fetching again.
 	played := &src.matches["int-friendly/2026"][1]
 	played.Status = models.MatchFullTime

@@ -150,7 +150,7 @@ func (p *Provider) fetch(ctx context.Context, ref provider.CompetitionRef, seaso
 		return nil, fmt.Errorf("%w (%s %s)", ErrNoTable, slug, year)
 	}
 	// A tournament's table is the whole story: national squads change
-	// from one match to the next, and footy keeps no player stats for
+	// from one match to the next, and footui keeps no player stats for
 	// them, so there are no rosters to fetch.
 	if comp.International() {
 		return b, nil

@@ -105,7 +105,7 @@ func TestDryRunPlanShowsEachCompetitionsSeasonLabels(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	printPlan(&buf, f.plan(comps, testNow), "/tmp/footy.db")
+	printPlan(&buf, f.plan(comps, testNow), "/tmp/footui.db")
 	out := buf.String()
 
 	if !strings.Contains(out, "2026-27, 2025-26") {

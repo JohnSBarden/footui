@@ -88,7 +88,7 @@ func clubRefreshes(ctx context.Context, repos storage.Repositories, now time.Tim
 	return out
 }
 
-// exactClub finds the one cached club a query names exactly, so `footy
+// exactClub finds the one cached club a query names exactly, so `footui
 // refresh --team arsenal` means Arsenal. National teams are left to the
 // nation lookup.
 func exactClub(ctx context.Context, repos storage.Repositories, query string) (models.Team, bool) {

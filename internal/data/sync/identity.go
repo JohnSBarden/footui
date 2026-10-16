@@ -12,7 +12,7 @@ import (
 	"github.com/JohnSBarden/footui/internal/textfold"
 )
 
-// Identity resolution: a provider that doesn't speak footy's canonical
+// Identity resolution: a provider that doesn't speak footui's canonical
 // IDs returns its own ("espn:359"), and before anything is written each is
 // mapped to the canonical team or player it denotes. Without this, Arsenal
 // in the Champions League (from ESPN) and Arsenal in the Premier League
@@ -40,8 +40,8 @@ import (
 // otherwise new. Every resolution is recorded, so later refreshes are
 // stable and never re-guess.
 
-// canonicalLocalIDs are providers whose own IDs are already footy's
-// canonical form. understat was footy's first provider, and its scheme
+// canonicalLocalIDs are providers whose own IDs are already footui's
+// canonical form. understat was footui's first provider, and its scheme
 // became the canonical one: a club it reports that matches nothing cached
 // keeps that ID, so every existing database and curated seed still lines
 // up.
@@ -193,7 +193,7 @@ func newResolver(ctx context.Context, repos storage.Repositories, comp models.Co
 }
 
 // teams resolves every native team, returning the rows to write: the
-// cached row for a club footy already has (so one provider's spelling
+// cached row for a club footui already has (so one provider's spelling
 // never overwrites another's), the provider's row under a new canonical
 // ID otherwise.
 func (r *resolver) teams(ctx context.Context, teams []models.Team) ([]models.Team, error) {
@@ -287,7 +287,7 @@ func (r *resolver) match(t models.Team) (models.Team, bool) {
 	return models.Team{}, false
 }
 
-// newTeamID mints a canonical ID for a club footy hasn't seen: the
+// newTeamID mints a canonical ID for a club footui hasn't seen: the
 // country prefix and a slug of the name, "-women" for a women's side so
 // it can never collide with the men's club of the same name, and "int"
 // for a European club whose country isn't known.

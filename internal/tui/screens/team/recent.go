@@ -81,7 +81,7 @@ func (m *Model) recentStrip() string {
 		lines = append(lines, th.Muted.Render("Loading…"))
 	case len(m.recent) == 0 && !m.fetching && !m.queued:
 		lines = append(lines, th.Empty.Render("No recent games cached.")+
-			th.Muted.Render("  Run  ")+th.Accent.Render("footy refresh --team "+teamArg(m.team))+
+			th.Muted.Render("  Run  ")+th.Accent.Render("footui refresh --team "+teamArg(m.team))+
 			th.Muted.Render("  to fetch them."))
 	case len(m.recent) > 0:
 		lines = append(lines, m.recentTable())
@@ -120,7 +120,7 @@ func (m *Model) recentTeam(id string) string {
 	return id
 }
 
-// teamArg is the club as `footy refresh --team` takes it.
+// teamArg is the club as `footui refresh --team` takes it.
 func teamArg(t models.Team) string {
 	arg := strings.ToLower(t.Name)
 	if strings.Contains(arg, " ") {

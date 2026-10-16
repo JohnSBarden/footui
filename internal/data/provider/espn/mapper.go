@@ -71,7 +71,7 @@ var directorySlugs = map[string][]string{
 }
 
 // Provider-native IDs. They are not canonical: the sync layer resolves
-// them to footy's own team and player IDs (and records the mapping), so
+// them to footui's own team and player IDs (and records the mapping), so
 // ESPN's Arsenal in the Champions League is the same team understat's
 // Arsenal is in the Premier League.
 const (
@@ -314,7 +314,7 @@ func mapRoster(resp rosterResponse, comp models.Competition, espnTeamID, seasonI
 	return players, lines
 }
 
-// position maps ESPN's one-letter positions to footy's.
+// position maps ESPN's one-letter positions to footui's.
 func position(abbr string) string {
 	switch abbr {
 	case "G":

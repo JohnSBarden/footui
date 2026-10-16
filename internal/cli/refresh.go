@@ -33,14 +33,14 @@ func newRefreshCmd(g *globalFlags) *cobra.Command {
 		Long: "refresh pulls team, standings, and player data from the provider that covers each competition (understat.com or ESPN) " +
 			"and stores it in the local SQLite cache.\n\n" +
 			"By default it refreshes the current season of one competition. Use --all for every " +
-			"club competition footy covers, and --years to go back through previous seasons. " +
+			"club competition footui covers, and --years to go back through previous seasons. " +
 			"--team england fetches a national team's matches (this year and last by default); " +
 			"they come from yearly match lists shared by every nation, so a second nation costs " +
 			"nothing, and a year that has ended is never fetched twice. --team arsenal fetches a " +
 			"cached club's recent games — its league, cups and European matches — the same way. A failure " +
 			"in one competition-season does not abort the rest of the run; the summary at the end " +
 			"lists exactly what failed.\n\n" +
-			"See `footy competitions` for valid --competition values.",
+			"See `footui competitions` for valid --competition values.",
 		// A failed fetch or an unknown competition is a runtime problem,
 		// not a usage error — printing the whole usage block on top of it
 		// buries the actual message.
@@ -97,9 +97,9 @@ func newRefreshCmd(g *globalFlags) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&f.competitionID, "competition", "eng-premier-league",
-		"competition ID to refresh (see `footy competitions`)")
+		"competition ID to refresh (see `footui competitions`)")
 	cmd.Flags().BoolVar(&f.all, "all", false,
-		"refresh every club competition footy covers instead of just --competition")
+		"refresh every club competition footui covers instead of just --competition")
 	cmd.Flags().StringVar(&f.season, "season", "",
 		"a single season start year to refresh, e.g. 2025 for 2025-26 (default: the current season)")
 	cmd.Flags().IntVar(&f.years, "years", 1,
@@ -197,7 +197,7 @@ func printUnit(out io.Writer, r sync.UnitResult) {
 	}
 }
 
-// runTeam is `footy refresh --team`: the yearly match lists the nation's
+// runTeam is `footui refresh --team`: the yearly match lists the nation's
 // competitions publish, shared with every other nation.
 func (f *refreshFlags) runTeam(cmd *cobra.Command, g *globalFlags) error {
 	out := cmd.OutOrStdout()

@@ -23,7 +23,7 @@ func newPlayerCmd(g *globalFlags) *cobra.Command {
 				if err != nil {
 					return nil, err
 				}
-				// Same rule as `footy team`: one match opens directly,
+				// Same rule as `footui team`: one match opens directly,
 				// anything else hands off to Browse, which can show what
 				// the alternatives actually are.
 				if len(matches) == 1 {

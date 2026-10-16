@@ -71,7 +71,7 @@ func TestA429WithoutRetryAfterBacksOffSlowly(t *testing.T) {
 }
 
 // A 429 that outlasts every retry trips the breaker: the error says
-// footy is being rate-limited, and nothing more is asked of ESPN — by
+// footui is being rate-limited, and nothing more is asked of ESPN — by
 // this client or any other sharing the breaker — for an hour.
 func TestPersistentRateLimitingOpensTheBreaker(t *testing.T) {
 	srv, hits := limitedServer(t, 1000, "")

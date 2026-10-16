@@ -11,14 +11,14 @@ import (
 
 // skipSettings marks a command that must run without resolving settings
 // first, because it is how a broken settings file gets inspected or fixed.
-const skipSettings = "footy/skip-settings"
+const skipSettings = "footui/skip-settings"
 
 func newConfigCmd(g *globalFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "config",
 		Short: "Show, create, or locate the settings file",
-		Long: "footy reads optional settings from a YAML file at " +
-			"$XDG_CONFIG_HOME/footui/config.yaml (or $FOOTY_CONFIG). A command-line flag " +
+		Long: "footui reads optional settings from a YAML file at " +
+			"$XDG_CONFIG_HOME/footui/config.yaml (or $FOOTUI_CONFIG). A command-line flag " +
 			"always wins over an environment variable, which wins over the file.\n\n" +
 			"With no subcommand, config shows the settings in effect and where each came from.",
 		Args:         cobra.NoArgs,

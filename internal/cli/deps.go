@@ -99,7 +99,7 @@ func (g *globalFlags) saveTheme(mode styles.Mode) error {
 	case fromFlag:
 		return errors.New("--theme overrides the settings file")
 	case fromEnv:
-		return errors.New("FOOTY_THEME overrides the settings file")
+		return errors.New("FOOTUI_THEME overrides the settings file")
 	}
 	return config.SetTheme(configPath(), mode.String())
 }
@@ -126,7 +126,7 @@ func resolveCompetition(ctx context.Context, repos storage.Repositories, query s
 		return matches[0], nil
 	case 0:
 		return models.Competition{}, fmt.Errorf(
-			"no cached competition matches %q — run `footy refresh --competition <id>` first (see `footy competitions`)", query)
+			"no cached competition matches %q — run `footui refresh --competition <id>` first (see `footui competitions`)", query)
 	default:
 		var names []string
 		for _, c := range matches {

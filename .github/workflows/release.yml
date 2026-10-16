@@ -22,7 +22,7 @@ jobs:
       - run: make check
       - run: make release
       - name: Checksums
-        run: cd dist && sha256sum footy-* > SHA256SUMS
+        run: cd dist && sha256sum footui-* > SHA256SUMS
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}

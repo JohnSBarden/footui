@@ -39,7 +39,7 @@ func (m *Model) columns() int {
 func (m *Model) View() string {
 	th := m.deps.Theme
 	var b strings.Builder
-	b.WriteString(th.Title.Render("footy"))
+	b.WriteString(th.Title.Render("footui"))
 	b.WriteString(th.Subtitle.Render("  your favourites"))
 	b.WriteString("\n\n")
 

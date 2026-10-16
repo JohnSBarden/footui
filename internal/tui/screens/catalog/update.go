@@ -187,7 +187,7 @@ func (m *Model) selectCurrent() {
 
 // selectCurrentEverywhere toggles the most recent season of every league:
 // all on, or all off if they already were. It is the catalog's
-// counterpart to footy refresh --all.
+// counterpart to footui refresh --all.
 func (m *Model) selectCurrentEverywhere() {
 	// Club leagues only: international football is fetched for the
 	// nations and tournaments someone follows.

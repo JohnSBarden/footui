@@ -86,7 +86,7 @@ type SeasonMatchesProvider interface {
 ```
 
 Three sentinel errors cross the boundary: `provider.ErrRateLimited` (the
-source refused footy and kept refusing — stop), `provider.ErrIncomplete`
+source refused footui and kept refusing — stop), `provider.ErrIncomplete`
 (data returned alongside it is known to be partial — store it, don't call
 it complete), and `provider.ErrNoTable` (no table for that season).
 
@@ -180,7 +180,7 @@ screen imports `internal/data/provider` or `internal/storage/sqlite`.
 
 The TUI's refresh key is the one place it triggers a write, and it keeps
 the boundary by injection: `internal/cli` builds a `core.Refresher` (a
-function) from the same pipeline `footy refresh` uses and hands it to the
+function) from the same pipeline `footui refresh` uses and hands it to the
 root app in `core.Deps`. Screens only report which competition a refresh
 from them should fetch (`core.Refreshable`) and re-query when told it
 landed (`core.RefreshedMsg`).
@@ -260,7 +260,7 @@ Screens are directly testable: `Update` and `View` are ordinary functions.
 `internal/storage/storagetest` seeds a real in-memory SQLite store — so a
 screen test exercises the same SQL the binary runs.
 
-## Data flow for `footy refresh --all --years 3`
+## Data flow for `footui refresh --all --years 3`
 
 1. `internal/cli/refresh.go` resolves the flags into a list of competitions
    (from `sync.Coverages` — the definitive list of what's syncable) and
@@ -289,7 +289,7 @@ screen test exercises the same SQL the binary runs.
 
 One HTTP round trip per league/season, cached in-process so the standings,
 team, and roster calls that hit the same endpoint don't re-fetch, and
-optionally cached on disk via `FOOTY_HTTP_CACHE` during development.
+optionally cached on disk via `FOOTUI_HTTP_CACHE` during development.
 
 ## International football: the unit, and politeness
 
@@ -367,4 +367,4 @@ is driven by **what is cached**, not by the file. An entry applies only
 when its ID — or one of its aliases, since team IDs are slugs of however
 the provider spells a club's name — matches a team that actually exists in
 the database. A wrong guess is therefore inert rather than harmful, and
-`footy colors` reports which cached clubs are still uncovered.
+`footui colors` reports which cached clubs are still uncovered.

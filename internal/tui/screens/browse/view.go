@@ -12,7 +12,7 @@ func (m *Model) View() string {
 	th := m.deps.Theme
 	var b strings.Builder
 
-	b.WriteString(th.Title.Render("footy"))
+	b.WriteString(th.Title.Render("footui"))
 	b.WriteString(th.Subtitle.Render("  search what you've cached locally"))
 	b.WriteString("\n\n")
 	b.WriteString(m.input.View())
@@ -139,7 +139,7 @@ func (m *Model) emptyState() string {
 			th.Muted.Render("or  ") + th.Accent.Render("ctrl+r") +
 				th.Muted.Render("  to fetch this season of the Premier League now."),
 			th.Muted.Render("From a shell:  ") +
-				th.Accent.Render("footy refresh --competition "+defaultCompetition),
+				th.Accent.Render("footui refresh --competition "+defaultCompetition),
 		}
 		return strings.Join(lines, "\n")
 	}

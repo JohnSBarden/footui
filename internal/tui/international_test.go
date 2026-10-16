@@ -30,7 +30,7 @@ func TestARateLimitDropsTheQueue(t *testing.T) {
 	if want := []string{"eng-premier-league", "world-cup"}; !slices.Equal(r.called, want) {
 		t.Errorf("ran %v, want nothing after the rate limit", r.called)
 	}
-	if got := app.View(); !strings.Contains(got, "ESPN is rate-limiting footy; try again later") {
+	if got := app.View(); !strings.Contains(got, "ESPN is rate-limiting footui; try again later") {
 		t.Errorf("the status line should say why:\n%s", got)
 	}
 	if app.active != nil || len(app.queue) != 0 {

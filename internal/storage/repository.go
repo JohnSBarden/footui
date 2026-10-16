@@ -17,7 +17,7 @@ import (
 
 // ErrNotFound is returned by the single-row Get* queries when nothing is
 // cached for the requested ID. Callers distinguish "no data cached yet,
-// tell the user to run footy refresh" from a real backend failure with
+// tell the user to run footui refresh" from a real backend failure with
 // errors.Is(err, storage.ErrNotFound).
 var ErrNotFound = errors.New("storage: not found")
 
@@ -29,7 +29,7 @@ type CompetitionsRepo interface {
 	// ErrNotFound if no such row is cached.
 	GetCompetition(ctx context.Context, id string) (models.Competition, error)
 	// FindCompetitionsByName returns competitions whose name contains
-	// query (case-insensitive), for resolving `footy league <name>`.
+	// query (case-insensitive), for resolving `footui league <name>`.
 	FindCompetitionsByName(ctx context.Context, query string) ([]models.Competition, error)
 	// GetCompetitions resolves many competition IDs at once, keyed by ID.
 	GetCompetitions(ctx context.Context, ids []string) (map[string]models.Competition, error)
@@ -87,7 +87,7 @@ type SyncLogRepo interface {
 	// LatestYearRuns returns the most recent fetch of every
 	// competition-year ever attempted.
 	LatestYearRuns(ctx context.Context) ([]models.SyncRun, error)
-	// LastRateLimited is when a provider last turned footy away for
+	// LastRateLimited is when a provider last turned footui away for
 	// asking too often, or ErrNotFound if it never has.
 	LastRateLimited(ctx context.Context) (time.Time, error)
 }
@@ -188,7 +188,7 @@ type PlayerStatsRepo interface {
 	PlayerHistory(ctx context.Context, playerID string) ([]models.PlayerSeasonStats, error)
 }
 
-// ExternalRefRepo maps a provider's own IDs to footy's canonical ones, so
+// ExternalRefRepo maps a provider's own IDs to footui's canonical ones, so
 // the same club or player fetched from two providers is one entity.
 type ExternalRefRepo interface {
 	// ExternalRef returns the canonical ID a provider's ID was resolved

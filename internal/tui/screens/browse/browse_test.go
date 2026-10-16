@@ -159,7 +159,7 @@ func TestFirstRunEmptyStateExplainsHowToGetData(t *testing.T) {
 	if !strings.Contains(out, "Nothing cached yet") {
 		t.Errorf("expected a first-run empty state\n---\n%s", out)
 	}
-	if !strings.Contains(out, "footy refresh") {
+	if !strings.Contains(out, "footui refresh") {
 		t.Errorf("empty state must name the command that fixes it\n---\n%s", out)
 	}
 }
@@ -251,7 +251,7 @@ func TestRefreshedMsgRerunsTheSearch(t *testing.T) {
 
 // tab hands the keyboard to the results, where bare letters are
 // shortcuts again — otherwise q, ? and r could never be pressed on the
-// screen footy opens on.
+// screen footui opens on.
 func TestTabMovesFocusToTheResults(t *testing.T) {
 	s := tuitest.Key(t, open(t, newDeps(seeded(t)), "manchester"), "tab")
 

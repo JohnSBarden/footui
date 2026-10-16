@@ -1,10 +1,10 @@
 MODULE  := github.com/JohnSBarden/footui
-BINARY  := footy
+BINARY  := footui
 VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS := -X '$(MODULE)/internal/cli.Version=$(VERSION)'
 
 # The SQLite driver is modernc.org/sqlite, a pure-Go implementation, which
-# is the whole reason CGO_ENABLED=0 works here: footy ships as one static
+# is the whole reason CGO_ENABLED=0 works here: footui ships as one static
 # binary with no libsqlite3 to find at runtime.
 GOFLAGS_STATIC := CGO_ENABLED=0
 
@@ -47,7 +47,7 @@ race:
 # `check`; CI runs it weekly (.github/workflows/canary.yml). -count=1
 # because a cached pass says nothing about today's endpoints.
 live:
-	FOOTY_LIVE=1 FOOTY_HTTP_CACHE= go test -count=1 -v -run TestLiveCanary ./internal/data/provider/...
+	FOOTUI_LIVE=1 FOOTUI_HTTP_CACHE= go test -count=1 -v -run TestLiveCanary ./internal/data/provider/...
 
 cover:
 	go test -coverprofile=coverage.out ./... && go tool cover -func=coverage.out | tail -1

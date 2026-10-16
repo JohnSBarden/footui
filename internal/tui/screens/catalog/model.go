@@ -1,8 +1,8 @@
-// Package catalog is the league catalog: every competition footy can
+// Package catalog is the league catalog: every competition footui can
 // fetch, which of its seasons are already cached and how fresh they are,
 // and a way to pick seasons across leagues and download them in one go.
 //
-// It is the in-app counterpart to `footy refresh --competition X --season
+// It is the in-app counterpart to `footui refresh --competition X --season
 // Y`. The screen never fetches anything itself — it hands the root app a
 // list of core.RefreshRequests, and the app's refresh queue runs them and
 // reports progress on the status line, so the user can leave this screen

@@ -18,7 +18,7 @@ var migrationFiles embed.FS
 // run inside a transaction each.
 //
 // A database that records a migration this build doesn't have was written
-// by a newer footy. Migrate refuses it rather than carrying on: an older
+// by a newer footui. Migrate refuses it rather than carrying on: an older
 // binary writing rows into a schema it doesn't understand is how a user's
 // cache gets quietly corrupted after a downgrade.
 func Migrate(db *sql.DB) error {
@@ -27,7 +27,7 @@ func Migrate(db *sql.DB) error {
 
 // ErrNewerSchema is returned when the database was migrated by a newer
 // build than this one.
-var ErrNewerSchema = errors.New("the database was created by a newer version of footy")
+var ErrNewerSchema = errors.New("the database was created by a newer version of footui")
 
 // migrateTo applies migrations up to and including the one whose filename
 // starts with upTo, or all of them when upTo is empty. Tests use it to
@@ -116,7 +116,7 @@ func checkNotNewer(db *sql.DB, known []string) error {
 			return fmt.Errorf("read schema_migrations: %w", err)
 		}
 		if !have[v] {
-			return fmt.Errorf("%w (it has migration %s, which this build doesn't) — upgrade footy, or point --db at another file", ErrNewerSchema, v)
+			return fmt.Errorf("%w (it has migration %s, which this build doesn't) — upgrade footui, or point --db at another file", ErrNewerSchema, v)
 		}
 	}
 	return rows.Err()

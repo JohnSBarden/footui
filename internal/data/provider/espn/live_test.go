@@ -14,7 +14,7 @@ import (
 // and checks every payload a refresh reads — standings, team list,
 // rosters, team statistics — still maps into something usable. The API
 // is undocumented and can change shape without notice; the fixture tests
-// can't see that, so this does. It is opt-in (FOOTY_LIVE=1) so ordinary
+// can't see that, so this does. It is opt-in (FOOTUI_LIVE=1) so ordinary
 // test runs stay offline, and it runs weekly in CI
 // (.github/workflows/canary.yml).
 //
@@ -22,8 +22,8 @@ import (
 // refresh is two requests per club, so a small league keeps the canary
 // to a few dozen throttled requests.
 func TestLiveCanary(t *testing.T) {
-	if os.Getenv("FOOTY_LIVE") != "1" {
-		t.Skip("live provider check; set FOOTY_LIVE=1 to run")
+	if os.Getenv("FOOTUI_LIVE") != "1" {
+		t.Skip("live provider check; set FOOTUI_LIVE=1 to run")
 	}
 	// A cached payload would prove nothing about the live API.
 	t.Setenv(CacheDirEnv, "")

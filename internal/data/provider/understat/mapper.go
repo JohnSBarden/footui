@@ -180,10 +180,10 @@ func primaryTeamTitle(teamTitle string) string {
 }
 
 // teamID generates understat's own ID for a team: "understat:" and the
-// canonical ID footy has always derived from the club's name within its
+// canonical ID footui has always derived from the club's name within its
 // competition's country namespace. The sync layer resolves it like any
 // provider's ID, so a club another provider cached first is matched
-// rather than duplicated, and a club footy hasn't seen keeps exactly the
+// rather than duplicated, and a club footui hasn't seen keeps exactly the
 // canonical ID it always had.
 func teamID(compID, teamTitle string) string {
 	prefix := countryPrefix[compID]

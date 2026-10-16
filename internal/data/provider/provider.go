@@ -73,7 +73,7 @@ type SeasonMatchesProvider interface {
 	SeasonMatches(ctx context.Context, comp CompetitionRef, season SeasonRef) ([]models.Match, error)
 }
 
-// ErrRateLimited means the source refused footy for asking too often, and
+// ErrRateLimited means the source refused footui for asking too often, and
 // kept refusing after the polite retries. Nothing more should be asked of
 // it for a while: a refresh that gets this stops rather than carrying on.
 var ErrRateLimited = errors.New("rate limited")

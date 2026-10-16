@@ -14,12 +14,12 @@ func newColorsCmd(g *globalFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "colors",
 		Short: "Apply and report on curated club brand colors",
-		Long: "colors re-applies footy's hand-curated club colors to every team in the local " +
+		Long: "colors re-applies footui's hand-curated club colors to every team in the local " +
 			"cache and reports coverage.\n\n" +
 			"Club colors have no scrapeable source, so they are a curated dataset that only " +
 			"covers part of every league. This command is how you find the gaps: any club " +
 			"listed as uncolored can be added to internal/colors/seed/teamcolors.yaml.\n\n" +
-			"`footy refresh` runs this automatically, so you rarely need it by hand.",
+			"`footui refresh` runs this automatically, so you rarely need it by hand.",
 		Args:         cobra.NoArgs,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -37,7 +37,7 @@ func newColorsCmd(g *globalFlags) *cobra.Command {
 			out := cmd.OutOrStdout()
 			total := report.Applied + len(report.Uncolored)
 			if total == 0 {
-				fmt.Fprintln(out, "No teams cached yet — run `footy refresh` first.")
+				fmt.Fprintln(out, "No teams cached yet — run `footui refresh` first.")
 				return nil
 			}
 

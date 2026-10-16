@@ -2,7 +2,7 @@
 // cached locally — competitions, teams, and players — plus the list of
 // competitions to start from when the box is empty.
 //
-// It doubles as the disambiguation screen: `footy team "United"` matches
+// It doubles as the disambiguation screen: `footui team "United"` matches
 // several clubs, so the CLI opens Browse pre-filled with the query rather
 // than making the user guess an exact name.
 package browse

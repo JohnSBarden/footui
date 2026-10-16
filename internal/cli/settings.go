@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -11,7 +12,7 @@ import (
 	"github.com/JohnSBarden/footui/internal/tui/styles"
 )
 
-// Where a setting's value came from, for `footy config show`.
+// Where a setting's value came from, for `footui config show`.
 const (
 	fromFlag    = "flag"
 	fromEnv     = "environment"
@@ -31,10 +32,20 @@ type settings struct {
 	sources map[string]string
 }
 
-// configPath is the settings file in use: $FOOTY_CONFIG when set,
+// envSetting reads a FOOTUI_ variable, falling back to the FOOTY_ name it
+// had before the command was renamed, so existing shell profiles keep
+// working.
+func envSetting(name string) string {
+	if v := os.Getenv(name); v != "" {
+		return v
+	}
+	return os.Getenv(strings.Replace(name, "FOOTUI_", "FOOTY_", 1))
+}
+
+// configPath is the settings file in use: $FOOTUI_CONFIG when set,
 // otherwise the XDG default.
 func configPath() string {
-	if p := os.Getenv("FOOTY_CONFIG"); p != "" {
+	if p := envSetting("FOOTUI_CONFIG"); p != "" {
 		return p
 	}
 	return config.DefaultPath()
@@ -54,13 +65,13 @@ func (g *globalFlags) resolveSettings(cmd *cobra.Command) error {
 		return f != nil && f.Changed
 	}
 
-	// theme: --theme, FOOTY_THEME, file, weak.
+	// theme: --theme, FOOTUI_THEME, file, weak.
 	themeName, src := "", fromDefault
 	switch {
 	case changed("theme"):
 		themeName, src = g.theme, fromFlag
-	case os.Getenv("FOOTY_THEME") != "":
-		themeName, src = os.Getenv("FOOTY_THEME"), fromEnv
+	case envSetting("FOOTUI_THEME") != "":
+		themeName, src = envSetting("FOOTUI_THEME"), fromEnv
 	case file.Theme != nil:
 		themeName, src = *file.Theme, fromFile
 	}

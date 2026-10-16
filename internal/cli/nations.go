@@ -27,7 +27,7 @@ func parseNationQuery(query string) (name, gender string) {
 }
 
 // exactNation finds the national team a query names exactly — "spain",
-// "england women" — so `footy team spain` opens the nation rather than a
+// "england women" — so `footui team spain` opens the nation rather than a
 // list of everything with "spain" in it.
 func exactNation(ctx context.Context, repos storage.Repositories, query string) (models.Team, bool) {
 	name, gender := parseNationQuery(query)
@@ -46,7 +46,7 @@ func exactNation(ctx context.Context, repos storage.Repositories, query string) 
 
 // resolveNation turns a free-text name into one national team for
 // `refresh --team`. With no nations cached at all it seeds the directory
-// first (seed), so the very first `footy refresh --team england` works.
+// first (seed), so the very first `footui refresh --team england` works.
 func resolveNation(ctx context.Context, repos storage.Repositories, query string, seed func() error) (models.Team, error) {
 	name, gender := parseNationQuery(query)
 	all, err := repos.NationalTeams(ctx, "")

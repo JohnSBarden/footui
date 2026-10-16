@@ -61,7 +61,7 @@ since they come every two or four years, and irregularly.
 
 `sync.Coverages` (`internal/data/sync/scope.go`) is the authoritative list of
 what can be synced: each competition, the provider that serves it, and how
-far back that provider goes. `footy competitions` prints it.
+far back that provider goes. `footui competitions` prints it.
 
 ## Season
 
@@ -218,7 +218,7 @@ curated entry overrides it.
 provider ID it has been reported under (see Identity above). `sync_log` has
 one row per refresh attempt — provider, timing, row counts, and the error
 if it failed — and drives the freshness shown on the League, Team and
-catalog screens, the stale check on open, and `footy refresh --max-age`.
+catalog screens, the stale check on open, and `footui refresh --max-age`.
 
 A row is either a competition-season (`entity_type = 'competition_season'`,
 `season_id` set) or, for international matches, one calendar year of a

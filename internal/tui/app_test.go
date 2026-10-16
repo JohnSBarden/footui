@@ -549,7 +549,7 @@ func TestRExplainsWhenNoRefresherIsWired(t *testing.T) {
 	updated, cmd := app.Update(keyPress("r"))
 	app, _ = drive(t, updated.(*App), cmd)
 
-	if got := app.View(); !strings.Contains(got, "footy refresh --competition eng-premier-league") {
+	if got := app.View(); !strings.Contains(got, "footui refresh --competition eng-premier-league") {
 		t.Errorf("without a refresher the CLI command should be offered, got %q", got)
 	}
 }

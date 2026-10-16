@@ -167,7 +167,7 @@ func TestEmptyStateWhenPlayerHasNoCachedSeasons(t *testing.T) {
 	if !strings.Contains(out, "No cached seasons") {
 		t.Errorf("expected an empty state\n---\n%s", out)
 	}
-	if !strings.Contains(out, "footy refresh") {
+	if !strings.Contains(out, "footui refresh") {
 		t.Errorf("empty state must name the command that fixes it\n---\n%s", out)
 	}
 }

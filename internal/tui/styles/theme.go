@@ -145,7 +145,7 @@ func Resolve(noColorFlag bool) Theme {
 	return Default()
 }
 
-// footyBlue and footyGold are footy's own colors, used to paint the
+// footyBlue and footyGold are footui's own colors, used to paint the
 // screens that belong to no club (Browse, a league table, the catalog)
 // in strong mode, so switching modes visibly changes every screen.
 const (
@@ -154,7 +154,7 @@ const (
 )
 
 // BaseFor is the theme for screens with no club colors of their own, in
-// the given mode: the terminal's background in weak mode, footy's blue
+// the given mode: the terminal's background in weak mode, footui's blue
 // in strong mode. No color still means no color.
 func BaseFor(mode Mode, noColorFlag bool) Theme {
 	t := Resolve(noColorFlag)

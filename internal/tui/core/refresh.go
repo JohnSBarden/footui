@@ -72,9 +72,9 @@ func (r RefreshRequest) Label() string {
 }
 
 // ErrRateLimited is what a Refresher returns when the source has asked
-// footy to stop for a while. The root app then drops everything queued
+// footui to stop for a while. The root app then drops everything queued
 // rather than carrying on asking.
-var ErrRateLimited = errors.New("ESPN is rate-limiting footy; try again later")
+var ErrRateLimited = errors.New("ESPN is rate-limiting footui; try again later")
 
 // RefreshRequester is implemented by screens whose refresh isn't a single
 // competition — a nation's — and so hand the root app a whole request. It
@@ -84,7 +84,7 @@ type RefreshRequester interface {
 }
 
 // Refresher fetches one RefreshRequest into the cache. It is how the TUI
-// runs the same work as `footy refresh` without importing the provider or
+// runs the same work as `footui refresh` without importing the provider or
 // sync packages: the root app is handed one in Deps and screens never see
 // it.
 //
@@ -146,7 +146,7 @@ type RefreshQueueMsg struct {
 	Pending []RefreshRequest
 }
 
-// CatalogEntry is one competition footy knows how to fetch, with every
+// CatalogEntry is one competition footui knows how to fetch, with every
 // season the provider offers for it. It is handed to the TUI in Deps so
 // the catalog screen can list what's available without importing the
 // sync package that defines coverage.

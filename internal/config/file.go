@@ -62,7 +62,7 @@ func DefaultPath() string {
 }
 
 // Load reads the settings file at path. A missing file is not an error —
-// it is the normal state for anyone who hasn't run `footy config init` —
+// it is the normal state for anyone who hasn't run `footui config init` —
 // and yields an empty File.
 //
 // Unknown keys are an error. A misspelt setting that silently did nothing
@@ -100,15 +100,15 @@ func expandHome(p string) string {
 	return p
 }
 
-// Template is what `footy config init` writes: every setting, commented
+// Template is what `footui config init` writes: every setting, commented
 // out at its default, so the file documents itself.
-const Template = `# footy settings. Every line is optional; a flag on the command line
+const Template = `# footui settings. Every line is optional; a flag on the command line
 # always wins over what's here, and an environment variable (where one
 # exists) wins over this file.
 
 # Club theme: weak keeps your terminal's background and uses club colors
 # for highlights; strong paints club screens in the club's colors.
-# Environment: FOOTY_THEME. Flag: --theme. Pressing t while running
+# Environment: FOOTUI_THEME. Flag: --theme. Pressing t while running
 # switches theme and saves the choice here.
 # theme: weak
 
@@ -118,7 +118,7 @@ const Template = `# footy settings. Every line is optional; a flag on the comman
 # stale_after: 6h
 
 # Where the database lives. Flag: --db.
-# db: ~/.local/share/footui/footy.db
+# db: ~/.local/share/footui/footui.db
 
 # Turn color off entirely. Environment: NO_COLOR. Flag: --no-color.
 # no_color: false

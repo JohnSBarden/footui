@@ -55,7 +55,7 @@ func (a *App) favoriteToggled(msg core.FavoriteToggledMsg) tea.Cmd {
 	}
 	a.deps.Favorites.Set(msg.Target.Kind, msg.Target.ID, msg.On)
 	if msg.On {
-		a.status = "★ " + msg.Target.Name + " added to favourites — footy opens on them next time"
+		a.status = "★ " + msg.Target.Name + " added to favourites — footui opens on them next time"
 	} else {
 		a.status = msg.Target.Name + " removed from favourites"
 	}

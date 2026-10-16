@@ -41,7 +41,7 @@ func TestTemplateLoadsAsEmpty(t *testing.T) {
 
 func TestValuesAreRead(t *testing.T) {
 	home, _ := os.UserHomeDir()
-	f, err := Load(write(t, "theme: strong\nstale_after: 90m\ndb: ~/x/footy.db\nno_color: true\n"))
+	f, err := Load(write(t, "theme: strong\nstale_after: 90m\ndb: ~/x/footui.db\nno_color: true\n"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -51,7 +51,7 @@ func TestValuesAreRead(t *testing.T) {
 	if time.Duration(*f.StaleAfter) != 90*time.Minute {
 		t.Errorf("stale_after %v", time.Duration(*f.StaleAfter))
 	}
-	if *f.DB != filepath.Join(home, "x/footy.db") {
+	if *f.DB != filepath.Join(home, "x/footui.db") {
 		t.Errorf("db %q, want ~ expanded", *f.DB)
 	}
 	if !*f.NoColor {

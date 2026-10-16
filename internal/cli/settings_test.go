@@ -14,11 +14,14 @@ func withConfig(t *testing.T, body string) string {
 	if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("FOOTY_CONFIG", p)
+	t.Setenv("FOOTUI_CONFIG", p)
+	// A developer's pre-rename variables must not leak into the tests.
+	t.Setenv("FOOTY_CONFIG", "")
+	t.Setenv("FOOTY_THEME", "")
 	return p
 }
 
-// setting pulls one row out of `footy config show`: its value and source.
+// setting pulls one row out of `footui config show`: its value and source.
 func setting(t *testing.T, out, name string) (value, source string) {
 	t.Helper()
 	m := regexp.MustCompile(`(?m)^\s+` + name + `\s+(\S.*?)\s+\((.+)\)$`).FindStringSubmatch(out)
@@ -29,7 +32,7 @@ func setting(t *testing.T, out, name string) (value, source string) {
 }
 
 func TestDefaultsWhenNothingIsSet(t *testing.T) {
-	t.Setenv("FOOTY_THEME", "")
+	t.Setenv("FOOTUI_THEME", "")
 	t.Setenv("NO_COLOR", "")
 	out, err := run(t, "config")
 	if err != nil {
@@ -45,7 +48,7 @@ func TestDefaultsWhenNothingIsSet(t *testing.T) {
 
 func TestConfigFileThenEnvThenFlag(t *testing.T) {
 	withConfig(t, "theme: strong\nstale_after: 0\ndb: /tmp/from-file.db\n")
-	t.Setenv("FOOTY_THEME", "")
+	t.Setenv("FOOTUI_THEME", "")
 
 	out, _ := run(t, "config")
 	if v, src := setting(t, out, "theme"); v != "strong" || src != fromFile {
@@ -58,7 +61,7 @@ func TestConfigFileThenEnvThenFlag(t *testing.T) {
 		t.Errorf("file: db %q from %q", v, src)
 	}
 
-	t.Setenv("FOOTY_THEME", "weak")
+	t.Setenv("FOOTUI_THEME", "weak")
 	out, _ = run(t, "config")
 	if v, src := setting(t, out, "theme"); v != "weak" || src != fromEnv {
 		t.Errorf("env should beat the file: theme %q from %q", v, src)
@@ -104,7 +107,7 @@ func TestABrokenConfigFailsCommandsButNotTheConfigTools(t *testing.T) {
 
 func TestBadThemeNamesItsSource(t *testing.T) {
 	withConfig(t, "theme: loud\n")
-	t.Setenv("FOOTY_THEME", "")
+	t.Setenv("FOOTUI_THEME", "")
 	_, err := run(t, "config")
 	if err == nil || !strings.Contains(err.Error(), "config file") {
 		t.Errorf("want an error naming the config file as the source, got %v", err)
@@ -113,7 +116,7 @@ func TestBadThemeNamesItsSource(t *testing.T) {
 
 func TestConfigInitWritesTheTemplateOnce(t *testing.T) {
 	p := filepath.Join(t.TempDir(), "footui", "config.yaml")
-	t.Setenv("FOOTY_CONFIG", p)
+	t.Setenv("FOOTUI_CONFIG", p)
 
 	if _, err := run(t, "config", "init"); err != nil {
 		t.Fatal(err)
@@ -123,5 +126,17 @@ func TestConfigInitWritesTheTemplateOnce(t *testing.T) {
 	}
 	if _, err := run(t, "config", "init"); err == nil {
 		t.Error("a second init must not overwrite the user's file")
+	}
+}
+
+func TestLegacyFootyEnvironmentStillWorks(t *testing.T) {
+	t.Setenv("FOOTUI_THEME", "")
+	t.Setenv("FOOTY_THEME", "strong")
+	if got := envSetting("FOOTUI_THEME"); got != "strong" {
+		t.Fatalf("legacy fallback: got %q, want strong", got)
+	}
+	t.Setenv("FOOTUI_THEME", "weak")
+	if got := envSetting("FOOTUI_THEME"); got != "weak" {
+		t.Fatalf("new name wins: got %q, want weak", got)
 	}
 }

@@ -116,7 +116,7 @@ func TestEmptyStateTellsUserHowToPopulateIt(t *testing.T) {
 	if !strings.Contains(out, "No seasons cached") {
 		t.Errorf("expected an empty state\n---\n%s", out)
 	}
-	if !strings.Contains(out, "footy refresh") {
+	if !strings.Contains(out, "footui refresh") {
 		t.Errorf("empty state must tell the user the command that fixes it\n---\n%s", out)
 	}
 }

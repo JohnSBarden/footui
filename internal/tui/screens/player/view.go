@@ -262,6 +262,6 @@ func (m *Model) emptyState() string {
 	th := m.deps.Theme
 	return th.Empty.Render("No cached seasons for "+m.player.Name+".") + "\n\n" +
 		th.Muted.Render("Run  ") +
-		th.Accent.Render("footy refresh") +
+		th.Accent.Render("footui refresh") +
 		th.Muted.Render("  for a competition this player appeared in.")
 }

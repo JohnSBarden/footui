@@ -19,7 +19,7 @@ import (
 // updateFixture regenerates the frozen database fixture. Run it only when
 // adding a new fixture for a new schema version — never to make a failing
 // upgrade test pass, which would defeat the point of having one.
-var updateFixture = flag.Bool("update-fixture", false, "write testdata/footy-<schema>.db from the current schema")
+var updateFixture = flag.Bool("update-fixture", false, "write testdata/footui-<schema>.db from the current schema")
 
 func migrationNames(t *testing.T) []string {
 	t.Helper()
@@ -101,7 +101,7 @@ func TestEveryOlderSchemaUpgradesWithItsData(t *testing.T) {
 func fixtureName(t *testing.T) string {
 	names := migrationNames(t)
 	latest := strings.TrimSuffix(names[len(names)-1], ".sql")
-	return filepath.Join("testdata", "footy-"+latest[:4]+".db")
+	return filepath.Join("testdata", "footui-"+latest[:4]+".db")
 }
 
 // The fixtures in testdata are real database files as a past build wrote
@@ -112,7 +112,7 @@ func TestFrozenFixturesOpenAndRead(t *testing.T) {
 	if *updateFixture {
 		writeFixture(t, fixtureName(t))
 	}
-	fixtures, _ := filepath.Glob(filepath.Join("testdata", "footy-*.db"))
+	fixtures, _ := filepath.Glob(filepath.Join("testdata", "footui-*.db"))
 	if len(fixtures) == 0 {
 		t.Fatal("no fixtures in testdata — run go test -run Frozen -update-fixture once")
 	}
@@ -372,7 +372,7 @@ func TestOldFoldsAreRedoneOnUpgrade(t *testing.T) {
 	}
 }
 
-// A database migrated by a newer footy must be refused, not written to.
+// A database migrated by a newer footui must be refused, not written to.
 func TestANewerSchemaIsRefused(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "future.db")
 	db, err := Open(path)
@@ -394,7 +394,7 @@ func TestANewerSchemaIsRefused(t *testing.T) {
 }
 
 func TestOpenCreatesDirectoriesAndPersistsAcrossReopen(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "nested", "dir", "footy.db")
+	path := filepath.Join(t.TempDir(), "nested", "dir", "footui.db")
 	db, err := Open(path)
 	if err != nil {
 		t.Fatal(err)

@@ -19,7 +19,7 @@ const (
 	smallWidth = 3 // MP, W, D, L
 	goalWidth  = 4 // GF, GA, GD, Pts
 	xgWidth    = 6 // xG, xGA, xGD
-	// wantTeamCol is wide enough for the longest club names footy covers
+	// wantTeamCol is wide enough for the longest club names footui covers
 	// ("Wolverhampton Wanderers", "Borussia Mönchengladbach") to stay
 	// distinguishable from each other. It never shrinks; see
 	// components.FitColumns for why.
@@ -370,7 +370,7 @@ func (m *Model) tableHeight() int {
 
 func (m *Model) emptyState(reason string) string {
 	th := m.deps.Theme
-	command := "footy refresh --competition " + m.compID
+	command := "footui refresh --competition " + m.compID
 	if season, ok := m.currentSeason(); ok && m.comp.International() {
 		command += " --season " + season.Label
 	}

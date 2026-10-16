@@ -24,9 +24,9 @@ func run(t *testing.T, args ...string) (string, error) {
 	var buf bytes.Buffer
 
 	// Never read the developer's own settings file. A test that wants one
-	// sets FOOTY_CONFIG itself before calling run.
-	if os.Getenv("FOOTY_CONFIG") == "" {
-		t.Setenv("FOOTY_CONFIG", filepath.Join(t.TempDir(), "none.yaml"))
+	// sets FOOTUI_CONFIG itself before calling run.
+	if os.Getenv("FOOTUI_CONFIG") == "" {
+		t.Setenv("FOOTUI_CONFIG", filepath.Join(t.TempDir(), "none.yaml"))
 	}
 
 	cmd := NewRootCmd()
@@ -41,7 +41,7 @@ func run(t *testing.T, args ...string) (string, error) {
 // tempDB returns a path in a temp dir; the file is created on first use.
 func tempDB(t *testing.T) string {
 	t.Helper()
-	return filepath.Join(t.TempDir(), "footy.db")
+	return filepath.Join(t.TempDir(), "footui.db")
 }
 
 func TestCompetitionsListsEverySyncableCompetition(t *testing.T) {
@@ -92,7 +92,7 @@ func TestRefreshDryRunReportsThePlanWithoutFetching(t *testing.T) {
 func TestRefreshRejectsAnOutOfScopeCompetition(t *testing.T) {
 	out, err := run(t, "refresh", "--competition", "ger-frauen-bundesliga", "--dry-run", "--db", tempDB(t))
 	if err == nil {
-		t.Fatal("expected an error for a competition footy doesn't cover")
+		t.Fatal("expected an error for a competition footui doesn't cover")
 	}
 	combined := out + err.Error()
 	if !strings.Contains(combined, "eng-premier-league") {
@@ -108,7 +108,7 @@ func TestColorsOnAnEmptyCacheSaysSoRatherThanReportingZeroOfZero(t *testing.T) {
 	if !strings.Contains(out, "No teams cached") {
 		t.Errorf("expected an empty-cache message\n---\n%s", out)
 	}
-	if !strings.Contains(out, "footy refresh") {
+	if !strings.Contains(out, "footui refresh") {
 		t.Errorf("the message should name the command that fixes it\n---\n%s", out)
 	}
 }
@@ -192,7 +192,7 @@ func TestStatusOnAnEmptyCacheSaysHowToPopulateIt(t *testing.T) {
 	if !strings.Contains(out, "Nothing cached yet") {
 		t.Errorf("expected an empty-cache message\n---\n%s", out)
 	}
-	if !strings.Contains(out, "footy refresh") {
+	if !strings.Contains(out, "footui refresh") {
 		t.Errorf("the message should name the command that fixes it\n---\n%s", out)
 	}
 }

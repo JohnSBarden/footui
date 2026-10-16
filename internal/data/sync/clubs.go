@@ -12,7 +12,7 @@ import (
 )
 
 // A club's recent games come from two places. Its understat league's
-// matches arrive with the league season — the payload footy downloads for
+// matches arrive with the league season — the payload footui downloads for
 // the table already lists them — so they cost no extra request. Everything
 // else is ESPN's yearly match lists, the same
 // units national teams use: its ESPN league, if it plays in one, Europe's
@@ -37,7 +37,7 @@ type ClubPlan struct {
 const clubYears = 2
 
 // europeanCountries are the countries whose clubs play in the European
-// competitions footy covers. Russia's clubs have been excluded since 2022.
+// competitions footui covers. Russia's clubs have been excluded since 2022.
 var europeanCountries = map[string]bool{"England": true, "Spain": true, "Germany": true, "Italy": true, "France": true}
 
 // PlanClub works out what a club's recent games need. staleAfter is how

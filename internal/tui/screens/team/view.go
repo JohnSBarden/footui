@@ -398,7 +398,7 @@ func (m *Model) emptyState() string {
 		lines = append(lines,
 			th.Muted.Render("Press  ")+th.Accent.Render("r")+th.Muted.Render("  to fetch them now,"),
 			th.Muted.Render("or run  ")+
-				th.Accent.Render("footy refresh --competition "+compID)+
+				th.Accent.Render("footui refresh --competition "+compID)+
 				th.Muted.Render("  from a shell."),
 		)
 	} else {
@@ -406,7 +406,7 @@ func (m *Model) emptyState() string {
 		// refresh from here, so only the CLI form is offered.
 		lines = append(lines,
 			th.Muted.Render("Run  ")+
-				th.Accent.Render("footy refresh")+
+				th.Accent.Render("footui refresh")+
 				th.Muted.Render("  for a competition this team plays in."),
 		)
 	}

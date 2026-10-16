@@ -19,7 +19,7 @@ func newStatusCmd(g *globalFlags) *cobra.Command {
 		Short: "Show what's in the local cache and how fresh it is",
 		Long: "status reports which competitions are cached, how many seasons and teams each " +
 			"holds, and when it was last refreshed.\n\n" +
-			"footy is built around a durable local cache, so knowing what's actually in it — " +
+			"footui is built around a durable local cache, so knowing what's actually in it — " +
 			"and which competitions are running stale — shouldn't require opening the interface " +
 			"and looking.",
 		Args:         cobra.NoArgs,
@@ -50,7 +50,7 @@ func printStatus(out io.Writer, summary []models.CompetitionCache, dbPath string
 	fmt.Fprintln(out)
 
 	if len(summary) == 0 {
-		fmt.Fprintln(out, "\nNothing cached yet. Run `footy refresh --all` to populate it.")
+		fmt.Fprintln(out, "\nNothing cached yet. Run `footui refresh --all` to populate it.")
 		return
 	}
 

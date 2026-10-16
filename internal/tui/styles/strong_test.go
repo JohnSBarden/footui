@@ -75,14 +75,14 @@ func TestBaseThemeFollowsTheMode(t *testing.T) {
 	}
 	strong := BaseFor(Strong, false)
 	if strong.Background == nil {
-		t.Fatal("strong mode paints club-less screens in footy's colors")
+		t.Fatal("strong mode paints club-less screens in footui's colors")
 	}
 	bg := concrete(t, strong.Background)
 	for name, c := range map[string]lipgloss.TerminalColor{
 		"text": strong.Palette.Text, "muted": strong.Palette.Muted, "accent": strong.Palette.Accent,
 	} {
 		if r := contrastRatio(concrete(t, c), bg); r < minContrast {
-			t.Errorf("footy's own strong theme: %s contrast %.2f, want ≥ %.1f", name, r, minContrast)
+			t.Errorf("footui's own strong theme: %s contrast %.2f, want ≥ %.1f", name, r, minContrast)
 		}
 	}
 	if !BaseFor(Strong, true).NoColor {

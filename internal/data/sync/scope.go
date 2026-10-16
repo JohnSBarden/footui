@@ -14,7 +14,7 @@ const (
 	ProviderESPN      = "espn"
 )
 
-// Coverage is one competition footy can sync: which provider serves it,
+// Coverage is one competition footui can sync: which provider serves it,
 // how its seasons are counted, and how far back its history goes.
 type Coverage struct {
 	Competition models.Competition
@@ -30,7 +30,7 @@ type Coverage struct {
 	Editions []int
 }
 
-// Coverages is every competition footy can sync. A provider-side table
+// Coverages is every competition footui can sync. A provider-side table
 // (understat's leagueKeys, espn's leagueSlugs) must have a row for each
 // ID routed to it.
 //

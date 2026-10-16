@@ -136,7 +136,7 @@ func NewLeagueScreen(deps core.Deps, competitionID string) core.Screen {
 	return league.New(deps, competitionID)
 }
 
-// NewTeamScreen constructs the Team screen, for `footy team <name>` — or
+// NewTeamScreen constructs the Team screen, for `footui team <name>` — or
 // the nation screen, for a national team.
 func NewTeamScreen(deps core.Deps, t models.Team) core.Screen {
 	if t.National {
@@ -145,19 +145,19 @@ func NewTeamScreen(deps core.Deps, t models.Team) core.Screen {
 	return team.New(deps, t, "", "")
 }
 
-// NewPlayerScreen constructs the Player screen, for `footy player <name>`.
+// NewPlayerScreen constructs the Player screen, for `footui player <name>`.
 func NewPlayerScreen(deps core.Deps, p models.Player) core.Screen {
 	return player.New(deps, p, "")
 }
 
 // NewBrowseScreen constructs the Browse screen, optionally pre-filled with
-// a search query. It is where an ambiguous `footy team <name>` lands, and
-// what bare `footy` opens before anything is favourited.
+// a search query. It is where an ambiguous `footui team <name>` lands, and
+// what bare `footui` opens before anything is favourited.
 func NewBrowseScreen(deps core.Deps, query string) core.Screen {
 	return browse.New(deps, query)
 }
 
-// NewHomeScreen is what bare `footy` opens: the dashboard once anything is
+// NewHomeScreen is what bare `footui` opens: the dashboard once anything is
 // favourited, Browse until then.
 func NewHomeScreen(deps core.Deps) core.Screen {
 	if deps.Favorites.Len() > 0 {
@@ -353,7 +353,7 @@ func (a *App) toggleTheme() tea.Cmd {
 	a.deps.Appearance.Toggle()
 	mode := a.deps.Appearance.Mode
 	if mode == styles.Strong {
-		a.status = "theme: strong — screens painted in the club's colors (footy's blue elsewhere)"
+		a.status = "theme: strong — screens painted in the club's colors (footui's blue elsewhere)"
 	} else {
 		a.status = "theme: weak — your terminal's background, club colors as highlights"
 	}
@@ -400,7 +400,7 @@ func (a *App) capturingText() bool {
 // openCatalog pushes the league catalog, unless it is already showing.
 func (a *App) openCatalog() tea.Cmd {
 	if !a.catalogAvailable() {
-		a.status = "the league catalog isn't available in this view — see  footy competitions"
+		a.status = "the league catalog isn't available in this view — see  footui competitions"
 		return nil
 	}
 	if a.current().Title() == catalog.Title {

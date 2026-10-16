@@ -13,12 +13,12 @@ import (
 // TestLiveCanary fetches the current Premier League season from the real
 // understat.com and checks the payload still maps into something usable.
 // understat.com is undocumented and can change shape without notice; the
-// fixture tests can't see that, so this does. It is opt-in (FOOTY_LIVE=1)
+// fixture tests can't see that, so this does. It is opt-in (FOOTUI_LIVE=1)
 // so ordinary test runs stay offline, and it runs weekly in CI
 // (.github/workflows/canary.yml). One league, one request.
 func TestLiveCanary(t *testing.T) {
-	if os.Getenv("FOOTY_LIVE") != "1" {
-		t.Skip("live provider check; set FOOTY_LIVE=1 to run")
+	if os.Getenv("FOOTUI_LIVE") != "1" {
+		t.Skip("live provider check; set FOOTUI_LIVE=1 to run")
 	}
 	// A cached payload would prove nothing about the live site.
 	t.Setenv(CacheDirEnv, "")

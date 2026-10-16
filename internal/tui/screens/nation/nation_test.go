@@ -186,7 +186,7 @@ func TestANationWithNoMatchesSaysHowToGetThem(t *testing.T) {
 	}
 	s := tuitest.Settle(t, nation.New(deps, england))
 	out := s.View()
-	if !strings.Contains(out, "No matches cached for England") || !strings.Contains(out, `footy refresh --team "england women"`) {
+	if !strings.Contains(out, "No matches cached for England") || !strings.Contains(out, `footui refresh --team "england women"`) {
 		t.Errorf("empty state:\n%s", out)
 	}
 }

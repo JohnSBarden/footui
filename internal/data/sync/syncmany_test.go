@@ -361,7 +361,7 @@ func TestSyncSucceedsEvenIfTheSyncLogCannotBeWritten(t *testing.T) {
 
 // A failed refresh must leave nothing behind. Writing the competition and
 // season before fetching would create a season that exists with no data in
-// it, which `footy status` and the League screen would then report as
+// it, which `footui status` and the League screen would then report as
 // cached.
 func TestAFailedSyncWritesNothing(t *testing.T) {
 	src := &flakySource{failOn: map[string]bool{"a-league/2025": true}}

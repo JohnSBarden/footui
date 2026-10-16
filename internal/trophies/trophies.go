@@ -40,7 +40,7 @@ type Honour struct {
 	// domestic_cup, continental_cup, other.
 	Type string `yaml:"type"`
 	// Competition optionally links the honour to an in-scope competition
-	// ID. Continental cups have none, since footy doesn't cover them as
+	// ID. Continental cups have none, since footui doesn't cover them as
 	// competitions in their own right.
 	Competition string   `yaml:"competition"`
 	Seasons     []string `yaml:"seasons"`

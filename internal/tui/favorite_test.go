@@ -140,10 +140,10 @@ func TestNothingToFavouriteIsExplained(t *testing.T) {
 func TestHomeIsTheDashboardOnceAnythingIsFavourited(t *testing.T) {
 	deps := NewDeps(context.Background(), storagetest.New(t), styles.Plain())
 	if _, ok := NewHomeScreen(deps).(*browse.Model); !ok {
-		t.Error("with no favourites, footy should open on Browse")
+		t.Error("with no favourites, footui should open on Browse")
 	}
 	deps.Favorites = core.NewFavorites([]models.Favorite{{Kind: models.FavoriteTeam, ID: "eng-arsenal"}})
 	if _, ok := NewHomeScreen(deps).(*dashboard.Model); !ok {
-		t.Error("with a favourite, footy should open on the dashboard")
+		t.Error("with a favourite, footui should open on the dashboard")
 	}
 }

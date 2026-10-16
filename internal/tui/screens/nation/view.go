@@ -203,7 +203,7 @@ func (m *Model) emptyState() string {
 		"",
 		th.Muted.Render("Press  ") + th.Accent.Render("r") +
 			th.Muted.Render("  to fetch this year's and last year's — shared with every nation, so the next costs nothing —"),
-		th.Muted.Render("or run  ") + th.Accent.Render("footy refresh --team "+teamArg(m.team)) + th.Muted.Render("  from a shell."),
+		th.Muted.Render("or run  ") + th.Accent.Render("footui refresh --team "+teamArg(m.team)) + th.Muted.Render("  from a shell."),
 	}
 	return strings.Join(lines, "\n")
 }

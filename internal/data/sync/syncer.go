@@ -144,7 +144,7 @@ func (s *Syncer) syncCompetitionSeason(ctx context.Context, comp models.Competit
 	// trip — and doing them first means a failed refresh leaves no trace
 	// in the database. Writing the competition and season up front would
 	// leave phantom rows behind: a season that exists with nothing in it,
-	// which `footy status` and the League screen would then report as
+	// which `footui status` and the League screen would then report as
 	// cached.
 	teams, err := s.source.Teams(ctx, compRef, seasonRef)
 	if err != nil {
@@ -290,7 +290,7 @@ func (s *Syncer) applyProviderColors(ctx context.Context, comp provider.Competit
 
 // errSkippedRateLimited marks the units a run never attempted because the
 // provider had rate-limited it.
-var errSkippedRateLimited = fmt.Errorf("skipped: the provider is rate-limiting footy: %w", provider.ErrRateLimited)
+var errSkippedRateLimited = fmt.Errorf("skipped: the provider is rate-limiting footui: %w", provider.ErrRateLimited)
 
 // failureStatus is how a failed unit is logged: rate limiting is logged
 // as such, because it suspends automatic refreshes for a while.
@@ -431,7 +431,7 @@ func (s *Syncer) SyncJobs(ctx context.Context, jobs []Job, progress Progress) []
 				consecutiveFailures++
 				switch {
 				case errors.Is(err, provider.ErrRateLimited):
-					// The source asked footy to stop; every further
+					// The source asked footui to stop; every further
 					// request would only prolong that.
 					gaveUp, stopReason = true, errSkippedRateLimited
 				case limit > 0 && consecutiveFailures >= limit:

@@ -9,7 +9,7 @@ import (
 	"github.com/JohnSBarden/footui/internal/data/provider"
 )
 
-// Provider serves footy's provider contracts from understat.com, answering
+// Provider serves footui's provider contracts from understat.com, answering
 // every one of them from a single cached league-season payload.
 type Provider struct {
 	client *Client

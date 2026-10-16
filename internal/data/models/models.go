@@ -241,7 +241,7 @@ const (
 	// SyncStatusSkipped is a unit that was never attempted, because the
 	// run gave up after repeated failures.
 	SyncStatusSkipped = "skipped"
-	// SyncStatusRateLimited is a unit the provider refused because footy
+	// SyncStatusRateLimited is a unit the provider refused because footui
 	// was asking too often. It counts as a failure, and it suspends
 	// automatic refreshes for a while.
 	SyncStatusRateLimited = "rate_limited"

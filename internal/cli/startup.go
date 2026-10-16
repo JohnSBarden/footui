@@ -18,11 +18,11 @@ import (
 const DefaultStaleAfter = 6 * time.Hour
 
 // failureBackoff stops a launch from retrying a refresh that failed only
-// moments ago — opening footy twice while understat is down shouldn't
+// moments ago — opening footui twice while understat is down shouldn't
 // mean two doomed attempts.
 const failureBackoff = 10 * time.Minute
 
-// tuiCatalog lists every competition footy can fetch, with every season
+// tuiCatalog lists every competition footui can fetch, with every season
 // the provider offers, for the league catalog screen.
 //
 // International competitions follow the clubs: tournaments by edition,
@@ -84,7 +84,7 @@ func staleRefreshes(ctx context.Context, repos storage.Repositories, now time.Ti
 	if maxAge <= 0 {
 		return nil
 	}
-	// A provider that rate-limited footy recently gets left alone: nothing
+	// A provider that rate-limited footui recently gets left alone: nothing
 	// automatic runs until the pause is over.
 	if at, err := repos.LastRateLimited(ctx); err == nil && now.Sub(at) < rateLimitPause {
 		return nil
@@ -146,7 +146,7 @@ func newestDownloaded(ctx context.Context, repos storage.Repositories, compID st
 }
 
 // rateLimitPause is how long automatic refreshes stand down after a
-// provider rate-limited footy.
+// provider rate-limited footui.
 const rateLimitPause = time.Hour
 
 // internationalRefreshes is the stale check for international football:

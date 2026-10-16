@@ -336,7 +336,7 @@ func TestTeamColorsUpsertAndNotFound(t *testing.T) {
 	}
 }
 
-// The schema allows NULL in several descriptive columns. footy writes
+// The schema allows NULL in several descriptive columns. footui writes
 // empty strings there, but a row from another writer, an older build, or
 // a future provider may hold NULL, and reading it must not fail the query.
 func TestNullDescriptiveColumnsReadAsEmpty(t *testing.T) {

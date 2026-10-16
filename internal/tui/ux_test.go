@@ -151,13 +151,13 @@ func TestThemeToggleSavesTheChoice(t *testing.T) {
 
 func TestThemeToggleExplainsWhyItWasNotSaved(t *testing.T) {
 	deps := core.Deps{Theme: styles.BaseFor(styles.Weak, false), Appearance: &styles.Appearance{}}
-	deps.SaveTheme = func(styles.Mode) error { return errors.New("FOOTY_THEME overrides the settings file") }
+	deps.SaveTheme = func(styles.Mode) error { return errors.New("FOOTUI_THEME overrides the settings file") }
 	app := NewApp(deps, newFake("League"))
 	app.Update(tea.WindowSizeMsg{Width: 200, Height: 30})
 
 	app.Update(keyPress("t"))
 
-	if !strings.Contains(app.View(), "not saved: FOOTY_THEME") {
+	if !strings.Contains(app.View(), "not saved: FOOTUI_THEME") {
 		t.Errorf("expected the reason it wasn't saved\n%s", app.View())
 	}
 }

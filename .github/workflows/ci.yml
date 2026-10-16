@@ -40,6 +40,6 @@ jobs:
       - run: make release
       - name: Smoke-test the linux binary
         run: |
-          ./dist/footy-linux-amd64 version
-          ./dist/footy-linux-amd64 --db "$RUNNER_TEMP/smoke.db" status
-          ./dist/footy-linux-amd64 competitions
+          ./dist/footui-linux-amd64 version
+          ./dist/footui-linux-amd64 --db "$RUNNER_TEMP/smoke.db" status
+          ./dist/footui-linux-amd64 competitions
