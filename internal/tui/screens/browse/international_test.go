@@ -22,7 +22,7 @@ func TestNationsAreLabelledNationalTeams(t *testing.T) {
 		}
 	}
 	out := open(t, newDeps(repos), "arcadia").View()
-	if strings.Count(out, "national team") != 2 || !strings.Contains(out, "women") {
+	if !strings.Contains(out, "NATIONS 2") || !strings.Contains(out, "women") {
 		t.Errorf("results:\n%s", out)
 	}
 }

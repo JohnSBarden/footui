@@ -67,8 +67,48 @@ func (m *Model) search(query string) tea.Cmd {
 			results = append(results, Result{Kind: KindPlayer, Player: p})
 		}
 
-		return resultsMsg{query: query, results: results}
+		// Shown grouped — clubs, nations, players, leagues — with the
+		// ranking above kept within each group.
+		sort.SliceStable(results, func(i, j int) bool { return groupOf(results[i]) < groupOf(results[j]) })
+		var teamIDs []string
+		for _, r := range results {
+			if r.Kind == KindTeam {
+				teamIDs = append(teamIDs, r.Team.ID)
+			}
+		}
+		colors, err := deps.Repos.TeamColorsFor(deps.Ctx, teamIDs)
+		if err != nil {
+			return core.ErrMsg{Err: err}
+		}
+		return resultsMsg{query: query, results: results, colors: colors}
 	}
+}
+
+// group is a heading the results are shown under.
+type group int
+
+const (
+	groupClubs group = iota
+	groupNations
+	groupPlayers
+	groupLeagues
+)
+
+func (g group) String() string {
+	return [...]string{"clubs", "nations", "players", "leagues"}[g]
+}
+
+// groupOf is the heading a result is shown under.
+func groupOf(r Result) group {
+	switch {
+	case r.Kind == KindTeam && r.Team.National:
+		return groupNations
+	case r.Kind == KindTeam:
+		return groupClubs
+	case r.Kind == KindPlayer:
+		return groupPlayers
+	}
+	return groupLeagues
 }
 
 // rank sorts matches by how well they match and truncates to maxPerKind.

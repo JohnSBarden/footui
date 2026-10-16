@@ -44,7 +44,7 @@ func TestEmptyQueryListsCachedCompetitions(t *testing.T) {
 	if !strings.Contains(out, "Premier League") {
 		t.Errorf("empty query should list cached competitions\n---\n%s", out)
 	}
-	if !strings.Contains(out, "competition") {
+	if !strings.Contains(out, "LEAGUES") {
 		t.Errorf("results should be labelled by type\n---\n%s", out)
 	}
 }
@@ -59,7 +59,7 @@ func TestSearchFindsTeamsAndPlayers(t *testing.T) {
 	if !strings.Contains(out, "Erling Haaland") {
 		t.Errorf("expected the player match\n---\n%s", out)
 	}
-	if !strings.Contains(out, "player") {
+	if !strings.Contains(out, "PLAYERS") {
 		t.Errorf("player results should be labelled as such\n---\n%s", out)
 	}
 }

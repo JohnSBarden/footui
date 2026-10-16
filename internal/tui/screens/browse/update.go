@@ -30,6 +30,7 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 			return m, nil
 		}
 		m.results = msg.results
+		m.colors = msg.colors
 		m.cursor = 0
 		m.loading = false
 		return m, nil

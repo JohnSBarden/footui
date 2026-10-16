@@ -4,6 +4,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/charmbracelet/lipgloss"
+
 	"github.com/JohnSBarden/footui/internal/tui/components"
 )
 
@@ -26,49 +28,90 @@ func (m *Model) View() string {
 	case len(m.results) == 0:
 		b.WriteString(m.emptyState())
 	default:
-		b.WriteString(m.resultsTable())
+		b.WriteString(m.resultsList())
 	}
 
 	return b.String()
 }
 
-func (m *Model) resultsTable() string {
-	rows := make([][]components.Cell, 0, len(m.results))
-	for _, r := range m.results {
-		kind, id := r.favoriteKey()
-		rows = append(rows, []components.Cell{
-			components.Styled(r.label(), m.deps.Theme.Muted),
-			components.Text(m.deps.Star(kind, id, r.Name())),
-			components.Styled(m.context(r), m.deps.Theme.Muted),
-		})
-	}
-
-	return components.Table(components.TableOpts{
-		Columns: []components.Column{
-			{Title: "Type", Width: 13},
-			{Title: "Name", Width: m.nameColWidth()},
-			{Title: "Details", Width: 34},
-		},
-		Rows:    rows,
-		Cursor:  m.cursor,
-		MaxRows: m.listHeight(),
-		Theme:   m.deps.Theme,
-	})
+// line is one row of the results list: a group heading (result -1) or a
+// result.
+type line struct {
+	text   string
+	result int
 }
 
-// label is the result's Type column: a national team says so, since it
-// shares its name with the country's clubs' league and its women's side.
-func (r Result) label() string {
-	switch {
-	case r.Kind == KindCompetition:
-		return "competition"
-	case r.Kind == KindTeam && r.Team.National:
-		return "national team"
-	case r.Kind == KindTeam:
-		return "team"
-	default:
-		return "player"
+// resultsList draws the results under their group headings, each with its
+// club's dot and its context on the right, scrolled so the cursor's row
+// is on screen.
+func (m *Model) resultsList() string {
+	th := m.deps.Theme
+	var lines []line
+	counts := map[group]int{}
+	for _, r := range m.results {
+		counts[groupOf(r)]++
 	}
+	for i, r := range m.results {
+		if g := groupOf(r); i == 0 || g != groupOf(m.results[i-1]) {
+			if i > 0 {
+				lines = append(lines, line{result: -1})
+			}
+			lines = append(lines, line{text: components.Label(th, g.String()) + " " + th.Faint.Render(strconv.Itoa(counts[g])), result: -1})
+		}
+		lines = append(lines, line{text: m.resultLine(r, i == m.cursor), result: i})
+	}
+
+	height := m.listHeight()
+	cursorLine := 0
+	for i, l := range lines {
+		if l.result == m.cursor {
+			cursorLine = i
+		}
+	}
+	start := max(0, cursorLine-height+1)
+	end := min(len(lines), start+height)
+	out := make([]string, 0, end-start+1)
+	for _, l := range lines[start:end] {
+		out = append(out, l.text)
+	}
+	// A cut list says so, so a scrolled view isn't mistaken for every match.
+	if start > 0 || end < len(lines) {
+		out = append(out, th.Muted.Render("  showing "+strconv.Itoa(end-start)+" of "+strconv.Itoa(len(lines))+" lines"))
+	}
+	return strings.Join(out, "\n")
+}
+
+// resultLine is "  ● Manchester United ★ ←        England · men": the
+// club's dot, the name, the selection marker and the context.
+func (m *Model) resultLine(r Result, selected bool) string {
+	th := m.deps.Theme
+	kind, id := r.favoriteKey()
+	dot := ""
+	if r.Kind == KindTeam {
+		dot = m.colors[r.Team.ID].PrimaryHex
+	}
+	meta := m.context(r)
+	name := m.deps.Star(kind, id, r.Name())
+	marker := ""
+	if selected {
+		marker = " ←"
+	}
+	// Names keep their room; the context gives way first.
+	room := m.width - 6 - lipgloss.Width(marker)
+	if lipgloss.Width(name)+2+lipgloss.Width(meta) > room {
+		meta = components.Truncate(meta, max(room-lipgloss.Width(name)-2, 0))
+	}
+	name = components.Truncate(name, room)
+	nameStyle := th.TableCell
+	if selected {
+		nameStyle = th.TableSelected
+	}
+	left := "  " + components.Dot(th, dot) + " " + nameStyle.Render(name) + th.Accent.Bold(true).Render(marker)
+	gap := max(m.width-2-lipgloss.Width(left)-lipgloss.Width(meta), 1)
+	if meta == "" {
+		return left
+	}
+	return left + strings.Repeat(" ", gap) + th.Muted.Render(meta)
 }
 
 // context is the trailing detail that disambiguates same-named results —
@@ -99,18 +142,6 @@ func (m *Model) context(r Result) string {
 	default:
 		return r.Player.Position
 	}
-}
-
-func (m *Model) nameColWidth() int {
-	const fixed = 13 + 34 + 2 + 4
-	w := m.width - fixed
-	if w < 16 {
-		return 16
-	}
-	if w > 34 {
-		return 34
-	}
-	return w
 }
 
 func (m *Model) listHeight() int {

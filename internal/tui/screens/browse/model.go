@@ -54,7 +54,9 @@ type Model struct {
 	input textinput.Model
 
 	results []Result
-	cursor  int
+	// colors are the result clubs' brand colours, for their dots.
+	colors map[string]models.TeamColors
+	cursor int
 
 	// query is the search the current results belong to, so a slow query's
 	// results can't overwrite a newer one's.
@@ -70,8 +72,9 @@ type Model struct {
 // empty).
 func New(deps core.Deps, query string) *Model {
 	in := textinput.New()
-	in.Placeholder = "search competitions, teams, players…"
-	in.Prompt = "› "
+	in.Placeholder = "clubs, nations, players, leagues"
+	in.Prompt = "> "
+	in.PromptStyle = deps.Theme.Accent.Bold(true)
 	in.SetValue(query)
 	in.CursorEnd()
 	in.Focus()
@@ -199,4 +202,5 @@ func (m *Model) SelectedResult() (Result, bool) {
 type resultsMsg struct {
 	query   string
 	results []Result
+	colors  map[string]models.TeamColors
 }
