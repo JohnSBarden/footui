@@ -58,7 +58,7 @@ func renderCard(theme styles.Theme, s Stat, inner int) string {
 		valueStyle = s.Style.Bold(true)
 	}
 
-	body := theme.Muted.Render(pad(s.Label, inner, false)) + "\n" +
+	body := theme.Label.Render(pad(strings.ToUpper(s.Label), inner, false)) + "\n" +
 		valueStyle.Render(pad(s.Value, inner, false))
 	if s.Hint != "" {
 		body += "\n" + theme.Muted.Render(pad(s.Hint, inner, false))

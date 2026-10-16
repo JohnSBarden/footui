@@ -250,12 +250,7 @@ func (m *Model) seasonBar(maxWidth int) string {
 	tabs := make([]string, n)
 	for d := 0; d < n; d++ {
 		i := n - 1 - d
-		label := components.SeasonName(m.seasons[i])
-		if i == m.seasonIdx {
-			tabs[d] = th.Accent.Bold(true).Render("[" + label + "]")
-		} else {
-			tabs[d] = th.Muted.Render(" " + label + " ")
-		}
+		tabs[d] = components.TabLabel(th, components.SeasonName(m.seasons[i]), i == m.seasonIdx)
 	}
 	sel := n - 1 - m.seasonIdx
 

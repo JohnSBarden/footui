@@ -12,7 +12,7 @@ func (m *Model) View() string {
 	th := m.deps.Theme
 	var b strings.Builder
 
-	b.WriteString(th.Title.Render("footui"))
+	b.WriteString(components.Wordmark(th))
 	b.WriteString(th.Subtitle.Render("  search what you've cached locally"))
 	b.WriteString("\n\n")
 	b.WriteString(m.input.View())

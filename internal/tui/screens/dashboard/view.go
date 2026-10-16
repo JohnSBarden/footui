@@ -39,7 +39,7 @@ func (m *Model) columns() int {
 func (m *Model) View() string {
 	th := m.deps.Theme
 	var b strings.Builder
-	b.WriteString(th.Title.Render("footui"))
+	b.WriteString(components.Wordmark(th))
 	b.WriteString(th.Subtitle.Render("  your favourites"))
 	b.WriteString("\n\n")
 
@@ -84,7 +84,7 @@ func (m *Model) cardsView() string {
 			if r > 0 {
 				blocks = append(blocks, block{text: "", lines: 1, row: -1})
 			}
-			blocks = append(blocks, block{text: th.PanelTitle.Render(groupName(m.cards[row[0]].Group)), lines: 1, row: -1})
+			blocks = append(blocks, block{text: components.Label(th, groupName(m.cards[row[0]].Group)), lines: 1, row: -1})
 		}
 		rendered := make([]string, 0, len(row))
 		for c, i := range row {

@@ -240,7 +240,7 @@ func TestAdvancedTeamStatsRenderAsCards(t *testing.T) {
 
 	out := settled(t, newDeps(repos), "eng-premier-league", "eng-premier-league:2025").View()
 
-	for _, want := range []string{"xPts", "79.9", "+5.1 vs Pts", "PPDA", "9.6", "npxG", "Deep", "142 allowed"} {
+	for _, want := range []string{"XPTS", "79.9", "+5.1 vs Pts", "PPDA", "9.6", "NPXG", "DEEP", "142 allowed"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("advanced stat cards missing %q\n---\n%s", want, out)
 		}

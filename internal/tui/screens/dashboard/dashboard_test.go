@@ -131,7 +131,7 @@ func TestCardsShowWhereEachFavouriteStands(t *testing.T) {
 	view := load(t, deps, 120).View()
 
 	for _, want := range []string{
-		"Leagues", "Clubs", "Players",
+		"LEAGUES", "CLUBS", "PLAYERS",
 		"★ Premier League", "England · 2025-26",
 		"★ Arsenal",           // the starred club in the league table
 		"1st · 90 pts",        // the club card's headline

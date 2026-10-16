@@ -14,8 +14,6 @@ type Tab struct {
 }
 
 // Tabs renders a horizontal tab bar with the active index highlighted.
-// The selected tab is bracketed as well as colored, so the selection
-// survives NO_COLOR.
 func Tabs(theme styles.Theme, tabs []Tab, active int) string {
 	if len(tabs) == 0 {
 		return ""
@@ -27,11 +25,23 @@ func Tabs(theme styles.Theme, tabs []Tab, active int) string {
 		if t.Badge != "" {
 			label += " " + t.Badge
 		}
-		if i == active {
-			parts = append(parts, theme.Accent.Bold(true).Render("["+label+"]"))
-		} else {
-			parts = append(parts, theme.Muted.Render(" "+label+" "))
-		}
+		parts = append(parts, TabLabel(theme, label, i == active))
 	}
 	return strings.Join(parts, " ")
+}
+
+// TabLabel is one tab: a filled pill when active, a muted one otherwise.
+// Without colour the active tab is bracketed, so the selection survives
+// NO_COLOR.
+func TabLabel(th styles.Theme, label string, active bool) string {
+	if th.NoColor {
+		if active {
+			return th.Accent.Bold(true).Render("[" + label + "]")
+		}
+		return th.Muted.Render(" " + label + " ")
+	}
+	if active {
+		return th.TabActive.Render(" " + label + " ")
+	}
+	return th.TabIdle.Render(" " + label + " ")
 }

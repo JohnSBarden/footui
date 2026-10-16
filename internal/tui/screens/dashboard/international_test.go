@@ -48,7 +48,7 @@ func TestGroupsRunLeaguesTournamentsClubsNationsPlayers(t *testing.T) {
 		t.Fatalf("groups %v, want %v", groups, want)
 	}
 	out := m.View()
-	l, tn, n := strings.Index(out, "Leagues"), strings.Index(out, "Tournaments"), strings.Index(out, "Nations")
+	l, tn, n := strings.Index(out, "LEAGUES"), strings.Index(out, "TOURNAMENTS"), strings.Index(out, "NATIONS")
 	if l < 0 || tn < l || n < tn {
 		t.Errorf("headings out of order:\n%s", out)
 	}

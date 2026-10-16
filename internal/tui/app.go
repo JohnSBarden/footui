@@ -535,10 +535,10 @@ func (a *App) footer() string {
 	km.Short = append(append([]key.Binding{}, km.Short...), short...)
 
 	a.help.Width = a.width
-	a.help.Styles.ShortKey = a.theme().Accent
+	a.help.Styles.ShortKey = a.theme().Keycap
 	a.help.Styles.ShortDesc = a.theme().Help
 	a.help.Styles.ShortSeparator = a.theme().Help
-	a.help.Styles.FullKey = a.theme().Accent
+	a.help.Styles.FullKey = a.theme().Keycap
 	a.help.Styles.FullDesc = a.theme().Help
 	a.help.Styles.FullSeparator = a.theme().Help
 
