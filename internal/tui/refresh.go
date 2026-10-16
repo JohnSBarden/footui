@@ -260,6 +260,7 @@ func (a *App) handleRefreshEvent(msg refreshMsg) tea.Cmd {
 
 	a.refreshing = ""
 	a.stopActive()
+	a.noteRefreshed(req, ev.err)
 	if a.stopping {
 		// What finished before the stop is cached and worth showing; the
 		// error the cancellation caused is not news.

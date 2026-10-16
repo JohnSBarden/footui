@@ -12,6 +12,7 @@ import (
 
 	"github.com/JohnSBarden/footui/internal/config"
 	"github.com/JohnSBarden/footui/internal/data/models"
+	"github.com/JohnSBarden/footui/internal/data/provider/espn"
 	"github.com/JohnSBarden/footui/internal/storage"
 	"github.com/JohnSBarden/footui/internal/storage/sqlite"
 	"github.com/JohnSBarden/footui/internal/textfold"
@@ -84,11 +85,19 @@ func (g *globalFlags) launchTUI(ctx context.Context, build func(core.Deps) (core
 	}
 	deps.Favorites = core.NewFavorites(favs)
 
+	deps.ProviderPause = func() (string, time.Time) { return "ESPN", espn.PausedUntil() }
+
 	screen, err := build(deps)
 	if err != nil {
 		return err
 	}
-	return tui.Run(deps, screen, staleRefreshes(ctx, repos, now, g.settings.staleAfter)...)
+	// A database with no competition cached has nothing to show behind
+	// the splash, so the splash waits for the first league to land.
+	comps, err := repos.ListCompetitions(ctx)
+	if err != nil {
+		return err
+	}
+	return tui.Run(deps, screen, len(comps) == 0, staleRefreshes(ctx, repos, now, g.settings.staleAfter)...)
 }
 
 // saveTheme makes a theme chosen in the interface the default for next

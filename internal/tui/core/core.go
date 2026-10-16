@@ -12,6 +12,7 @@ package core
 
 import (
 	"context"
+	"time"
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
@@ -56,6 +57,10 @@ type Deps struct {
 	// queues the club's refresh when they do. Nil means never (tests, or
 	// the stale check turned off).
 	ClubDue func(club models.Team) (why string, due bool)
+	// ProviderPause names a data source that has paused footui after
+	// rate-limiting it, and when it may be asked again; a zero time means
+	// none is paused. Nil means the host can't tell.
+	ProviderPause func() (provider string, until time.Time)
 }
 
 // ThemeMode is the current theme mode, weak when none was configured.

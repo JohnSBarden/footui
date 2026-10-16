@@ -71,6 +71,9 @@ type App struct {
 	help     help.Model
 	showFull bool
 
+	// splash is the launch screen, nil once it's gone.
+	splash *splashState
+
 	// kick is the kickabout being played over the screen, nil when none
 	// is. While it runs it takes the keys; every other message still
 	// reaches the stack, so the screen is current when the game ends.
@@ -182,6 +185,9 @@ func (a *App) QueueOnStart(reqs ...core.RefreshRequest) {
 // Init implements tea.Model.
 func (a *App) Init() tea.Cmd {
 	init := a.current().Init()
+	if a.splash != nil {
+		init = tea.Batch(init, splashTimer())
+	}
 	if len(a.startup) == 0 || a.deps.Refresh == nil {
 		return init
 	}
@@ -196,12 +202,27 @@ func (a *App) current() core.Screen {
 
 // Update implements tea.Model.
 func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if a.splash != nil {
+		if key, ok := msg.(tea.KeyMsg); ok {
+			// Any key skips the splash; it isn't passed on, since the
+			// user pressed it at the splash, not at the screen.
+			a.splash = nil
+			if key.String() == "ctrl+c" {
+				return a, tea.Quit
+			}
+			return a, nil
+		}
+	}
 	if a.kick != nil {
 		if handled, cmd := a.updateKick(msg); handled {
 			return a, cmd
 		}
 	}
 	switch msg := msg.(type) {
+	case splashDoneMsg:
+		a.splashTimedOut()
+		return a, nil
+
 	case tea.WindowSizeMsg:
 		// A terminal that can't report its size sends zeroes (a pty with
 		// no winsize set, some CI runners). Taking those literally
@@ -485,6 +506,9 @@ const chromeHeight = 5
 
 // View implements tea.Model.
 func (a *App) View() string {
+	if a.splash != nil {
+		return a.splashView()
+	}
 	if a.kick != nil {
 		return a.kick.View()
 	}
@@ -623,9 +647,12 @@ func (a *App) statusLine() string {
 }
 
 // Run starts the program on the given screen and blocks until the user
-// quits. startup is refresh work to queue immediately.
-func Run(deps core.Deps, initial core.Screen, startup ...core.RefreshRequest) error {
+// quits, behind a launch splash. startup is refresh work to queue
+// immediately; waitForData keeps the splash up until the first of it
+// lands, for a database with nothing to show yet.
+func Run(deps core.Deps, initial core.Screen, waitForData bool, startup ...core.RefreshRequest) error {
 	app := NewApp(deps, initial)
+	app.ShowSplash(waitForData)
 	app.QueueOnStart(startup...)
 	p := tea.NewProgram(app, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {

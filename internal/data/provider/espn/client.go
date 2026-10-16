@@ -334,6 +334,19 @@ func (b *breaker) trip(now time.Time) {
 	b.mu.Unlock()
 }
 
+// PausedUntil is when ESPN may be asked again after it rate-limited footui
+// through every retry, or zero when it isn't paused.
+func PausedUntil() time.Time { return sharedBreaker.pausedUntil(time.Now()) }
+
+func (b *breaker) pausedUntil(now time.Time) time.Time {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if now.Before(b.until) {
+		return b.until
+	}
+	return time.Time{}
+}
+
 func (b *breaker) open(now time.Time) bool {
 	b.mu.Lock()
 	defer b.mu.Unlock()
