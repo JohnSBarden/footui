@@ -224,7 +224,7 @@ A club's screens are drawn in its colours, in one of two modes:
   highlights, headings and borders.
 - **strong**: the whole screen painted in the club's primary colour. Text,
   accents and win/loss colours are chosen to meet WCAG AA contrast against
-  it. Screens without a club are painted in footui's blue.
+  it. Screens without a club are painted in footui's violet.
 
 `t` switches mode and saves the choice; `--theme` and `FOOTUI_THEME` override
 it for a single run.

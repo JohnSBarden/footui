@@ -101,6 +101,10 @@ func StrongTeamTheme(primaryHex, secondaryHex string) (Theme, bool) {
 		Border:    hex(accent),
 		Positive:  hex(solveOn(mustHex("#2ec27e"), bg, minContrast)),
 		Negative:  hex(solveOn(mustHex("#e01b24"), bg, minContrast)),
+		Draw:      hex(solveOn(mustHex("#F5C04A"), bg, minContrast)),
+		Info:      hex(solveOn(mustHex("#4CC9F0"), bg, minContrast)),
+		Below:     hex(solveOn(mustHex("#FF9F43"), bg, minContrast)),
+		Faint:     hex(muted(text, bg)),
 		Highlight: hex(text),
 	}
 

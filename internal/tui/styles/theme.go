@@ -18,24 +18,34 @@ type Palette struct {
 	OnAccent  lipgloss.TerminalColor // text drawn on top of Accent
 	Text      lipgloss.TerminalColor
 	Muted     lipgloss.TerminalColor
+	Faint     lipgloss.TerminalColor // dividers and decoration, never essential text
 	Border    lipgloss.TerminalColor
 	Positive  lipgloss.TerminalColor // over-performance, wins, positive GD
 	Negative  lipgloss.TerminalColor // under-performance, losses, negative GD
+	Draw      lipgloss.TerminalColor // draws, honours
+	Info      lipgloss.TerminalColor // xG, Champions League places
+	Below     lipgloss.TerminalColor // fell short of expectation, Europa places
 	Highlight lipgloss.TerminalColor // selected-row background
 }
 
 // DefaultPalette is the un-branded palette used before a team's colors are
-// known (Browse, League) and whenever a team has no seeded colors.
+// known (Browse, League) and whenever a team has no seeded colors. Its
+// accent is footui's own purple; every text role clears WCAG AA on both a
+// light and a dark terminal.
 func DefaultPalette() Palette {
 	return Palette{
-		Accent:    lipgloss.AdaptiveColor{Light: "#1a5fb4", Dark: "#78aeed"},
+		Accent:    lipgloss.AdaptiveColor{Light: "#6D28D9", Dark: "#A66BFF"},
 		OnAccent:  lipgloss.AdaptiveColor{Light: "#ffffff", Dark: "#0b0b0b"},
-		Text:      lipgloss.AdaptiveColor{Light: "#1c1c1c", Dark: "#e6e6e6"},
-		Muted:     lipgloss.AdaptiveColor{Light: "#6b6b6b", Dark: "#8f8f8f"},
-		Border:    lipgloss.AdaptiveColor{Light: "#c4c4c4", Dark: "#4a4a4a"},
-		Positive:  lipgloss.AdaptiveColor{Light: "#1c7c3c", Dark: "#5fd77f"},
-		Negative:  lipgloss.AdaptiveColor{Light: "#a51d2d", Dark: "#f07178"},
-		Highlight: lipgloss.AdaptiveColor{Light: "#dae6f5", Dark: "#2a3a52"},
+		Text:      lipgloss.AdaptiveColor{Light: "#1C1F1D", Dark: "#E8EDE6"},
+		Muted:     lipgloss.AdaptiveColor{Light: "#5F6B63", Dark: "#8A968E"},
+		Faint:     lipgloss.AdaptiveColor{Light: "#9AA59D", Dark: "#5E6A62"},
+		Border:    lipgloss.AdaptiveColor{Light: "#c4c4c4", Dark: "#3A463F"},
+		Positive:  lipgloss.AdaptiveColor{Light: "#15803D", Dark: "#5BE49B"},
+		Negative:  lipgloss.AdaptiveColor{Light: "#B91C1C", Dark: "#FF6F61"},
+		Draw:      lipgloss.AdaptiveColor{Light: "#B45309", Dark: "#F5C04A"},
+		Info:      lipgloss.AdaptiveColor{Light: "#0369A1", Dark: "#4CC9F0"},
+		Below:     lipgloss.AdaptiveColor{Light: "#C2410C", Dark: "#FF9F43"},
+		Highlight: lipgloss.AdaptiveColor{Light: "#EEE6FB", Dark: "#221A30"},
 	}
 }
 
@@ -60,8 +70,19 @@ type Theme struct {
 	// Emphasis
 	Accent   lipgloss.Style
 	Muted    lipgloss.Style
+	Faint    lipgloss.Style
 	Positive lipgloss.Style
 	Negative lipgloss.Style
+	Draw     lipgloss.Style
+	Info     lipgloss.Style
+	Below    lipgloss.Style
+
+	// Label is a section heading (callers upper-case the text); Keycap a
+	// key in the footer; TabActive and TabIdle the two kinds of tab pill.
+	Label     lipgloss.Style
+	Keycap    lipgloss.Style
+	TabActive lipgloss.Style
+	TabIdle   lipgloss.Style
 
 	// Panels
 	Panel      lipgloss.Style
@@ -93,8 +114,16 @@ func New(p Palette) Theme {
 		TableSelected: lipgloss.NewStyle().Foreground(p.Text).Background(p.Highlight).Bold(true),
 		Accent:        lipgloss.NewStyle().Foreground(p.Accent),
 		Muted:         lipgloss.NewStyle().Foreground(p.Muted),
+		Faint:         lipgloss.NewStyle().Foreground(p.Faint),
 		Positive:      lipgloss.NewStyle().Foreground(p.Positive),
 		Negative:      lipgloss.NewStyle().Foreground(p.Negative),
+		Draw:          lipgloss.NewStyle().Foreground(p.Draw),
+		Info:          lipgloss.NewStyle().Foreground(p.Info),
+		Below:         lipgloss.NewStyle().Foreground(p.Below),
+		Label:         lipgloss.NewStyle().Bold(true).Foreground(p.Muted),
+		Keycap:        lipgloss.NewStyle().Foreground(p.Text).Background(p.Highlight).Padding(0, 1),
+		TabActive:     lipgloss.NewStyle().Bold(true).Foreground(p.OnAccent).Background(p.Accent),
+		TabIdle:       lipgloss.NewStyle().Foreground(p.Muted).Background(p.Highlight),
 		Panel:         lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(p.Border).Padding(0, 1),
 		PanelTitle:    lipgloss.NewStyle().Bold(true).Foreground(p.Accent),
 	}
@@ -128,8 +157,16 @@ func Plain() Theme {
 	t.TableSelected = reverse
 	t.Accent = bold
 	t.Muted = plain
+	t.Faint = plain
 	t.Positive = plain
 	t.Negative = plain
+	t.Draw = plain
+	t.Info = plain
+	t.Below = plain
+	t.Label = bold
+	t.Keycap = reverse
+	t.TabActive = bold
+	t.TabIdle = plain
 	t.Panel = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).Padding(0, 1)
 	t.PanelTitle = bold
 	return t
@@ -145,22 +182,22 @@ func Resolve(noColorFlag bool) Theme {
 	return Default()
 }
 
-// footyBlue and footyGold are footui's own colors, used to paint the
-// screens that belong to no club (Browse, a league table, the catalog)
-// in strong mode, so switching modes visibly changes every screen.
+// baseViolet and baseLavender are footui's own strong-mode colors, used to
+// paint the screens that belong to no club (Browse, a league table, the
+// catalog), so switching modes visibly changes every screen.
 const (
-	footyBlue = "#1A5FB4"
-	footyGold = "#F8E45C"
+	baseViolet   = "#2E1065"
+	baseLavender = "#C9A7FF"
 )
 
 // BaseFor is the theme for screens with no club colors of their own, in
-// the given mode: the terminal's background in weak mode, footui's blue
+// the given mode: the terminal's background in weak mode, footui's violet
 // in strong mode. No color still means no color.
 func BaseFor(mode Mode, noColorFlag bool) Theme {
 	t := Resolve(noColorFlag)
 	if t.NoColor || mode != Strong {
 		return t
 	}
-	strong, _ := StrongTeamTheme(footyBlue, footyGold)
+	strong, _ := StrongTeamTheme(baseViolet, baseLavender)
 	return strong
 }
