@@ -32,6 +32,7 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 		prevCursor := m.cursor
 		m.competitions = msg.competitions
 		m.history = msg.history
+		m.colors = msg.colors
 		m.loading = false
 		m.loaded = true
 		if len(m.competitions) == 0 {

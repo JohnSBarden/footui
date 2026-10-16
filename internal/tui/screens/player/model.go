@@ -36,8 +36,11 @@ type Model struct {
 
 	competitions []models.Competition
 	history      map[string][]SeasonRow
-	compIdx      int
-	cursor       int
+	// colors are the brand colours of every club the player has played
+	// for, keyed by team ID; the header band wears the selected season's.
+	colors  map[string]models.TeamColors
+	compIdx int
+	cursor  int
 
 	width  int
 	height int
@@ -94,6 +97,7 @@ func (m *Model) RefreshTarget() (string, bool) {
 type historyLoadedMsg struct {
 	competitions []models.Competition
 	history      map[string][]SeasonRow
+	colors       map[string]models.TeamColors
 }
 
 // CurrentCompetition returns the competition whose tab is selected.

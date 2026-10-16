@@ -1,13 +1,16 @@
 package player
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/JohnSBarden/footui/internal/data/models"
 	"github.com/JohnSBarden/footui/internal/tui/components"
+	"github.com/JohnSBarden/footui/internal/tui/styles"
 )
 
 // View implements core.Screen.
@@ -41,18 +44,32 @@ func (m *Model) View() string {
 func (m *Model) header() string {
 	th := m.deps.Theme
 
+	row, hasRow := m.SelectedRow()
+	colors := m.colors[row.Team.ID]
+	fill, rule := styles.HeroStyles(th, colors.PrimaryHex, colors.SecondaryHex, m.deps.ThemeMode())
+
 	var meta []string
-	if m.player.Position != "" {
-		meta = append(meta, m.player.Position)
+	if hasRow && row.Team.Name != "" {
+		meta = append(meta, row.Team.Name)
 	}
 	if m.player.Nationality != "" {
 		meta = append(meta, m.player.Nationality)
 	}
-
-	line := th.Title.Render(m.deps.Star(models.FavoritePlayer, m.player.ID, m.player.Name))
-	if len(meta) > 0 {
-		line = lipgloss.JoinHorizontal(lipgloss.Center, line, th.Subtitle.Render("  "+strings.Join(meta, " · ")))
+	metaLine := strings.Join(meta, " · ")
+	if pos := positionWord(m.player.Position); pos != "" {
+		badge := fill.Reverse(true).Bold(true).Render(" " + strings.ToUpper(pos) + " ")
+		if th.NoColor {
+			badge = "[" + strings.ToUpper(pos) + "]"
+		}
+		metaLine = badge + fill.Render(" ") + fill.Render(metaLine)
 	}
+
+	line := components.Hero(components.HeroOpts{
+		Fill: fill, Rule: rule, Width: m.width, NoColor: th.NoColor,
+		Title: m.deps.Star(models.FavoritePlayer, m.player.ID, m.player.Name),
+		Meta:  metaLine,
+		Right: m.chart(),
+	})
 
 	if len(m.competitions) == 0 {
 		return line
@@ -66,6 +83,72 @@ func (m *Model) header() string {
 		})
 	}
 	return line + "\n" + components.Tabs(th, tabs, m.compIdx)
+}
+
+// positionWord names an understat position code ("F M S", "D M S", "GK")
+// by its first role; any other provider's wording passes through.
+func positionWord(code string) string {
+	fields := strings.Fields(code)
+	if len(fields) == 0 {
+		return ""
+	}
+	switch fields[0] {
+	case "F":
+		return "forward"
+	case "M":
+		return "midfield"
+	case "D":
+		return "defence"
+	case "GK":
+		return "keeper"
+	}
+	return code
+}
+
+// chartSeasons is how many seasons the band's chart covers.
+const chartSeasons = 3
+
+// chartBarWidth is the length of the chart's longest bar.
+const chartBarWidth = 12
+
+// chart sets the player's output against what was expected, a season a
+// row, oldest first: goals against xG for a forward, assists against xA
+// for everyone else. A competition without expected numbers gets none.
+func (m *Model) chart() []string {
+	rows := m.CurrentRows() // newest first
+	forward := positionWord(m.player.Position) == "forward"
+	type point struct {
+		season           string
+		actual, expected float64
+	}
+	var pts []point
+	scale := 0.0
+	for i := min(len(rows), chartSeasons) - 1; i >= 0; i-- {
+		s := rows[i].Stats
+		actual, expected := float64(s.Assists), s.XA
+		if forward {
+			actual, expected = float64(s.Goals), s.XG
+		}
+		if expected == nil {
+			continue
+		}
+		pts = append(pts, point{components.SeasonName(rows[i].Season), actual, *expected})
+		scale = max(scale, actual, *expected)
+	}
+	if len(pts) == 0 {
+		return nil
+	}
+	title := "ASSISTS vs xA"
+	if forward {
+		title = "GOALS vs xG"
+	}
+	out := []string{title}
+	for _, p := range pts {
+		bar := components.Bar(p.actual, scale, chartBarWidth)
+		out = append(out, fmt.Sprintf("%-7s %s %s / %.1f", p.season,
+			bar+strings.Repeat(" ", chartBarWidth-lipgloss.Width(bar)), strconv.Itoa(int(p.actual)), p.expected))
+	}
+	return out
 }
 
 // statCards summarize the selected season, with per-90 rates alongside the
@@ -141,15 +224,17 @@ func (m *Model) seasonsTable() string {
 	}
 
 	cells := make([][]components.Cell, 0, len(rows))
+	hasXG := false
 	for _, r := range rows {
 		s := r.Stats
+		hasXG = hasXG || s.XG != nil || s.XA != nil
 		cells = append(cells, []components.Cell{
 			components.Text(components.SeasonName(r.Season)),
 			components.Text(r.Team.Name),
 			components.Text(strconv.Itoa(s.Appearances)),
 			components.Text(strconv.Itoa(s.Minutes)),
-			components.Styled(strconv.Itoa(s.Goals), th.Accent.Bold(true)),
-			components.Text(strconv.Itoa(s.Assists)),
+			components.Styled(strconv.Itoa(s.Goals), toneOr(th, s.Goals, s.XG, th.Accent.Bold(true))),
+			components.Styled(strconv.Itoa(s.Assists), toneOr(th, s.Assists, s.XA, th.TableCell)),
 			components.Text(components.Float(s.XG, 1)),
 			components.Text(components.Float(s.XA, 1)),
 			components.Text(components.Int(s.Shots)),
@@ -162,13 +247,27 @@ func (m *Model) seasonsTable() string {
 		cells[i] = components.TrimRow(cells[i], len(cols))
 	}
 
-	return components.Table(components.TableOpts{
+	table := components.Label(th, "Season by season") + "\n" + components.Table(components.TableOpts{
 		Columns: cols,
 		Rows:    cells,
 		Cursor:  m.cursor,
 		MaxRows: m.tableHeight(),
 		Theme:   th,
 	})
+	if hasXG {
+		table += "\n" + th.Positive.Render("■") + th.Muted.Render(" beat the expected number  ") +
+			th.Below.Render("■") + th.Muted.Render(" fell short")
+	}
+	return table
+}
+
+// toneOr colours a count against its expected value when there is one,
+// and falls back to style when there isn't.
+func toneOr(th styles.Theme, actual int, expected *float64, style lipgloss.Style) lipgloss.Style {
+	if expected == nil {
+		return style
+	}
+	return components.Tone(th, float64(actual), *expected)
 }
 
 // wantTeamCol keeps club names distinguishable — "Manchester United" and
@@ -227,8 +326,9 @@ func (m *Model) careerLine() string {
 			strconv.FormatFloat(c.XA, 'f', 1, 64)+" xA")
 	}
 
-	return th.PanelTitle.Render("Career in "+comp.Name+": ") +
-		th.Muted.Render(strings.Join(parts, " · "))
+	// Cut to the terminal: a wrapped line would push the footer away.
+	return ansi.Truncate(th.PanelTitle.Render("Career in "+comp.Name+": ")+
+		th.Muted.Render(strings.Join(parts, " · ")), m.width, "…")
 }
 
 func plural(n int, noun string) string {
@@ -239,8 +339,10 @@ func plural(n int, noun string) string {
 }
 
 func (m *Model) tableHeight() int {
-	const chrome = 16
-	h := m.height - chrome
+	// The stat cards, the table's label and legend, the career line and
+	// the footer, plus the header band, which grows on a narrow terminal.
+	const chrome = 18
+	h := m.height - chrome - (lipgloss.Height(m.header()) - 2)
 	if h < 5 {
 		return 5
 	}

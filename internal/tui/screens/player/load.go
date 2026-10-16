@@ -32,6 +32,10 @@ func (m *Model) loadHistory() tea.Cmd {
 		if err != nil {
 			return core.ErrMsg{Err: err}
 		}
+		colors, err := deps.Repos.TeamColorsFor(deps.Ctx, teamIDs)
+		if err != nil {
+			return core.ErrMsg{Err: err}
+		}
 
 		history := make(map[string][]SeasonRow, len(comps))
 		for _, s := range stats {
@@ -58,7 +62,7 @@ func (m *Model) loadHistory() tea.Cmd {
 		}
 		components.SortCompetitions(ordered)
 
-		return historyLoadedMsg{competitions: ordered, history: history}
+		return historyLoadedMsg{competitions: ordered, history: history, colors: colors}
 	}
 }
 
