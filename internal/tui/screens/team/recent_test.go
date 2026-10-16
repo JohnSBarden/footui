@@ -85,7 +85,7 @@ func TestTheRecentStripShowsFormAndTheLastFiveGames(t *testing.T) {
 	}
 	// Oldest first, so it reads left to right in time: g2 D, g3 W, g4 D on
 	// penalties, g5 L, g6 W.
-	if !strings.Contains(out, "Recent  D W D L W") {
+	if !strings.Contains(out, "RECENT  D W D L W") {
 		t.Errorf("form missing\n---\n%s", out)
 	}
 	for _, want := range []string{"Northbridge", "2–0", "xG 2.1–0.8", "Wessex Rovers", "1–1 (4–2 p)", "FAC", "UCL", " PL "} {
@@ -210,7 +210,7 @@ func TestAClubKnownOnlyFromItsGamesShowsThem(t *testing.T) {
 	wessex, _ := repos.GetTeam(context.Background(), "eng-wess")
 	s := tuitest.Resize(t, tuitest.Settle(t, team.New(newDeps(repos), wessex, "", "")), 110, 44)
 	out := s.View()
-	if !strings.Contains(out, "Recent") || !strings.Contains(out, "Arsenal") || strings.Contains(out, "No seasons") {
+	if !strings.Contains(out, "RECENT") || !strings.Contains(out, "Arsenal") || strings.Contains(out, "No seasons") {
 		t.Errorf("view\n---\n%s", out)
 	}
 	req, ok := s.(core.RefreshRequester).RefreshRequest()

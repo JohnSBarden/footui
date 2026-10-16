@@ -163,7 +163,7 @@ func (m *Model) summaryTable() string {
 // in the table is shifted past them.
 func (m *Model) matchTable() string {
 	th := m.deps.Theme
-	roundWidth := max(m.width-(10+1+6+1+3+1+22+1+15+1)-4, 8)
+	roundWidth := max(m.width-(1+1+10+1+6+1+3+1+22+1+15+1)-4, 8)
 	cols := append(components.MatchColumns(22), components.Column{Title: "Round", Width: roundWidth})
 	var rows [][]components.Cell
 	cursor := -1
@@ -182,13 +182,13 @@ func (m *Model) matchTable() string {
 }
 
 func (m *Model) matchRow(mt models.Match) []components.Cell {
-	return components.MatchCells(m.deps.Theme, mt, m.team.ID, m.competition(mt.CompetitionID).Abbrev(),
+	return components.MatchCells(m.deps.Theme, mt, m.team.ID, m.competition(mt.CompetitionID),
 		m.teamName(mt.Opponent(m.team.ID)), mt.Round)
 }
 
 // boxScore is the two sides' numbers from one match, the nation's first.
 func (m *Model) boxScore(mt models.Match) [][]components.Cell {
-	return components.BoxScore(m.deps.Theme, mt, m.team.ID, 3)
+	return components.BoxScore(m.deps.Theme, mt, m.team.ID, 4)
 }
 
 func (m *Model) tableHeight() int {

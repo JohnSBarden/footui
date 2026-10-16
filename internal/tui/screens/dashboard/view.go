@@ -308,7 +308,7 @@ func (m *Model) teamLines(c Card, inner int) []string {
 	headline := strconv.Itoa(s.Points) + " pts"
 	headStyle := th.Accent.Bold(true)
 	if s.Position != nil {
-		headline = ordinal(*s.Position) + " · " + headline
+		headline = components.Ordinal(*s.Position) + " · " + headline
 		// The bottom three are where a season is going wrong.
 		if c.LeagueSize > 3 && *s.Position > c.LeagueSize-3 {
 			headStyle = th.Negative.Bold(true)
@@ -401,20 +401,4 @@ func (m *Model) freshness(c Card, inner int) string {
 // padBar pads a bar to width so the number after it lines up.
 func padBar(bar string, width int) string {
 	return bar + strings.Repeat(" ", max(width-lipgloss.Width(bar), 0))
-}
-
-// ordinal is 1st, 2nd, 3rd, 4th … 11th, 12th, 13th, 21st.
-func ordinal(n int) string {
-	suffix := "th"
-	if n%100 < 11 || n%100 > 13 {
-		switch n % 10 {
-		case 1:
-			suffix = "st"
-		case 2:
-			suffix = "nd"
-		case 3:
-			suffix = "rd"
-		}
-	}
-	return strconv.Itoa(n) + suffix
 }

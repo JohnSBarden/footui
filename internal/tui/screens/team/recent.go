@@ -62,7 +62,7 @@ func (m *Model) checkRecent() tea.Cmd {
 // recentStrip is the club's form and last five games, under the header.
 func (m *Model) recentStrip() string {
 	th := m.theme
-	title := th.PanelTitle.Render("Recent")
+	title := components.Label(th, "Recent")
 	if len(m.recent) > 0 {
 		summary := models.SummarizeMatches(m.team.ID, m.recent)
 		title += "  " + components.FormChips(th, summary.Form)
@@ -97,20 +97,20 @@ func (m *Model) recentHeight() int {
 
 func (m *Model) recentTable() string {
 	th := m.theme
-	cols := append(components.MatchColumns(22), components.Column{Title: "", Width: 12})
+	cols := append(components.MatchColumns(22), components.Column{Title: "", Width: components.MatchXGWidth})
 	rows := make([][]components.Cell, 0, len(m.recent))
 	for _, mt := range m.recent {
 		rows = append(rows, components.MatchCells(th, mt, m.team.ID, m.recentComp(mt.CompetitionID),
-			m.recentTeam(mt.Opponent(m.team.ID)), components.MatchXG(mt, m.team.ID)))
+			m.recentTeam(mt.Opponent(m.team.ID)), components.MatchXGBar(th, mt, m.team.ID)))
 	}
 	return components.Table(components.TableOpts{Columns: cols, Rows: rows, Cursor: -1, Theme: th})
 }
 
-func (m *Model) recentComp(id string) string {
+func (m *Model) recentComp(id string) models.Competition {
 	if c, ok := m.recentComps[id]; ok {
-		return c.Abbrev()
+		return c
 	}
-	return id
+	return models.Competition{ID: id, Name: id}
 }
 
 func (m *Model) recentTeam(id string) string {

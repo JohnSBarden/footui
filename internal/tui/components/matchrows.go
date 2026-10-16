@@ -3,26 +3,32 @@ package components
 import (
 	"fmt"
 	"strconv"
+	"strings"
+
+	"github.com/charmbracelet/lipgloss"
 
 	"github.com/JohnSBarden/footui/internal/data/models"
 	"github.com/JohnSBarden/footui/internal/tui/styles"
 )
 
-// MatchColumns are the leading columns of a team's match list: date,
-// competition, venue, opponent and score. Callers append their own last
-// column (a round, expected goals).
+// MatchColumns are the leading columns of a team's match list: the
+// result's glyph, date, competition, venue, opponent and score. Callers
+// append their own last column (a round, expected goals).
 func MatchColumns(opponentWidth int) []Column {
 	return []Column{
+		{Title: "", Width: 1},
 		{Title: "Date", Width: 10}, {Title: "Comp", Width: 6}, {Title: "", Width: 3},
 		{Title: "Opponent", Width: opponentWidth}, {Title: "Score", Width: 15},
 	}
 }
 
-// MatchCells is one match in a team's list, from teamID's side: H, A or
-// N for where it was played, the score with its goals first and coloured
-// by the result, and last as the final cell. A fixture still to come
-// shows its kickoff instead of a score.
-func MatchCells(th styles.Theme, m models.Match, teamID, comp, opponent, last string) []Cell {
+// MatchCells is one match in a team's list, from teamID's side: its
+// result as a glyph, the competition coloured by kind (Europe and other
+// international competitions, cups, leagues), H, A or N for where it was
+// played, the score with its goals first and coloured by the result, and
+// last as the final cell. A fixture still to come shows its kickoff
+// instead of a score.
+func MatchCells(th styles.Theme, m models.Match, teamID string, comp models.Competition, opponent, last string) []Cell {
 	venue := "A"
 	switch {
 	case m.Neutral:
@@ -43,14 +49,47 @@ func MatchCells(th styles.Theme, m models.Match, teamID, comp, opponent, last st
 		}
 		style = th.Muted
 	}
+	compStyle := th.Muted
+	switch {
+	case comp.Cup():
+		compStyle = th.Draw
+	case comp.International():
+		compStyle = th.Info
+	}
+	glyph := " "
+	if r := m.Result(teamID); r != "" {
+		glyph = ResultGlyph(th, r[0])
+	}
 	return []Cell{
+		Text(glyph),
 		Text(MatchDate(m.Kickoff)),
-		Styled(comp, th.Muted),
+		Styled(comp.Abbrev(), compStyle),
 		Styled(venue, th.Muted),
 		Text(opponent),
 		Styled(score, style),
 		Styled(last, th.Muted),
 	}
+}
+
+// matchXGScale is the xG a match bar is drawn against: few sides create
+// more than three goals' worth in a game.
+const matchXGScale = 3
+
+// MatchXGWidth is how wide MatchXGBar's column needs to be.
+const MatchXGWidth = 17
+
+// MatchXGBar is MatchXG led by a short bar of teamID's own xG, so a column
+// of matches shows at a glance which games were one-sided.
+func MatchXGBar(th styles.Theme, m models.Match, teamID string) string {
+	xg := MatchXG(m, teamID)
+	if xg == "" {
+		return ""
+	}
+	bar := ""
+	if _, _, ours := m.For(teamID); ours != nil && ours.XG != nil {
+		bar = Bar(*ours.XG, matchXGScale, 4)
+	}
+	return th.Info.Render(bar+strings.Repeat(" ", 4-lipgloss.Width(bar))) + " " + xg
 }
 
 // MatchXG is "xG 1.9–0.8" from teamID's side, or "" when the match has

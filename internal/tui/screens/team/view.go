@@ -9,6 +9,7 @@ import (
 
 	"github.com/JohnSBarden/footui/internal/data/models"
 	"github.com/JohnSBarden/footui/internal/tui/components"
+	"github.com/JohnSBarden/footui/internal/tui/styles"
 )
 
 // View implements core.Screen.
@@ -59,23 +60,25 @@ func (m *Model) header() string {
 	th := m.theme
 
 	var meta []string
-	if m.team.Country != "" {
-		meta = append(meta, m.team.Country)
+	for _, part := range []string{m.team.Country, m.team.Gender, m.team.Venue, m.freshnessText()} {
+		if part != "" {
+			meta = append(meta, part)
+		}
 	}
-	if m.team.Gender != "" {
-		meta = append(meta, m.team.Gender)
+	var colors models.TeamColors
+	if m.colors != nil {
+		colors = *m.colors
 	}
-	if m.team.Venue != "" {
-		meta = append(meta, m.team.Venue)
-	}
-
-	line := th.Title.Render(m.deps.Star(models.FavoriteTeam, m.team.ID, m.team.Name))
-	if len(meta) > 0 {
-		line = lipgloss.JoinHorizontal(lipgloss.Center, line, th.Subtitle.Render("  "+strings.Join(meta, " · ")))
-	}
+	fill, rule := styles.HeroStyles(th, colors.PrimaryHex, colors.SecondaryHex, m.deps.ThemeMode())
+	hero := components.Hero(components.HeroOpts{
+		Fill: fill, Rule: rule, Width: m.width, NoColor: th.NoColor,
+		Title: m.deps.Star(models.FavoriteTeam, m.team.ID, m.team.Name),
+		Meta:  strings.Join(meta, " · "),
+		Right: m.heroRight(),
+	})
 
 	if len(m.competitions) == 0 {
-		return line
+		return hero
 	}
 
 	tabs := make([]components.Tab, 0, len(m.competitions))
@@ -85,17 +88,58 @@ func (m *Model) header() string {
 			Badge: "(" + strconv.Itoa(len(m.history[c.ID])) + ")",
 		})
 	}
-	tabBar := components.Tabs(th, tabs, m.compIdx)
-	if note := m.freshnessNote(); note != "" {
-		tabBar += "   " + note
-	}
-	return line + "\n" + tabBar
+	return hero + "\n" + components.Tabs(th, tabs, m.compIdx)
 }
 
-// freshnessNote says when the selected competition-season was last
-// refreshed. A failed attempt is reported as a failure rather than as age:
-// "we tried and it broke" is what the user needs to act on.
-func (m *Model) freshnessNote() string {
+// heroRight is the band's summary: the position in the season in view, in
+// block digits, beside the season, the points and the last few finishes.
+func (m *Model) heroRight() []string {
+	row, ok := m.CurrentSeasonRow()
+	if !ok || row.Stats.Position == nil {
+		return nil
+	}
+	pos := *row.Stats.Position
+	digits := components.BlockDigits(strconv.Itoa(pos))
+	side := []string{
+		components.SeasonName(row.Season),
+		components.OrdinalSuffix(pos) + " · " + strconv.Itoa(row.Stats.Points) + " pts",
+		m.finishes(),
+	}
+	width := 0
+	for _, s := range side {
+		width = max(width, lipgloss.Width(s))
+	}
+	out := make([]string, len(side))
+	for i, s := range side {
+		out[i] = digits[i] + "  " + s + strings.Repeat(" ", width-lipgloss.Width(s))
+	}
+	return out
+}
+
+// finishesShown is how many seasons the band's "finished" line covers.
+const finishesShown = 3
+
+// finishes is the club's last few final positions in this competition,
+// oldest first: "15 ▸ 3 ▸ 13".
+func (m *Model) finishes() string {
+	rows := m.CurrentRows() // newest first
+	var pos []string
+	for i := min(len(rows), finishesShown) - 1; i >= 0; i-- {
+		if p := rows[i].Stats.Position; p != nil {
+			pos = append(pos, strconv.Itoa(*p))
+		}
+	}
+	if len(pos) < 2 {
+		return ""
+	}
+	return "finished " + strings.Join(pos, " ▸ ")
+}
+
+// freshnessText says when the selected competition-season was last
+// refreshed, unstyled, for the band's meta line. A failed attempt is
+// reported as a failure rather than as age: "we tried and it broke" is
+// what the user needs to act on.
+func (m *Model) freshnessText() string {
 	if m.lastSync == nil {
 		return ""
 	}
@@ -104,9 +148,9 @@ func (m *Model) freshnessNote() string {
 		return ""
 	}
 	if !m.lastSync.Succeeded() {
-		return m.theme.Negative.Render("refresh failed " + ago)
+		return "refresh failed " + ago
 	}
-	return m.theme.Muted.Render("updated " + ago)
+	return "updated " + ago
 }
 
 // statCards summarizes the selected season. Every figure comes from that
@@ -136,7 +180,7 @@ func (m *Model) statCards() string {
 		style := m.deltaStyle(delta)
 		stats = append(stats, components.Stat{
 			Label: "xG", Value: components.Float(s.XG, 1),
-			Hint:  components.SignedFloat(delta, 1) + " vs GF",
+			Hint:  verdict(-delta, "unlucky", "clinical"),
 			Style: &style,
 		})
 	}
@@ -171,7 +215,7 @@ func (m *Model) extraCards(s models.TeamSeasonStats) []components.Stat {
 		style := m.deltaStyle(delta)
 		out = append(out, components.Stat{
 			Label: "xPts", Value: strconv.FormatFloat(xpts, 'f', 1, 64),
-			Hint:  components.SignedFloat(delta, 1) + " vs Pts",
+			Hint:  verdict(-delta, "owed", "lucky"),
 			Style: &style,
 		})
 	}
@@ -205,6 +249,19 @@ func (m *Model) extraCards(s models.TeamSeasonStats) []components.Stat {
 	}
 
 	return out
+}
+
+// verdict says in a word which way expected beat actual. gap is expected
+// minus actual: above is what it says when the chances were better than
+// the result, below when the result was better than the chances.
+func verdict(gap float64, above, below string) string {
+	switch {
+	case gap > 0.5:
+		return "▲ " + strconv.FormatFloat(gap, 'f', 1, 64) + " " + above
+	case gap < -0.5:
+		return "▼ " + strconv.FormatFloat(-gap, 'f', 1, 64) + " " + below
+	}
+	return "on par"
 }
 
 func (m *Model) seasonsTable() string {
@@ -300,8 +357,10 @@ func (m *Model) squadTable() string {
 			components.Text(r.Player.Position),
 			components.Text(strconv.Itoa(s.Appearances)),
 			components.Text(strconv.Itoa(s.Minutes)),
-			components.Styled(strconv.Itoa(s.Goals), th.Accent.Bold(true)),
-			components.Text(strconv.Itoa(s.Assists)),
+			components.Styled(strconv.Itoa(s.Goals), toneOr(th, s.Goals, s.XG, th.Accent.Bold(true))),
+			components.Styled(strconv.Itoa(s.Assists), toneOr(th, s.Assists, s.XA, th.TableCell)),
+			components.Text(th.Accent.Render(strings.Repeat("▮", min(s.Goals, squadBarMax))) +
+				th.Info.Render(strings.Repeat("▯", min(s.Assists, squadBarMax)))),
 			components.Text(components.Float(s.XG, 1)),
 			components.Text(components.Float(s.XA, 1)),
 			components.Text(components.Int(s.Shots)),
@@ -328,6 +387,19 @@ func (m *Model) squadTable() string {
 	})
 }
 
+// squadBarMax caps each half of a squad row's goals-and-assists bar, so a
+// prolific scorer's row doesn't push the column wide.
+const squadBarMax = 5
+
+// toneOr colours a count against its expected value when there is one,
+// and falls back to style when there isn't.
+func toneOr(th styles.Theme, actual int, expected *float64, style lipgloss.Style) lipgloss.Style {
+	if expected == nil {
+		return style
+	}
+	return components.Tone(th, float64(actual), *expected)
+}
+
 // playerColWidth is wide enough for the long names in these leagues
 // ("Martín Zubimendi", "Alexander Isak") to stay distinguishable. It never
 // shrinks — see components.FitColumns.
@@ -341,6 +413,7 @@ func (m *Model) squadColumns() []components.Column {
 		{Title: "Mins", Width: 5, Right: true},
 		{Title: "G", Width: 4, Right: true},
 		{Title: "A", Width: 4, Right: true},
+		{Title: "G·A", Width: 2 * squadBarMax},
 	}
 
 	// Goals and assists are the squad table's point; shots, key passes,
@@ -369,8 +442,10 @@ func (m *Model) paneTitle(label string, focused bool) string {
 
 // paneHeight splits the remaining vertical space between the two tables.
 func (m *Model) paneHeight() int {
-	const chrome = 18 // header, tabs, stat cards, both pane titles, footer
-	h := (m.height - chrome - m.recentHeight()) / 2
+	// The stat cards, both pane titles and the footer, plus the header
+	// band, which grows on a narrow terminal.
+	const chrome = 16
+	h := (m.height - chrome - lipgloss.Height(m.header()) - m.recentHeight()) / 2
 	if h < 4 {
 		return 4
 	}

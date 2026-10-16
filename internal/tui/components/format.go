@@ -20,6 +20,25 @@ func Float(v *float64, decimals int) string {
 	return strconv.FormatFloat(*v, 'f', decimals, 64)
 }
 
+// Ordinal is 1st, 2nd, 3rd, 4th … 11th, 12th, 13th, 21st.
+func Ordinal(n int) string { return strconv.Itoa(n) + OrdinalSuffix(n) }
+
+// OrdinalSuffix is the "st", "nd", "rd" or "th" that follows n.
+func OrdinalSuffix(n int) string {
+	if n%100 >= 11 && n%100 <= 13 {
+		return "th"
+	}
+	switch n % 10 {
+	case 1:
+		return "st"
+	case 2:
+		return "nd"
+	case 3:
+		return "rd"
+	}
+	return "th"
+}
+
 // Int renders a nullable int.
 func Int(v *int) string {
 	if v == nil {

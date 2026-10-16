@@ -202,7 +202,7 @@ func (m *Model) View() string {
 
 func (m *Model) table() string {
 	th := m.deps.Theme
-	lastWidth := max(m.width-(10+1+6+1+3+1+24+1+15+1)-4, 12)
+	lastWidth := max(m.width-(1+1+10+1+6+1+3+1+24+1+15+1)-4, components.MatchXGWidth)
 	cols := append(components.MatchColumns(24), components.Column{Title: "", Width: lastWidth})
 	var rows [][]components.Cell
 	cursor := -1
@@ -211,12 +211,12 @@ func (m *Model) table() string {
 			cursor = len(rows)
 		}
 		last := g.Round
-		if xg := components.MatchXG(g, m.team.ID); xg != "" {
+		if xg := components.MatchXGBar(th, g, m.team.ID); xg != "" {
 			last = xg
 		}
 		rows = append(rows, components.MatchCells(th, g, m.team.ID, m.comp(g.CompetitionID), m.name(g.Opponent(m.team.ID)), last))
 		if g.ID == m.expanded {
-			rows = append(rows, components.BoxScore(th, g, m.team.ID, 3)...)
+			rows = append(rows, components.BoxScore(th, g, m.team.ID, 4)...)
 		}
 	}
 	return components.Table(components.TableOpts{
@@ -224,11 +224,11 @@ func (m *Model) table() string {
 	})
 }
 
-func (m *Model) comp(id string) string {
+func (m *Model) comp(id string) models.Competition {
 	if c, ok := m.comps[id]; ok {
-		return c.Abbrev()
+		return c
 	}
-	return id
+	return models.Competition{ID: id, Name: id}
 }
 
 func (m *Model) name(id string) string {

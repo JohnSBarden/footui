@@ -213,7 +213,7 @@ func TestStatCardsShowExpectedGoalsGap(t *testing.T) {
 	out := settled(t, newDeps(repos), "eng-premier-league", "eng-premier-league:2025").View()
 
 	// Arsenal scored 71 against an xG of 77.5, i.e. 6.5 fewer than expected.
-	if !strings.Contains(out, "-6.5 vs GF") {
+	if !strings.Contains(out, "▲ 6.5 unlucky") {
 		t.Errorf("expected the goals-vs-xG gap on a stat card\n---\n%s", out)
 	}
 }
@@ -240,7 +240,7 @@ func TestAdvancedTeamStatsRenderAsCards(t *testing.T) {
 
 	out := settled(t, newDeps(repos), "eng-premier-league", "eng-premier-league:2025").View()
 
-	for _, want := range []string{"XPTS", "79.9", "+5.1 vs Pts", "PPDA", "9.6", "NPXG", "DEEP", "142 allowed"} {
+	for _, want := range []string{"XPTS", "79.9", "▼ 5.1 lucky", "PPDA", "9.6", "NPXG", "DEEP", "142 allowed"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("advanced stat cards missing %q\n---\n%s", want, out)
 		}
@@ -418,7 +418,7 @@ func TestHonoursPanelAggregatesRepeatedTitles(t *testing.T) {
 
 	out := settled(t, newDeps(repos), "eng-premier-league", "eng-premier-league:2025").View()
 
-	if !strings.Contains(out, "Honours") {
+	if !strings.Contains(out, "HONOURS") || !strings.Contains(out, "◆◆◆ Premier League ×3") {
 		t.Fatalf("expected an honours panel\n---\n%s", out)
 	}
 	// Three stored rows read as one line with a count, not three lines.
@@ -464,7 +464,7 @@ func TestContinentalHonoursAreListedFirst(t *testing.T) {
 // appear in the tab bar higher up the view.
 func honoursPanel(t *testing.T, view string) string {
 	t.Helper()
-	i := strings.Index(view, "Honours")
+	i := strings.Index(view, "HONOURS")
 	if i < 0 {
 		t.Fatalf("no honours panel in view\n---\n%s", view)
 	}

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/JohnSBarden/footui/internal/trophies"
+	"github.com/JohnSBarden/footui/internal/tui/components"
 )
 
 // honourLine is one aggregated row of the honours panel: a title, how many
@@ -78,7 +79,7 @@ func (m *Model) honoursPanel() string {
 	th := m.theme
 
 	var b strings.Builder
-	b.WriteString(th.PanelTitle.Render("Honours"))
+	b.WriteString(components.Label(th, "Honours"))
 	// The league-title lists start at a fixed season, so the panel says so
 	// rather than letting a partial count read as an all-time total.
 	b.WriteString(th.Muted.Render("  league titles from " + trophies.LeagueTitlesFrom + " only"))
@@ -90,6 +91,7 @@ func (m *Model) honoursPanel() string {
 			label += " ×" + strconv.Itoa(n)
 		}
 		b.WriteString("  ")
+		b.WriteString(th.Draw.Render(diamonds(max(len(line.Seasons), 1))) + " ")
 		b.WriteString(th.Accent.Render(label))
 		if len(line.Seasons) > 0 {
 			b.WriteString(th.Muted.Render("  " + m.seasonList(line.Seasons)))
@@ -98,6 +100,18 @@ func (m *Model) honoursPanel() string {
 	}
 
 	return strings.TrimRight(b.String(), "\n")
+}
+
+// maxDiamonds is the longest tally of ◆ an honour line draws before it
+// switches to a count.
+const maxDiamonds = 10
+
+// diamonds is a tally of n titles: one ◆ each, or ◆×n past maxDiamonds.
+func diamonds(n int) string {
+	if n > maxDiamonds {
+		return "◆×" + strconv.Itoa(n)
+	}
+	return strings.Repeat("◆", n)
 }
 
 // maxSeasonsShown caps how many years one honour line lists before
