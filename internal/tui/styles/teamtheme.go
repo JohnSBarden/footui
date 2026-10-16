@@ -54,6 +54,16 @@ func TeamPalette(primaryHex, secondaryHex string) Palette {
 	return base
 }
 
+// ClubForeground is a club colour made readable as a mark (a dot, a stripe)
+// on any terminal background, or false when hex isn't a colour.
+func ClubForeground(hex string) (lipgloss.TerminalColor, bool) {
+	c, ok := parseHex(hex)
+	if !ok {
+		return nil, false
+	}
+	return adaptiveForeground(c, minLargeContrast), true
+}
+
 // TeamTheme builds a full Theme from a club's brand colors.
 func TeamTheme(primaryHex, secondaryHex string) Theme {
 	return New(TeamPalette(primaryHex, secondaryHex))

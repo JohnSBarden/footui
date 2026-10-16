@@ -65,7 +65,7 @@ func (m *Model) recentStrip() string {
 	title := th.PanelTitle.Render("Recent")
 	if len(m.recent) > 0 {
 		summary := models.SummarizeMatches(m.team.ID, m.recent)
-		title += "  " + components.FormLetters(th, summary.Form)
+		title += "  " + components.FormChips(th, summary.Form)
 	}
 	hint := th.Muted.Render("  " + keys.Matches.Help().Key + " all games")
 	var note string

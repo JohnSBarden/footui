@@ -291,7 +291,7 @@ func (m *Model) teamLines(c Card, inner int) []string {
 		lines = append(lines, th.TableCell.Render(xg+"  ")+style.Render("goals "+components.SignedFloat(diff, 1)))
 	}
 	if form := c.Summary.Form; form != "" {
-		lines = append(lines, th.Muted.Render("Form ")+components.FormLetters(th, form))
+		lines = append(lines, th.Muted.Render("Form ")+components.FormChips(th, form))
 	}
 	for len(lines) < cardLines-1 {
 		lines = append(lines, "")

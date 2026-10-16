@@ -3,7 +3,6 @@ package components
 import (
 	"fmt"
 	"strconv"
-	"strings"
 
 	"github.com/JohnSBarden/footui/internal/data/models"
 	"github.com/JohnSBarden/footui/internal/tui/styles"
@@ -145,21 +144,4 @@ func BoxScore(th styles.Theme, m models.Match, teamID string, lead int) [][]Cell
 		))
 	}
 	return rows
-}
-
-// FormLetters colours a form string ("WDLWW", oldest first) one result at
-// a time, spaced so it reads as a row of results.
-func FormLetters(th styles.Theme, form string) string {
-	out := make([]string, 0, len(form))
-	for _, r := range form {
-		style := th.TableCell
-		switch r {
-		case 'W':
-			style = th.Positive
-		case 'L':
-			style = th.Negative
-		}
-		out = append(out, style.Bold(true).Render(string(r)))
-	}
-	return strings.Join(out, " ")
 }
