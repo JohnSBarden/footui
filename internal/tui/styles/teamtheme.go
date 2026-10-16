@@ -64,6 +64,31 @@ func ClubForeground(hex string) (lipgloss.TerminalColor, bool) {
 	return adaptiveForeground(c, minLargeContrast), true
 }
 
+// HeroStyles are a club screen's header band and the rule beneath it. The
+// band is the club's primary with black or white text, whichever reads;
+// in strong mode the whole screen already is the primary, so the band
+// inverts. A club without a usable colour gets footui's accent.
+func HeroStyles(th Theme, primaryHex, secondaryHex string, mode Mode) (fill, rule lipgloss.Style) {
+	if th.NoColor {
+		return lipgloss.NewStyle(), lipgloss.NewStyle()
+	}
+	primary, ok := parseHex(primaryHex)
+	if !ok {
+		fill = lipgloss.NewStyle().Foreground(th.Palette.OnAccent).Background(th.Palette.Accent)
+		return fill, lipgloss.NewStyle().Foreground(th.Palette.Accent)
+	}
+	var bg, fg lipgloss.TerminalColor = lipgloss.Color(primary.Hex()), readableTextOn(primary)
+	if mode == Strong {
+		bg, fg = th.Palette.Text, lipgloss.Color(primary.Hex())
+	}
+	fill = lipgloss.NewStyle().Foreground(fg).Background(bg)
+	rule = lipgloss.NewStyle().Foreground(bg)
+	if s, ok := parseHex(secondaryHex); ok {
+		rule = lipgloss.NewStyle().Foreground(lipgloss.Color(s.Hex()))
+	}
+	return fill, rule
+}
+
 // TeamTheme builds a full Theme from a club's brand colors.
 func TeamTheme(primaryHex, secondaryHex string) Theme {
 	return New(TeamPalette(primaryHex, secondaryHex))
