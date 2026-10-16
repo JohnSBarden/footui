@@ -49,6 +49,13 @@ var (
 		key.WithKeys("d", "ctrl+g"),
 		key.WithHelp("d", "download"),
 	)
+	// Kickabout turns the screen into a pitch. It's deliberately left out
+	// of every footer, a surprise listed only in the full help; ctrl+k
+	// rather than a letter so it works while a text box has focus.
+	Kickabout = key.NewBinding(
+		key.WithKeys("ctrl+k"),
+		key.WithHelp("ctrl+k", "kickabout"),
+	)
 	// Theme switches club screens between the weak theme (club colors as
 	// highlights) and the strong one (painted in the club's colors).
 	Theme = key.NewBinding(

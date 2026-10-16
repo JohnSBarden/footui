@@ -23,6 +23,7 @@ import (
 	"github.com/JohnSBarden/footui/internal/tui/components"
 	"github.com/JohnSBarden/footui/internal/tui/core"
 	"github.com/JohnSBarden/footui/internal/tui/keys"
+	"github.com/JohnSBarden/footui/internal/tui/kickabout"
 	"github.com/JohnSBarden/footui/internal/tui/screens/browse"
 	"github.com/JohnSBarden/footui/internal/tui/screens/catalog"
 	"github.com/JohnSBarden/footui/internal/tui/screens/dashboard"
@@ -69,6 +70,11 @@ type App struct {
 
 	help     help.Model
 	showFull bool
+
+	// kick is the kickabout being played over the screen, nil when none
+	// is. While it runs it takes the keys; every other message still
+	// reaches the stack, so the screen is current when the game ends.
+	kick *kickabout.Model
 }
 
 var _ tea.Model = (*App)(nil)
@@ -190,6 +196,11 @@ func (a *App) current() core.Screen {
 
 // Update implements tea.Model.
 func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if a.kick != nil {
+		if handled, cmd := a.updateKick(msg); handled {
+			return a, cmd
+		}
+	}
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		// A terminal that can't report its size sends zeroes (a pty with
@@ -208,6 +219,11 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			updated, cmd := s.Update(a.screenSize())
 			a.stack[i] = updated
 			cmds = append(cmds, a.routeFrom(i, cmd))
+		}
+		if a.kick != nil {
+			// The pitch is the screen as it now looks, so it's laid out
+			// again from scratch.
+			cmds = append(cmds, a.startKick())
 		}
 		return a, tea.Batch(cmds...)
 
@@ -328,8 +344,40 @@ func (a *App) handleGlobalKey(key tea.KeyMsg) (bool, tea.Model, tea.Cmd) {
 		return true, a, a.toggleFavorite()
 	case "ctrl+f":
 		return true, a, a.toggleFavorite()
+	case "ctrl+k":
+		return true, a, a.startKick()
 	}
 	return false, a, nil
+}
+
+// startKick turns the screen as it looks now into a pitch.
+func (a *App) startKick() tea.Cmd {
+	k := kickabout.New(a.baseView(), a.width, a.height, a.theme())
+	a.kick = &k
+	return k.Init()
+}
+
+// updateKick gives the game its keys and ticks, reporting whether it
+// consumed msg. esc ends the game; ctrl+c still quits.
+func (a *App) updateKick(msg tea.Msg) (bool, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		if msg.String() == "ctrl+c" {
+			return true, tea.Quit
+		}
+		k, cmd := a.kick.Update(msg)
+		if k.Done() {
+			a.kick = nil
+			return true, nil
+		}
+		a.kick = &k
+		return true, cmd
+	case kickabout.TickMsg:
+		k, cmd := a.kick.Update(msg)
+		a.kick = &k
+		return true, cmd
+	}
+	return false, nil
 }
 
 // theme is what the chrome is drawn in: the visible screen's own theme
@@ -437,6 +485,14 @@ const chromeHeight = 5
 
 // View implements tea.Model.
 func (a *App) View() string {
+	if a.kick != nil {
+		return a.kick.View()
+	}
+	return a.baseView()
+}
+
+// baseView is the screen with the app's chrome around it.
+func (a *App) baseView() string {
 	var b strings.Builder
 
 	if crumb := a.breadcrumb(); crumb != "" {
@@ -513,7 +569,7 @@ func (a *App) footer() string {
 		if !isSearch {
 			full = append(full, keys.Find)
 		}
-		full = append(full, keys.Theme, keys.Help, keys.Back, keys.Quit)
+		full = append(full, keys.Theme, keys.Help, keys.Back, keys.Quit, keys.Kickabout)
 	}
 	// The favourite key goes first in both views: it's the one action
 	// that depends on what's on screen, so the user can't know it's there
