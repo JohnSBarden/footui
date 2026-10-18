@@ -286,6 +286,9 @@ func (a *App) handleRefreshEvent(msg refreshMsg) tea.Cmd {
 		a.batch.lastErr = ev.err
 	} else {
 		a.batch.done = append(a.batch.done, req.Label())
+		if req.PlayerID != "" {
+			a.batch.players++
+		}
 		a.batch.lastSummary = "Refreshed " + req.Label() + ": " + ev.summary
 		reload = a.broadcast(refreshedMsg(req))
 	}
@@ -313,6 +316,7 @@ func refreshedMsg(req core.RefreshRequest) core.RefreshedMsg {
 // line can sum up the whole run once it's idle again.
 type refreshBatch struct {
 	done        []string
+	players     int // of done, how many were players' stats
 	failed      []string
 	lastSummary string
 	lastErr     error
@@ -322,6 +326,24 @@ type refreshBatch struct {
 // idle on the status line. A lone refresh reports its own summary or
 // error; a batch is summed up so an early failure isn't hidden by a later
 // success.
+// batchCount says how many competitions and players a batch refreshed:
+// "3 competitions and 2 players".
+func batchCount(comps, players int) string {
+	noun := func(n int, word string) string {
+		if n == 1 {
+			return "1 " + word
+		}
+		return fmt.Sprintf("%d %ss", n, word)
+	}
+	switch {
+	case players == 0:
+		return noun(comps, "competition")
+	case comps == 0:
+		return noun(players, "player")
+	}
+	return noun(comps, "competition") + " and " + noun(players, "player")
+}
+
 func (a *App) reportBatch() {
 	b := a.batch
 	a.batch = refreshBatch{}
@@ -329,7 +351,7 @@ func (a *App) reportBatch() {
 	case len(b.failed) == 0 && len(b.done) == 1:
 		a.status = b.lastSummary
 	case len(b.failed) == 0:
-		a.status = fmt.Sprintf("Refreshed %d competitions: %s", len(b.done), strings.Join(b.done, ", "))
+		a.status = fmt.Sprintf("Refreshed %s: %s", batchCount(len(b.done)-b.players, b.players), strings.Join(b.done, ", "))
 	case len(b.done) == 0 && len(b.failed) == 1:
 		a.err = b.lastErr
 	default:

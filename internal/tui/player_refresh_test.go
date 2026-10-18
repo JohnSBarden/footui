@@ -37,3 +37,18 @@ func TestSplashPauseNamesNoSource(t *testing.T) {
 		t.Errorf("splash names a source\n%s", v)
 	}
 }
+
+// Starred players are queued with the leagues on launch; the summary
+// mustn't call them competitions.
+func TestBatchSummaryCountsPlayersApart(t *testing.T) {
+	r := &fakeRefresher{summary: "ok"}
+	app := newAppWithRefresh(newFake("Dashboard"), r)
+	app, _ = drive(t, app, core.RequestRefresh(
+		core.RefreshRequest{CompetitionID: "eng-premier-league", Name: "Premier League"},
+		core.RefreshRequest{PlayerID: "p1", Name: "David Raya"},
+		core.RefreshRequest{PlayerID: "p2", Name: "Gabriel"},
+	))
+	if got := app.View(); !strings.Contains(got, "Refreshed 1 competition and 2 players: Premier League, David Raya, Gabriel") {
+		t.Errorf("summary:\n%s", got)
+	}
+}

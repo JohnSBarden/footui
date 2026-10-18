@@ -310,8 +310,8 @@ func (m *Model) positionTable(rows []SeasonRow) (base []components.Column, extra
 		row := []components.Cell{
 			components.Text(components.SeasonName(r.Season)),
 			components.Text(r.Team.Name),
-			components.Text(strconv.Itoa(s.Appearances)),
-			components.Text(strconv.Itoa(s.Minutes)),
+			components.Text(strconv.Itoa(appsOf(r))),
+			components.Text(strconv.Itoa(mins)),
 		}
 		switch m.group {
 		case playerstats.GK:

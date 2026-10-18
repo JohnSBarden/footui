@@ -194,6 +194,24 @@ func TestRefreshingLine(t *testing.T) {
 	}
 }
 
+// ESPN's synced rosters carry no minutes; the player's detail does.
+func TestTableUsesDetailMinutes(t *testing.T) {
+	repos := storagetest.New(t)
+	seedArsenalSeason(t, repos, pl2025, "2025")
+	seedLine(t, repos, raya, models.PlayerSeasonStats{Appearances: 2},
+		&models.PlayerSeasonDetail{Position: "G", Appearances: ip(2), Minutes: ip(180), CleanSheets: ip(2), GoalsConceded: ip(0), Saves: ip(3)})
+	out := view(t, repos, raya)
+	var row string
+	for _, l := range strings.Split(out, "\n") {
+		if strings.Contains(l, "2025-26") && strings.Contains(l, "Arsenal") {
+			row = l
+		}
+	}
+	if !strings.Contains(row, " 180 ") {
+		t.Errorf("Mins should come from the detail: %q", row)
+	}
+}
+
 // Opening a player asks the root app to bring their detail up to date.
 func TestOpenRequestsPlayerRefresh(t *testing.T) {
 	m := player.New(newDeps(rayaRepos(t, true)), raya, "eng-arsenal")
