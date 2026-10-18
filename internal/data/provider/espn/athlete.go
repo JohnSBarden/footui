@@ -54,6 +54,7 @@ func (p *Provider) AthleteSeason(ctx context.Context, competitionID string, year
 		Tackles:       count("totalTackles"),
 		Interceptions: count("interceptions"),
 		Clearances:    count("totalClearance"),
+		ShotsOnTarget: count("shotsOnTarget"),
 	}
 	if keeper {
 		d.Saves = count("saves")

@@ -22,7 +22,7 @@ func TestPlayerSeasonDetailRoundTrip(t *testing.T) {
 		PlayerID: "understat-9676", TeamID: "eng-arsenal",
 		CompetitionID: "eng-premier-league", SeasonID: "eng-premier-league:2025",
 		Position: "G", Minutes: intp(3000), CleanSheets: intp(17), GoalsConceded: intp(24),
-		Saves: intp(55), FetchedAt: at,
+		Saves: intp(55), ShotsOnTarget: intp(1), FetchedAt: at,
 	}
 	if err := s.UpsertPlayerSeasonDetail(ctx, d); err != nil {
 		t.Fatal(err)
@@ -43,6 +43,9 @@ func TestPlayerSeasonDetailRoundTrip(t *testing.T) {
 	g := got[0]
 	if *g.Minutes != 3330 || *g.CleanSheets != 19 || *g.Saves != 60 || *g.GoalsConceded != 24 {
 		t.Errorf("values not replaced: %+v", g)
+	}
+	if g.ShotsOnTarget == nil || *g.ShotsOnTarget != 1 {
+		t.Errorf("shots on target = %v", g.ShotsOnTarget)
 	}
 	if g.Position != "G" || !g.FetchedAt.Equal(at.Add(time.Hour)) {
 		t.Errorf("position %q fetched %v", g.Position, g.FetchedAt)

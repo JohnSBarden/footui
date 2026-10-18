@@ -72,8 +72,16 @@
       "value": 4.0
      },
      {
+      "name": "shotsOnTarget",
+      "value": 7.0
+     },
+     {
       "name": "totalGoals",
       "value": 3.0
+     },
+     {
+      "name": "totalShots",
+      "value": 27.0
      }
     ]
    }

@@ -221,6 +221,7 @@ type PlayerSeasonDetail struct {
 	Tackles       *int
 	Interceptions *int
 	Clearances    *int
+	ShotsOnTarget *int
 	// PassPct is the share of passes completed, 0 to 1.
 	PassPct   *float64
 	FetchedAt time.Time

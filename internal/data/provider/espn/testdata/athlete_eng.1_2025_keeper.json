@@ -72,7 +72,15 @@
       "value": 0.0
      },
      {
+      "name": "shotsOnTarget",
+      "value": 0.0
+     },
+     {
       "name": "totalGoals",
+      "value": 0.0
+     },
+     {
+      "name": "totalShots",
       "value": 0.0
      }
     ]

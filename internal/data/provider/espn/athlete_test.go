@@ -66,6 +66,9 @@ func TestAthleteSeasonDefender(t *testing.T) {
 	if d.Saves != nil {
 		t.Errorf("an outfield player's saves must be dropped, got %d", *d.Saves)
 	}
+	if deref(d.ShotsOnTarget) != 7 {
+		t.Errorf("shots on target = %d, want 7", deref(d.ShotsOnTarget))
+	}
 }
 
 // ESPN's older seasons carry zeros for the defensive stats it didn't
