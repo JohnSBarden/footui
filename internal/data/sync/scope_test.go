@@ -70,6 +70,26 @@ func TestCoverageIDsAreUniqueAndScopeMatches(t *testing.T) {
 	}
 }
 
+func TestBaseIsTheStarterSet(t *testing.T) {
+	want := []string{
+		"eng-premier-league", "esp-la-liga", "ger-bundesliga", "ita-serie-a", "fra-ligue-1",
+		"usa-mls", "eng-wsl", "usa-nwsl", "eur-champions-league", "eur-europa-league", "world-cup",
+	}
+	var got []string
+	for _, c := range Base {
+		got = append(got, c.ID)
+	}
+	if strings.Join(got, " ") != strings.Join(want, " ") {
+		t.Errorf("Base is %v, want %v", got, want)
+	}
+	if InBase("rus-premier-league") {
+		t.Error("the Russian Premier League should be left out of the starter set")
+	}
+	if _, ok := FindCompetition("rus-premier-league"); !ok {
+		t.Error("the Russian Premier League should still be in the catalog")
+	}
+}
+
 func TestInternationalCoverageCountsEditionsAndYears(t *testing.T) {
 	oct2026 := time.Date(2026, 10, 13, 0, 0, 0, 0, time.UTC)
 	wc := cov(t, "world-cup")

@@ -111,7 +111,7 @@ var (
 	)
 	SelectCurrentEverywhere = key.NewBinding(
 		key.WithKeys("C"),
-		key.WithHelp("C", "select current, every league"),
+		key.WithHelp("C", "select current, starter leagues"),
 	)
 	ClearSelection = key.NewBinding(
 		key.WithKeys("u"),

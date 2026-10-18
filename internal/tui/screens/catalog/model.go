@@ -49,6 +49,8 @@ type League struct {
 	// Nations is set on a national teams line: its seasons are calendar
 	// years of every international competition of that gender.
 	Nations string
+	// Base marks the starter set, which C selects.
+	Base bool
 }
 
 // international reports whether the entry belongs under the catalog's
@@ -206,7 +208,7 @@ func (m *Model) load() tea.Cmd {
 				have[s.Label] = true
 			}
 
-			l := League{Competition: entry.Competition}
+			l := League{Competition: entry.Competition, Base: entry.Base}
 			for _, year := range entry.Seasons {
 				st := SeasonState{Year: year, Cached: have[year]}
 				run, err := deps.Repos.LatestSyncRun(deps.Ctx, entry.Competition.ID, entry.Competition.ID+":"+year)
@@ -225,7 +227,7 @@ func (m *Model) load() tea.Cmd {
 // of match lists: a year is cached once every list it needs was fetched,
 // and its last run is the newest of theirs — or a failure, if one failed.
 func byYear(entry core.CatalogEntry, runs map[string]models.SyncRun) League {
-	l := League{Competition: entry.Competition, Nations: entry.Nations}
+	l := League{Competition: entry.Competition, Nations: entry.Nations, Base: entry.Base}
 	for _, year := range entry.Seasons {
 		comps := entry.Units[year]
 		if entry.Nations == "" {

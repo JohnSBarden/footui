@@ -175,8 +175,7 @@ func calendar(c models.Competition) models.Competition {
 	return c
 }
 
-// Scope is every syncable club league, in Coverages order: what `refresh
-// --all` covers. International competitions and domestic cups are left
+// Scope is every syncable club league, in Coverages order. International competitions and domestic cups are left
 // out — their matches are fetched for the nations and clubs someone
 // follows, not for every competition on a schedule.
 var Scope = func() []models.Competition {
@@ -188,6 +187,30 @@ var Scope = func() []models.Competition {
 	}
 	return out
 }()
+
+// baseIDs are the competitions a fresh install starts with: the big five,
+// MLS, NWSL, the WSL, the World Cup, and the Champions and Europa
+// Leagues. The rest of Coverages is a catalog pick away.
+var baseIDs = map[string]bool{
+	"eng-premier-league": true, "esp-la-liga": true, "ger-bundesliga": true, "ita-serie-a": true,
+	"fra-ligue-1": true, "usa-mls": true, "usa-nwsl": true, "eng-wsl": true, "world-cup": true,
+	"eur-champions-league": true, "eur-europa-league": true,
+}
+
+// Base is the starter set, in Coverages order: what `refresh --all`
+// covers and what the catalog's C selects.
+var Base = func() []models.Competition {
+	var out []models.Competition
+	for _, c := range Coverages {
+		if baseIDs[c.Competition.ID] {
+			out = append(out, c.Competition)
+		}
+	}
+	return out
+}()
+
+// InBase reports whether a competition is in the starter set.
+func InBase(id string) bool { return baseIDs[id] }
 
 // InternationalCoverages is every international competition of one gender
 // ("men" or "women"), in Coverages order: the competitions a nation's

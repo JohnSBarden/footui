@@ -32,8 +32,8 @@ func intlCatalog(t *testing.T) *Model {
 	deps := core.Deps{
 		Ctx: context.Background(), Repos: repos, Theme: styles.Plain(),
 		Catalog: []core.CatalogEntry{
-			{Competition: laLiga, Seasons: []string{"2026", "2025"}},
-			{Competition: storagetest.WorldCup, Seasons: []string{"2026", "2022"}},
+			{Competition: laLiga, Seasons: []string{"2026", "2025"}, Base: true},
+			{Competition: storagetest.WorldCup, Seasons: []string{"2026", "2022"}, Base: true},
 			{Competition: storagetest.Qualifying, Seasons: []string{"2026", "2025"}, ByYear: true},
 			{Competition: nations, Nations: "men", Seasons: []string{"2026", "2025"},
 				Units: map[string][]string{"2026": {"world-cup", "int-friendly"}, "2025": {"wcq-uefa", "int-friendly"}}},
@@ -100,13 +100,13 @@ func TestTheNationalTeamsLineDownloadsYearsForEveryNation(t *testing.T) {
 	}
 }
 
-// C is "this season of every league": the club leagues, not every
-// tournament and qualifier too.
-func TestSelectCurrentEverywhereLeavesInternationalAlone(t *testing.T) {
+// C is "this season of the starter set": its club leagues and the World
+// Cup, not every qualifier and nations league too.
+func TestSelectCurrentEverywhereTakesOnlyTheStarterSet(t *testing.T) {
 	m := intlCatalog(t)
 	press(m, "C")
 	seasons, leagues := m.SelectedCount()
-	if seasons != 1 || leagues != 1 || !m.isSelected("esp-la-liga", "2026") {
-		t.Errorf("selected %d seasons in %d leagues", seasons, leagues)
+	if seasons != 2 || leagues != 2 || !m.isSelected("esp-la-liga", "2026") || !m.isSelected(storagetest.WorldCup.ID, "2026") {
+		t.Errorf("selected %d seasons in %d leagues: %v", seasons, leagues, m.selected)
 	}
 }

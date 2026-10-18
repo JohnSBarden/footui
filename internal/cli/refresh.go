@@ -32,8 +32,8 @@ func newRefreshCmd(g *globalFlags) *cobra.Command {
 		Short: "Fetch and cache the latest stats from the data provider",
 		Long: "refresh pulls team, standings, and player data from the provider that covers each competition (understat.com or ESPN) " +
 			"and stores it in the local SQLite cache.\n\n" +
-			"By default it refreshes the current season of one competition. Use --all for every " +
-			"club competition footui covers, and --years to go back through previous seasons. " +
+			"By default it refreshes the current season of one competition. Use --all for the starter set " +
+			"(the big five leagues, MLS, NWSL, the WSL, the World Cup, the Champions League and the Europa League), and --years to go back through previous seasons. " +
 			"--team england fetches a national team's matches (this year and last by default); " +
 			"they come from yearly match lists shared by every nation, so a second nation costs " +
 			"nothing, and a year that has ended is never fetched twice. --team arsenal fetches a " +
@@ -99,7 +99,7 @@ func newRefreshCmd(g *globalFlags) *cobra.Command {
 	cmd.Flags().StringVar(&f.competitionID, "competition", "eng-premier-league",
 		"competition ID to refresh (see `footui competitions`)")
 	cmd.Flags().BoolVar(&f.all, "all", false,
-		"refresh every club competition footui covers instead of just --competition")
+		"refresh the starter set (see --help) instead of just --competition")
 	cmd.Flags().StringVar(&f.season, "season", "",
 		"a single season start year to refresh, e.g. 2025 for 2025-26 (default: the current season)")
 	cmd.Flags().IntVar(&f.years, "years", 1,
@@ -119,7 +119,7 @@ func newRefreshCmd(g *globalFlags) *cobra.Command {
 // resolveCompetitions turns the competition flags into the list to sync.
 func (f *refreshFlags) resolveCompetitions() ([]models.Competition, error) {
 	if f.all {
-		return sync.Scope, nil
+		return sync.Base, nil
 	}
 
 	comp, ok := sync.FindCompetition(f.competitionID)

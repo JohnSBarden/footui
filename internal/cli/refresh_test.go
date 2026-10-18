@@ -24,15 +24,15 @@ func TestResolveCompetitionsDefaultsToOne(t *testing.T) {
 	}
 }
 
-func TestResolveCompetitionsAllCoversTheWholeScope(t *testing.T) {
+func TestResolveCompetitionsAllCoversTheStarterSet(t *testing.T) {
 	f := &refreshFlags{all: true}
 
 	comps, err := f.resolveCompetitions()
 	if err != nil {
 		t.Fatalf("resolveCompetitions: %v", err)
 	}
-	if len(comps) != len(sync.Scope) {
-		t.Errorf("--all returned %d competitions, want the full scope of %d", len(comps), len(sync.Scope))
+	if len(comps) != len(sync.Base) {
+		t.Errorf("--all returned %d competitions, want the starter set of %d", len(comps), len(sync.Base))
 	}
 }
 

@@ -34,8 +34,8 @@ func newCatalog(t *testing.T) *Model {
 		Repos: repos,
 		Theme: styles.Plain(),
 		Catalog: []core.CatalogEntry{
-			{Competition: pl, Seasons: []string{"2026", "2025", "2024"}},
-			{Competition: laLiga, Seasons: []string{"2026", "2025", "2024"}},
+			{Competition: pl, Seasons: []string{"2026", "2025", "2024"}, Base: true},
+			{Competition: laLiga, Seasons: []string{"2026", "2025", "2024"}, Base: true},
 		},
 	}
 	m := New(deps)
@@ -180,7 +180,7 @@ func TestFavouriteTargetIsTheHighlightedLeague(t *testing.T) {
 	}
 }
 
-func TestShiftCSelectsTheCurrentSeasonOfEveryLeague(t *testing.T) {
+func TestShiftCSelectsTheCurrentSeasonOfTheStarterSet(t *testing.T) {
 	m := newCatalog(t)
 	press(m, "C")
 	if seasons, leagues := m.SelectedCount(); seasons != 2 || leagues != 2 {

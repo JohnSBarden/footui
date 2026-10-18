@@ -38,7 +38,7 @@ func tuiCatalog(now time.Time) []core.CatalogEntry {
 			continue
 		}
 		out = append(out, core.CatalogEntry{Competition: c.Competition, Seasons: c.AvailableSeasons(now),
-			ByYear: c.Competition.International() && c.Editions == nil})
+			ByYear: c.Competition.International() && c.Editions == nil, Base: sync.InBase(c.Competition.ID)})
 	}
 	for _, gender := range []string{"men", "women"} {
 		entry := core.CatalogEntry{

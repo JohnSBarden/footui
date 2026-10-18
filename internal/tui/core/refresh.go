@@ -168,6 +168,8 @@ type CatalogEntry struct {
 	// year (a qualifier, a nations league): each season is one of its
 	// shared yearly match lists, rather than an edition.
 	ByYear bool
+	// Base marks the starter set, which the catalog's C selects.
+	Base bool
 	// Nations, "men" or "women", marks the national teams line: each
 	// season is a calendar year of every international competition of
 	// that gender — what every nation's matches that year come from.

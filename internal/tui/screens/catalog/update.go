@@ -185,21 +185,19 @@ func (m *Model) selectCurrent() {
 	m.setSelected(l.Competition.ID, y, !m.isSelected(l.Competition.ID, y))
 }
 
-// selectCurrentEverywhere toggles the most recent season of every league:
-// all on, or all off if they already were. It is the catalog's
-// counterpart to footui refresh --all.
+// selectCurrentEverywhere toggles the most recent season of every league
+// in the starter set: all on, or all off if they already were. It is the
+// catalog's counterpart to footui refresh --all.
 func (m *Model) selectCurrentEverywhere() {
-	// Club leagues only: international football is fetched for the
-	// nations and tournaments someone follows.
 	allOn := true
 	for _, l := range m.leagues {
-		if !l.international() && len(l.Seasons) > 0 && !m.isSelected(l.Competition.ID, l.Seasons[0].Year) {
+		if l.Base && len(l.Seasons) > 0 && !m.isSelected(l.Competition.ID, l.Seasons[0].Year) {
 			allOn = false
 			break
 		}
 	}
 	for _, l := range m.leagues {
-		if !l.international() && len(l.Seasons) > 0 {
+		if l.Base && len(l.Seasons) > 0 {
 			m.setSelected(l.Competition.ID, l.Seasons[0].Year, !allOn)
 		}
 	}

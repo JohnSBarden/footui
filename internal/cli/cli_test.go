@@ -80,7 +80,7 @@ func TestRefreshDryRunReportsThePlanWithoutFetching(t *testing.T) {
 		t.Errorf("a dry run must say it isn't doing anything\n---\n%s", out)
 	}
 	// Every covered competition has at least two seasons of history.
-	if want := fmt.Sprintf("%d competition-season", 2*len(sync.Scope)); !strings.Contains(out, want) {
+	if want := fmt.Sprintf("%d competition-season", 2*len(sync.Base)); !strings.Contains(out, want) {
 		t.Errorf("expected %q (every competition x 2 seasons)\n---\n%s", want, out)
 	}
 	// The plan is printed before the store is opened, so no file appears.

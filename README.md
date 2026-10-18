@@ -101,7 +101,7 @@ Or fetch from the shell:
 ```sh
 footui refresh                        # current season of the Premier League
 footui refresh --competition esp-la-liga --years 3   # La Liga, this season and two before
-footui refresh --all                  # current season of every club league
+footui refresh --all                  # current season of the starter set (big five, MLS, NWSL, WSL, World Cup, UCL, UEL)
 footui refresh --all --years 5 --dry-run   # show what that would fetch, and stop
 footui refresh --team england         # a national team's matches, this year and last
 footui refresh --team arsenal         # a cached club's recent games
