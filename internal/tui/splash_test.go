@@ -157,7 +157,7 @@ func TestTheSplashTimesOut(t *testing.T) {
 	}
 }
 
-func TestSplashShowsTheESPNPause(t *testing.T) {
+func TestSplashShowsThePause(t *testing.T) {
 	app := newApp(newFake("Dashboard"))
 	app.deps.ProviderPause = func() time.Time { return time.Now().Add(47 * time.Minute) }
 	app.ShowSplash(false)
