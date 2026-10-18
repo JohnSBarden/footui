@@ -422,7 +422,7 @@ func (a *App) toggleTheme() tea.Cmd {
 	a.deps.Appearance.Toggle()
 	mode := a.deps.Appearance.Mode
 	if mode == styles.Strong {
-		a.status = "theme: strong — screens painted in the club's colors (footui's violet elsewhere)"
+		a.status = "theme: strong — screens painted in the club's colors (the pitch elsewhere)"
 	} else {
 		a.status = "theme: weak — your terminal's background, club colors as highlights"
 	}

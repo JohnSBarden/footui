@@ -27,16 +27,18 @@ func TestDefaultPaletteTextRolesAreReadable(t *testing.T) {
 	}
 }
 
-func TestDefaultAccentIsPurple(t *testing.T) {
+func TestDefaultAccentIsLime(t *testing.T) {
 	ac := DefaultPalette().Accent.(lipgloss.AdaptiveColor)
-	if ac.Dark != "#A66BFF" || ac.Light != "#6D28D9" {
+	if ac.Dark != "#C8F25A" || ac.Light != "#4D7C0F" {
 		t.Fatalf("accent = %+v", ac)
 	}
 }
 
-func TestStrongBaseIsViolet(t *testing.T) {
+// Strong mode's club-less screens are the kickabout's pitch: its two
+// mowing greens, alternating.
+func TestStrongBaseIsGrass(t *testing.T) {
 	th := BaseFor(Strong, false)
-	if !strings.EqualFold(colorHex(th.Background), "#2E1065") {
-		t.Fatalf("strong base background = %q", colorHex(th.Background))
+	if !strings.EqualFold(colorHex(th.Background), "#2F6B3A") || !strings.EqualFold(colorHex(th.Stripe), "#367A41") {
+		t.Fatalf("strong base stripes = %q / %q", colorHex(th.Background), colorHex(th.Stripe))
 	}
 }

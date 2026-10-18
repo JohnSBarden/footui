@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/lucasb-eyer/go-colorful"
 	"github.com/muesli/termenv"
 
@@ -20,6 +21,12 @@ func concrete(t *testing.T, c lipgloss.TerminalColor) colorful.Color {
 	return mustHex(string(v))
 }
 
+// stripes are the two mowing shades a strong theme alternates between.
+func stripes(t *testing.T, th Theme) []colorful.Color {
+	t.Helper()
+	return []colorful.Color{concrete(t, th.Background), concrete(t, th.Stripe)}
+}
+
 // Every curated club must come out readable when its own primary is the
 // background — the property that makes a strong theme usable at all.
 func TestStrongThemeIsReadableForEveryCuratedClub(t *testing.T) {
@@ -33,22 +40,28 @@ func TestStrongThemeIsReadableForEveryCuratedClub(t *testing.T) {
 			t.Errorf("%s: no strong theme for primary %q", e.ID, e.Primary)
 			continue
 		}
-		bg := concrete(t, th.Background)
-		for name, c := range map[string]lipgloss.TerminalColor{
-			"text": th.Palette.Text, "muted": th.Palette.Muted, "accent": th.Palette.Accent,
-		} {
-			if r := contrastRatio(concrete(t, c), bg); r < minContrast {
-				t.Errorf("%s: %s contrast %.2f on %s, want ≥ %.1f", e.ID, name, r, e.Primary, minContrast)
+		if th.Stripe == nil || colorHex(th.Stripe) == colorHex(th.Background) {
+			t.Errorf("%s: no second mowing stripe", e.ID)
+		}
+		for _, bg := range stripes(t, th) {
+			for name, c := range map[string]lipgloss.TerminalColor{
+				"text": th.Palette.Text, "muted": th.Palette.Muted, "accent": th.Palette.Accent,
+			} {
+				if r := contrastRatio(concrete(t, c), bg); r < minContrast {
+					t.Errorf("%s: %s contrast %.2f on %s, want ≥ %.1f", e.ID, name, r, bg.Hex(), minContrast)
+				}
 			}
 		}
 		// Green/red keep their hue, so on a club whose primary is itself
 		// green or red the reachable contrast is lower; large-text AA is
 		// the floor.
-		for name, c := range map[string]lipgloss.TerminalColor{
-			"positive": th.Palette.Positive, "negative": th.Palette.Negative,
-		} {
-			if r := contrastRatio(concrete(t, c), bg); r < minLargeContrast {
-				t.Errorf("%s: %s contrast %.2f on %s, want ≥ %.1f", e.ID, name, r, e.Primary, minLargeContrast)
+		for _, bg := range stripes(t, th) {
+			for name, c := range map[string]lipgloss.TerminalColor{
+				"positive": th.Palette.Positive, "negative": th.Palette.Negative,
+			} {
+				if r := contrastRatio(concrete(t, c), bg); r < minLargeContrast {
+					t.Errorf("%s: %s contrast %.2f on %s, want ≥ %.1f", e.ID, name, r, bg.Hex(), minLargeContrast)
+				}
 			}
 		}
 	}
@@ -77,12 +90,13 @@ func TestBaseThemeFollowsTheMode(t *testing.T) {
 	if strong.Background == nil {
 		t.Fatal("strong mode paints club-less screens in footui's colors")
 	}
-	bg := concrete(t, strong.Background)
-	for name, c := range map[string]lipgloss.TerminalColor{
-		"text": strong.Palette.Text, "muted": strong.Palette.Muted, "accent": strong.Palette.Accent,
-	} {
-		if r := contrastRatio(concrete(t, c), bg); r < minContrast {
-			t.Errorf("footui's own strong theme: %s contrast %.2f, want ≥ %.1f", name, r, minContrast)
+	for _, bg := range stripes(t, strong) {
+		for name, c := range map[string]lipgloss.TerminalColor{
+			"text": strong.Palette.Text, "muted": strong.Palette.Muted, "accent": strong.Palette.Accent,
+		} {
+			if r := contrastRatio(concrete(t, c), bg); r < minContrast {
+				t.Errorf("footui's own strong theme: %s contrast %.2f on %s, want ≥ %.1f", name, r, bg.Hex(), minContrast)
+			}
 		}
 	}
 	if !BaseFor(Strong, true).NoColor {
@@ -156,13 +170,49 @@ func TestStrongThemeFilledStylesAreReadable(t *testing.T) {
 			"keycap": th.Keycap, "tab active": th.TabActive, "tab idle": th.TabIdle,
 			"title": th.Title, "selected row": th.TableSelected,
 		} {
-			bg := s.GetBackground()
-			if _, unset := bg.(lipgloss.NoColor); unset {
-				bg = th.Background
+			bgs := stripes(t, th)
+			if bg := s.GetBackground(); bg != (lipgloss.NoColor{}) {
+				bgs = []colorful.Color{concrete(t, bg)}
 			}
-			if r := contrastRatio(concrete(t, s.GetForeground()), concrete(t, bg)); r < minContrast {
-				t.Errorf("%s: %s contrast %.2f, want ≥ %.1f", id, name, r, minContrast)
+			for _, bg := range bgs {
+				if r := contrastRatio(concrete(t, s.GetForeground()), bg); r < minContrast {
+					t.Errorf("%s: %s contrast %.2f on %s, want ≥ %.1f", id, name, r, bg.Hex(), minContrast)
+				}
 			}
 		}
+	}
+}
+
+// Cells with no background of their own take the mowing stripe for their
+// column; a span with its own background (a keycap) keeps it throughout.
+func TestPaintMowsStripesBehindUnfilledCells(t *testing.T) {
+	lipgloss.SetColorProfile(termenv.TrueColor)
+	defer lipgloss.SetColorProfile(termenv.Ascii)
+
+	th, _ := StrongTeamTheme("#EF0107", "#FFFFFF")
+	a := termenv.TrueColor.Color(colorHex(th.Background)).Sequence(true)
+	b := termenv.TrueColor.Color(colorHex(th.Stripe)).Sequence(true)
+	chip := lipgloss.NewStyle().Background(lipgloss.Color("#000000"))
+	frame := "abcd" + chip.Render("efghij") + "klmnopqrstu"
+	out := Paint(frame, th, 24, 1)
+
+	if got := ansi.Strip(out); got != "abcdefghijklmnopqrstu   " {
+		t.Fatalf("text changed: %q", got)
+	}
+	if !strings.Contains(out, a) || !strings.Contains(out, b) {
+		t.Fatalf("want both stripes in %q", out)
+	}
+	// The chip's own background runs unbroken across the stripe boundary
+	// at column 6, and the stripe after it resumes on the second shade.
+	if !strings.Contains(out, "efghij") {
+		t.Errorf("chip interrupted by a stripe: %q", out)
+	}
+	after := out[strings.Index(out, "efghij")+len("efghij"):]
+	if i, j := strings.Index(after, b), strings.Index(after, "kl"); i < 0 || i > j {
+		t.Errorf("column 10 should be back on the second stripe: %q", after)
+	}
+	// Column 12 starts the first shade again.
+	if i, j := strings.Index(after, a), strings.Index(after, "mnop"); i < 0 || i > j || i < strings.Index(after, "kl") {
+		t.Errorf("column 12 should switch to the first stripe: %q", after)
 	}
 }

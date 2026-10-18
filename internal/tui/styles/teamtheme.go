@@ -105,24 +105,55 @@ func TeamThemeFor(primaryHex, secondaryHex string, mode Mode) Theme {
 }
 
 // StrongTeamTheme builds a theme whose background is the club's primary
-// color. Unlike the weak theme the background is known exactly, so every
-// color is solved against it once rather than adapted per terminal: text
-// is black or white, whichever contrasts more; the secondary color becomes
-// the accent if it can be made readable on the primary; and the selected
-// row and title bar are drawn inverse, the strongest contrast available.
+// color, cut into mowing stripes: the primary itself alternating with a
+// shade of it, like a pitch. Unlike the weak theme the background is known
+// exactly, so every color is solved against both shades once rather than
+// adapted per terminal: text is black or white, whichever contrasts more;
+// the secondary color becomes the accent if it can be made readable on
+// the primary; and the selected row and title bar are drawn inverse, the
+// strongest contrast available.
 func StrongTeamTheme(primaryHex, secondaryHex string) (Theme, bool) {
-	bg, ok := parseHex(primaryHex)
+	primary, ok := parseHex(primaryHex)
 	if !ok {
 		return Theme{}, false
 	}
+	return strongTheme(primary, primary, mowingShade(primary), secondaryHex), true
+}
+
+// stripeSpread is how far apart in lightness the two mowing shades sit:
+// about the gap between the kickabout's two greens, enough to see the cut
+// without the stripes competing with the text on them.
+const stripeSpread = 0.044
+
+// mowingShade is the second stripe for a primary: the same hue moved away
+// from whichever of black or white text reads on it — darker under white
+// text, lighter under black — so the cut never costs the text contrast.
+// A primary already at that extreme goes the other way, where there's
+// contrast to spare.
+func mowingShade(c colorful.Color) colorful.Color {
+	h, s, l := c.Hsl()
+	darker := contrastRatio(mustHex("#ffffff"), c) >= contrastRatio(mustHex("#000000"), c)
+	if darker && l-stripeSpread < 0 || !darker && l+stripeSpread > 1 {
+		darker = !darker
+	}
+	if darker {
+		return quantize(colorful.Hsl(h, s, l-stripeSpread))
+	}
+	return quantize(colorful.Hsl(h, s, l+stripeSpread))
+}
+
+// strongTheme builds a strong theme on stripes a and b. primary is the
+// color drawn on inverse elements (the title bar, keys, the selected row).
+func strongTheme(primary, a, b colorful.Color, secondaryHex string) Theme {
+	bgs := []colorful.Color{a, b}
 	text := mustHex("#ffffff")
-	if contrastRatio(mustHex("#000000"), bg) > contrastRatio(text, bg) {
+	if worstContrast(mustHex("#000000"), bgs) > worstContrast(text, bgs) {
 		text = mustHex("#000000")
 	}
 
 	accent := text
 	if secondary, ok := parseHex(secondaryHex); ok {
-		if c := solveOn(secondary, bg, minContrast); contrastRatio(c, bg) >= minContrast {
+		if c := solveOn(secondary, bgs, minContrast); worstContrast(c, bgs) >= minContrast {
 			accent = c
 		}
 	}
@@ -132,42 +163,52 @@ func StrongTeamTheme(primaryHex, secondaryHex string) (Theme, bool) {
 		Accent:    hex(accent),
 		OnAccent:  readableTextOn(accent),
 		Text:      hex(text),
-		Muted:     hex(muted(text, bg)),
+		Muted:     hex(muted(text, bgs)),
 		Border:    hex(accent),
-		Positive:  hex(solveOn(mustHex("#2ec27e"), bg, minContrast)),
-		Negative:  hex(solveOn(mustHex("#e01b24"), bg, minContrast)),
-		Draw:      hex(solveOn(mustHex("#F5C04A"), bg, minContrast)),
-		Info:      hex(solveOn(mustHex("#4CC9F0"), bg, minContrast)),
-		Below:     hex(solveOn(mustHex("#FF9F43"), bg, minContrast)),
-		Faint:     hex(muted(text, bg)),
+		Positive:  hex(solveOn(mustHex("#2ec27e"), bgs, minContrast)),
+		Negative:  hex(solveOn(mustHex("#e01b24"), bgs, minContrast)),
+		Draw:      hex(solveOn(mustHex("#F5C04A"), bgs, minContrast)),
+		Info:      hex(solveOn(mustHex("#4CC9F0"), bgs, minContrast)),
+		Below:     hex(solveOn(mustHex("#FF9F43"), bgs, minContrast)),
+		Faint:     hex(muted(text, bgs)),
 		Highlight: hex(text),
 	}
 
 	t := New(p)
-	t.Background = hex(bg)
-	t.Title = t.Title.Foreground(hex(bg)).Background(hex(text))
-	t.TableSelected = lipgloss.NewStyle().Foreground(hex(bg)).Background(hex(text)).Bold(true)
+	t.Background, t.Stripe = hex(a), hex(b)
+	t.Title = t.Title.Foreground(hex(primary)).Background(hex(text))
+	t.TableSelected = lipgloss.NewStyle().Foreground(hex(primary)).Background(hex(text)).Bold(true)
 	// Highlight is the text color here, so New's keycap (text on
 	// Highlight) and idle tab (muted on Highlight) would vanish: keys are
 	// drawn inverse like the title, idle tabs sit unfilled on the screen.
-	t.Keycap = t.Keycap.Foreground(hex(bg)).Background(hex(text))
+	t.Keycap = t.Keycap.Foreground(hex(primary)).Background(hex(text))
 	t.TabIdle = lipgloss.NewStyle().Foreground(p.Muted)
-	return t, true
+	return t
 }
 
-// solveOn adjusts c's lightness until it reads against bg, trying both
-// directions — on a mid-tone background either may be the one that works
-// — and keeping whichever gets closer.
-func solveOn(c, bg colorful.Color, threshold float64) colorful.Color {
-	if contrastRatio(c, bg) >= threshold {
+// worstContrast is c's contrast against whichever of bgs it reads least
+// well on.
+func worstContrast(c colorful.Color, bgs []colorful.Color) float64 {
+	worst := math.Inf(1)
+	for _, bg := range bgs {
+		worst = min(worst, contrastRatio(c, bg))
+	}
+	return worst
+}
+
+// solveOn adjusts c's lightness until it reads against every one of bgs,
+// trying both directions — on a mid-tone background either may be the one
+// that works — and keeping whichever gets closer.
+func solveOn(c colorful.Color, bgs []colorful.Color, threshold float64) colorful.Color {
+	if worstContrast(c, bgs) >= threshold {
 		return c
 	}
 	h, s, l := c.Hsl()
-	best, bestRatio := c, contrastRatio(c, bg)
+	best, bestRatio := c, worstContrast(c, bgs)
 	for _, step := range []float64{0.02, -0.02} {
 		for v := l + step; v >= 0 && v <= 1; v += step {
 			candidate := quantize(colorful.Hsl(h, s, v))
-			r := contrastRatio(candidate, bg)
+			r := worstContrast(candidate, bgs)
 			if r >= threshold {
 				// The first passing step in this direction is the least
 				// change; prefer it over a bigger change the other way.
@@ -195,12 +236,13 @@ func quantize(c colorful.Color) colorful.Color {
 func colorDistance(a, b colorful.Color) float64 { return a.DistanceLab(b) }
 
 // muted blends text toward the background as far as it can while staying
-// readable, giving secondary text that recedes without disappearing.
-func muted(text, bg colorful.Color) colorful.Color {
+// readable on every stripe, giving secondary text that recedes without
+// disappearing.
+func muted(text colorful.Color, bgs []colorful.Color) colorful.Color {
 	best := text
 	for f := 0.05; f < 1; f += 0.05 {
-		c := quantize(text.BlendLab(bg, f))
-		if contrastRatio(c, bg) < minContrast {
+		c := quantize(text.BlendLab(bgs[0], f))
+		if worstContrast(c, bgs) < minContrast {
 			break
 		}
 		best = c
@@ -278,6 +320,16 @@ func readableTextOn(bg colorful.Color) lipgloss.TerminalColor {
 		return lipgloss.Color("#ffffff")
 	}
 	return lipgloss.Color("#000000")
+}
+
+// TextOn is black or white, whichever reads on bg, for text drawn on a
+// fill of a theme color. An adaptive bg (any weak-theme color) has no
+// single value to solve against, and gets fallback.
+func TextOn(bg, fallback lipgloss.TerminalColor) lipgloss.TerminalColor {
+	if c, ok := parseHex(colorHex(bg)); ok {
+		return readableTextOn(c)
+	}
+	return fallback
 }
 
 // selectionBackground derives the selected-row background from the brand

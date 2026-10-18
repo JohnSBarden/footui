@@ -246,7 +246,7 @@ func palette() [2][kinds]lipgloss.Style {
 		p[i] = [kinds]lipgloss.Style{
 			kindText:   base.Foreground(lipgloss.Color("#9DBE9F")),
 			kindChalk:  base.Foreground(lipgloss.Color("#F4F1E6")).Bold(true),
-			kindPlayer: base.Foreground(lipgloss.Color("#E0CCFF")).Bold(true),
+			kindPlayer: base.Foreground(lipgloss.Color("#C8F25A")).Bold(true),
 			kindBall:   base.Foreground(lipgloss.Color("#FFFFFF")),
 		}
 	}

@@ -30,11 +30,11 @@ type Palette struct {
 
 // DefaultPalette is the un-branded palette used before a team's colors are
 // known (Browse, League) and whenever a team has no seeded colors. Its
-// accent is footui's own purple; every text role clears WCAG AA on both a
+// accent is footui's own lime; every text role clears WCAG AA on both a
 // light and a dark terminal.
 func DefaultPalette() Palette {
 	return Palette{
-		Accent:    lipgloss.AdaptiveColor{Light: "#6D28D9", Dark: "#A66BFF"},
+		Accent:    lipgloss.AdaptiveColor{Light: "#4D7C0F", Dark: "#C8F25A"},
 		OnAccent:  lipgloss.AdaptiveColor{Light: "#ffffff", Dark: "#0b0b0b"},
 		Text:      lipgloss.AdaptiveColor{Light: "#1C1F1D", Dark: "#E8EDE6"},
 		Muted:     lipgloss.AdaptiveColor{Light: "#5F6B63", Dark: "#8A968E"},
@@ -45,7 +45,7 @@ func DefaultPalette() Palette {
 		Draw:      lipgloss.AdaptiveColor{Light: "#B45309", Dark: "#F5C04A"},
 		Info:      lipgloss.AdaptiveColor{Light: "#0369A1", Dark: "#4CC9F0"},
 		Below:     lipgloss.AdaptiveColor{Light: "#C2410C", Dark: "#FF9F43"},
-		Highlight: lipgloss.AdaptiveColor{Light: "#EEE6FB", Dark: "#221A30"},
+		Highlight: lipgloss.AdaptiveColor{Light: "#E6EEE3", Dark: "#1C241F"},
 	}
 }
 
@@ -92,6 +92,9 @@ type Theme struct {
 	// leave the terminal's own background showing — every theme except a
 	// strong club theme.
 	Background lipgloss.TerminalColor
+	// Stripe is the second mowing shade, alternating with Background every
+	// few columns like a cut pitch; nil paints Background flat.
+	Stripe lipgloss.TerminalColor
 
 	// NoColor reports whether color was disabled; screens that would
 	// otherwise convey meaning through color alone add a text marker.
@@ -182,22 +185,23 @@ func Resolve(noColorFlag bool) Theme {
 	return Default()
 }
 
-// baseViolet and baseLavender are footui's own strong-mode colors, used to
-// paint the screens that belong to no club (Browse, a league table, the
-// catalog), so switching modes visibly changes every screen.
+// The pitch is footui's own strong-mode look, used to paint the screens
+// that belong to no club (Browse, a league table, the catalog), so
+// switching modes visibly changes every screen: the kickabout's two
+// mowing greens, with the lime accent on top.
 const (
-	baseViolet   = "#2E1065"
-	baseLavender = "#C9A7FF"
+	grassDark  = "#2F6B3A"
+	grassLight = "#367A41"
+	baseLime   = "#C8F25A"
 )
 
 // BaseFor is the theme for screens with no club colors of their own, in
-// the given mode: the terminal's background in weak mode, footui's violet
-// in strong mode. No color still means no color.
+// the given mode: the terminal's background in weak mode, the pitch in
+// strong mode. No color still means no color.
 func BaseFor(mode Mode, noColorFlag bool) Theme {
 	t := Resolve(noColorFlag)
 	if t.NoColor || mode != Strong {
 		return t
 	}
-	strong, _ := StrongTeamTheme(baseViolet, baseLavender)
-	return strong
+	return strongTheme(mustHex(grassDark), mustHex(grassDark), mustHex(grassLight), baseLime)
 }

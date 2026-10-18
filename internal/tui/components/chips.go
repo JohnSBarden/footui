@@ -8,8 +8,10 @@ import (
 	"github.com/JohnSBarden/footui/internal/tui/styles"
 )
 
-// chipText is the dark text on a result chip; every result colour is
-// light enough to carry it.
+// chipText is the dark text on a result chip; every weak-theme result
+// colour is light enough to carry it. A strong theme solves its result
+// colours against the club's background, which can leave them dark, so
+// there the text is whichever of black or white reads.
 const chipText = "#0b0b0b"
 
 // FormChips draws a form string ("WDLWW", oldest first) as letter chips on
@@ -42,7 +44,7 @@ func chipStyle(th styles.Theme, r byte) lipgloss.Style {
 	case 'L':
 		bg = th.Palette.Negative
 	}
-	return lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(chipText)).Background(bg)
+	return lipgloss.NewStyle().Bold(true).Foreground(styles.TextOn(bg, lipgloss.Color(chipText))).Background(bg)
 }
 
 // ResultGlyph is one game's result as a shape and colour: ● won, ◐ drawn,
