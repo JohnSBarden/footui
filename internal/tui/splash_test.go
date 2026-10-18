@@ -89,7 +89,7 @@ func TestTheSplashBallsBounceAndThenSettle(t *testing.T) {
 	if app.View() == first {
 		t.Error("a frame should move the balls")
 	}
-	for range int(2 * time.Second / splashFrameEvery) {
+	for range int(3 * time.Second / splashFrameEvery) {
 		app = send(app, splashFrameMsg{})
 	}
 	if b := app.splash.balls; b.amp != 0 || b.spin != 0 {
@@ -101,7 +101,7 @@ func TestTheSplashBallsKeepBouncingWhileRefreshing(t *testing.T) {
 	app := newApp(newFake("Dashboard"))
 	app.ShowSplash(false)
 	app.active = &core.RefreshRequest{CompetitionID: "eng-premier-league"}
-	for range int(2 * time.Second / splashFrameEvery) {
+	for range int(3 * time.Second / splashFrameEvery) {
 		app = send(app, splashFrameMsg{})
 	}
 	if app.splash.balls.amp != 1 {

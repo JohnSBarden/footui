@@ -17,12 +17,13 @@ import (
 const (
 	// splashFor is how long the launch splash stays when nothing makes
 	// it wait.
-	splashFor = 1500 * time.Millisecond
+	splashFor = 2 * time.Second
 	// splashFrameEvery paces the splash's animation.
 	splashFrameEvery = 50 * time.Millisecond
 	// splashSettleAfter is how long the balls bounce at full height
-	// before, with nothing left to refresh, they come to rest.
-	splashSettleAfter = 600 * time.Millisecond
+	// before, with nothing left to refresh, they come to rest; settling
+	// takes about 0.9 s, so on an idle launch they stop as it closes.
+	splashSettleAfter = 1100 * time.Millisecond
 	splashSpinEvery   = 80 * time.Millisecond
 	splashListWidth   = 50
 	splashBarWidth    = 44
