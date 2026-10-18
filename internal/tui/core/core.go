@@ -61,6 +61,9 @@ type Deps struct {
 	// rate-limiting it, and when it may be asked again; a zero time means
 	// none is paused. Nil means the host can't tell.
 	ProviderPause func() (provider string, until time.Time)
+	// Version is the build's version, for the launch splash; empty
+	// leaves it off.
+	Version string
 }
 
 // ThemeMode is the current theme mode, weak when none was configured.

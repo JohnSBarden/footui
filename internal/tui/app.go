@@ -186,7 +186,7 @@ func (a *App) QueueOnStart(reqs ...core.RefreshRequest) {
 func (a *App) Init() tea.Cmd {
 	init := a.current().Init()
 	if a.splash != nil {
-		init = tea.Batch(init, splashTimer())
+		init = tea.Batch(init, splashTimer(), splashFrame())
 	}
 	if len(a.startup) == 0 || a.deps.Refresh == nil {
 		return init
@@ -222,6 +222,9 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case splashDoneMsg:
 		a.splashTimedOut()
 		return a, nil
+
+	case splashFrameMsg:
+		return a, a.splashAnimate()
 
 	case tea.WindowSizeMsg:
 		// A terminal that can't report its size sends zeroes (a pty with
