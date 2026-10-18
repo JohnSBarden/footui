@@ -19,8 +19,17 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 		m.width, m.height = msg.Width, msg.Height
 		return m, nil
 
+	case core.RefreshQueueMsg:
+		key := core.RefreshRequest{PlayerID: m.player.ID}.Key()
+		m.refreshing = msg.Active != nil && msg.Active.Key() == key
+		for _, q := range msg.Pending {
+			m.refreshing = m.refreshing || q.Key() == key
+		}
+		return m, nil
+
 	case core.RefreshedMsg:
-		if _, ok := m.history[msg.CompetitionID]; !ok {
+		_, mine := m.history[msg.CompetitionID]
+		if msg.PlayerID != m.player.ID && !mine {
 			return m, nil
 		}
 		m.loading = true
@@ -33,6 +42,7 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 		m.competitions = msg.competitions
 		m.history = msg.history
 		m.colors = msg.colors
+		m.group, m.hasDetail = msg.group, msg.hasDetail
 		m.loading = false
 		m.loaded = true
 		if len(m.competitions) == 0 {

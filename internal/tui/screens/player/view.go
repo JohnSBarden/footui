@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/JohnSBarden/footui/internal/data/models"
+	"github.com/JohnSBarden/footui/internal/data/playerstats"
 	"github.com/JohnSBarden/footui/internal/tui/components"
 	"github.com/JohnSBarden/footui/internal/tui/styles"
 )
@@ -31,11 +32,22 @@ func (m *Model) View() string {
 	default:
 		if cards := m.statCards(); cards != "" {
 			b.WriteString(cards)
-			b.WriteString("\n\n")
+			b.WriteString("\n")
+			if row, ok := m.SelectedRow(); ok {
+				if c := m.callout(row); c != "" {
+					b.WriteString(c)
+					b.WriteString("\n")
+				}
+			}
+			b.WriteString("\n")
 		}
 		b.WriteString(m.seasonsTable())
 		b.WriteString("\n\n")
 		b.WriteString(m.careerLine())
+		if st := m.detailStatus(); st != "" {
+			b.WriteString("\n")
+			b.WriteString(st)
+		}
 	}
 
 	return b.String()
@@ -117,14 +129,25 @@ const chartBarWidth = 12
 // for everyone else. A competition without expected numbers gets none.
 func (m *Model) chart() []string {
 	rows := m.CurrentRows() // newest first
-	// What the player produces decides the chart: a scorer's goals, a
-	// creator's assists. Positions can't say which (see positionBadge).
+	if m.hasDetail {
+		switch m.group {
+		case playerstats.GK, playerstats.DEF:
+			if c := m.cleanSheetChart(); c != nil {
+				return c
+			}
+		}
+	}
+	// Without detail, what the player produces decides the chart: a
+	// scorer's goals, a creator's assists. With it, the position does.
 	goals, assists := 0, 0
 	for _, r := range rows {
 		goals += r.Stats.Goals
 		assists += r.Stats.Assists
 	}
 	forward := goals > assists
+	if m.hasDetail {
+		forward = m.group == playerstats.FWD
+	}
 	type point struct {
 		season           string
 		actual, expected float64
@@ -178,6 +201,9 @@ func (m *Model) statCards() string {
 	}
 	s := row.Stats
 	th := m.deps.Theme
+	if row.Detail != nil {
+		return components.StatCards(th, m.positionCards(row), m.width)
+	}
 
 	stats := []components.Stat{
 		{Label: "Season", Value: components.SeasonName(row.Season), Hint: row.Team.Name},
@@ -238,6 +264,20 @@ func (m *Model) seasonsTable() string {
 	rows := m.CurrentRows()
 	if len(rows) == 0 {
 		return th.Empty.Render("No seasons cached in this competition.")
+	}
+
+	if base, extra, cells, ok := m.positionTable(rows); ok {
+		cols := components.FitColumns(m.width, base, 0, extra)
+		for i := range cells {
+			cells[i] = components.TrimRow(cells[i], len(cols))
+		}
+		table := components.Label(th, "Season by season") + "\n" + components.Table(components.TableOpts{
+			Columns: cols, Rows: cells, Cursor: m.cursor, MaxRows: m.tableHeight(), Theme: th,
+		})
+		if notes := m.footnotes(rows); len(notes) > 0 {
+			table += "\n" + strings.Join(notes, "\n")
+		}
+		return table
 	}
 
 	cells := make([][]components.Cell, 0, len(rows))

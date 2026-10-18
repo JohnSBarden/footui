@@ -13,6 +13,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/JohnSBarden/footui/internal/data/models"
+	"github.com/JohnSBarden/footui/internal/data/playerstats"
 	"github.com/JohnSBarden/footui/internal/tui/core"
 	"github.com/JohnSBarden/footui/internal/tui/keys"
 )
@@ -23,6 +24,14 @@ type SeasonRow struct {
 	Stats  models.PlayerSeasonStats
 	Team   models.Team
 	Season models.Season
+	// Detail is the season's clean sheets, saves, tackles and so on, nil
+	// until it has been fetched (or when there's none to fetch).
+	Detail *models.PlayerSeasonDetail
+	// Standouts are this season's numbers unusual for the position.
+	Standouts []playerstats.Standout
+	// XGA is a keeper's expected goals against, estimated from the club's;
+	// nil when there's no estimate.
+	XGA *float64
 }
 
 // Model is the Player screen.
@@ -44,6 +53,13 @@ type Model struct {
 
 	width  int
 	height int
+
+	// group is the player's position, which picks the tiles, chart and
+	// columns; hasDetail is whether any season has detail to show them.
+	group     playerstats.Group
+	hasDetail bool
+	// refreshing is set while the player's detail is queued or fetching.
+	refreshing bool
 
 	loading bool
 	loaded  bool
@@ -80,7 +96,13 @@ func (m *Model) Keys() core.KeyMap {
 }
 
 // Init implements core.Screen.
-func (m *Model) Init() tea.Cmd { return m.loadHistory() }
+// Opening a player also asks for their season detail to be brought up to
+// date; the refresh is automatic, so a recent copy costs nothing.
+func (m *Model) Init() tea.Cmd {
+	return tea.Batch(m.loadHistory(), core.RequestRefresh(core.RefreshRequest{
+		PlayerID: m.player.ID, Name: m.player.Name, Automatic: true,
+	}))
+}
 
 // FavoriteTarget implements core.Favoritable.
 func (m *Model) FavoriteTarget() (core.FavoriteTarget, bool) {
@@ -98,6 +120,8 @@ type historyLoadedMsg struct {
 	competitions []models.Competition
 	history      map[string][]SeasonRow
 	colors       map[string]models.TeamColors
+	group        playerstats.Group
+	hasDetail    bool
 }
 
 // CurrentCompetition returns the competition whose tab is selected.

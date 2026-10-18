@@ -12,7 +12,8 @@ import (
 // competition, resolving team, competition, and season names in three
 // batch queries rather than one lookup per row.
 func (m *Model) loadHistory() tea.Cmd {
-	deps, playerID := m.deps, m.player.ID
+	deps, player := m.deps, m.player
+	playerID := player.ID
 	return func() tea.Msg {
 		stats, err := deps.Repos.PlayerHistory(deps.Ctx, playerID)
 		if err != nil {
@@ -62,7 +63,11 @@ func (m *Model) loadHistory() tea.Cmd {
 		}
 		components.SortCompetitions(ordered)
 
-		return historyLoadedMsg{competitions: ordered, history: history, colors: colors}
+		group, hasDetail, err := enrichHistory(deps, player, stats, history)
+		if err != nil {
+			return core.ErrMsg{Err: err}
+		}
+		return historyLoadedMsg{competitions: ordered, history: history, colors: colors, group: group, hasDetail: hasDetail}
 	}
 }
 
