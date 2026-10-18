@@ -147,6 +147,11 @@ func StrongTeamTheme(primaryHex, secondaryHex string) (Theme, bool) {
 	t.Background = hex(bg)
 	t.Title = t.Title.Foreground(hex(bg)).Background(hex(text))
 	t.TableSelected = lipgloss.NewStyle().Foreground(hex(bg)).Background(hex(text)).Bold(true)
+	// Highlight is the text color here, so New's keycap (text on
+	// Highlight) and idle tab (muted on Highlight) would vanish: keys are
+	// drawn inverse like the title, idle tabs sit unfilled on the screen.
+	t.Keycap = t.Keycap.Foreground(hex(bg)).Background(hex(text))
+	t.TabIdle = lipgloss.NewStyle().Foreground(p.Muted)
 	return t, true
 }
 

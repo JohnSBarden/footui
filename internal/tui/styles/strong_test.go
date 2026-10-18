@@ -134,3 +134,35 @@ func TestPaintLeavesTransparentThemesAlone(t *testing.T) {
 		t.Errorf("a theme without a background must not be painted, got %q", got)
 	}
 }
+
+// Styles that draw their own background (key caps, tab pills, the title
+// bar, the selected row) must read against it. The palette-level check
+// above can't see these: a keycap once drew text on a background of that
+// same text color, and every key in the footer vanished.
+func TestStrongThemeFilledStylesAreReadable(t *testing.T) {
+	entries, err := colors.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	themes := map[string]Theme{"footui": BaseFor(Strong, false)}
+	for _, e := range entries {
+		if th, ok := StrongTeamTheme(e.Primary, e.Secondary); ok {
+			themes[e.ID] = th
+		}
+	}
+	t.Setenv("NO_COLOR", "")
+	for id, th := range themes {
+		for name, s := range map[string]lipgloss.Style{
+			"keycap": th.Keycap, "tab active": th.TabActive, "tab idle": th.TabIdle,
+			"title": th.Title, "selected row": th.TableSelected,
+		} {
+			bg := s.GetBackground()
+			if _, unset := bg.(lipgloss.NoColor); unset {
+				bg = th.Background
+			}
+			if r := contrastRatio(concrete(t, s.GetForeground()), concrete(t, bg)); r < minContrast {
+				t.Errorf("%s: %s contrast %.2f, want ≥ %.1f", id, name, r, minContrast)
+			}
+		}
+	}
+}
