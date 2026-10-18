@@ -99,9 +99,10 @@ func (m *Model) renderCard(c Card, selected bool, width int) string {
 	return style.Render(body)
 }
 
-// badge says at a glance what a card is, by shape and colour: a nation's
-// flag; a club's two colours as halves; ▦, a table, for a league; ◈ in
-// gold for a tournament; and ◉ in the colour of a player's club.
+// badge says at a glance what a card is: a nation's flag; a trophy for a
+// league or tournament; a goal net for a club; and ◉ in the colour of a
+// player's club. A terminal without emoji gets ▦ (a table) for a league,
+// ◈ in gold for a tournament, and a club's two colours as halves.
 func (m *Model) badge(c Card) string {
 	th := m.deps.Theme
 	switch {
@@ -110,10 +111,14 @@ func (m *Model) badge(c Card) string {
 			return f
 		}
 		return th.Muted.Render("⚑")
+	case components.Emoji && (c.Group == GroupLeagues || c.Group == GroupTournaments):
+		return "🏆"
 	case c.Group == GroupLeagues:
 		return th.Accent.Render("▦")
 	case c.Group == GroupTournaments:
 		return th.Draw.Render("◈")
+	case components.Emoji && c.Group == GroupClubs:
+		return "🥅"
 	case c.Group == GroupClubs:
 		return m.halves(c.Colors[c.ID])
 	}

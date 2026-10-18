@@ -48,9 +48,9 @@ func TestGroupsRunLeaguesTournamentsClubsNationsPlayers(t *testing.T) {
 		t.Fatalf("groups %v, want %v", groups, want)
 	}
 	out := m.View()
-	// Each wears its kind's badge: a table, a gold diamond, a flag (or a
+	// Each wears its kind's badge: a trophy for both competitions, a flag (or a
 	// plain one for a nation we have no flag for).
-	l, tn, n := strings.Index(out, "▦ Premier League"), strings.Index(out, "◈ FIFA World Cup"), strings.Index(out, "⚑ Arcadia")
+	l, tn, n := strings.Index(out, "🏆 Premier League"), strings.Index(out, "🏆 FIFA World Cup"), strings.Index(out, "⚑ Arcadia")
 	if l < 0 || tn < l || n < tn {
 		t.Errorf("cards out of order:\n%s", out)
 	}

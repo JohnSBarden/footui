@@ -14,6 +14,7 @@ import (
 	"github.com/JohnSBarden/footui/internal/data/models"
 	"github.com/JohnSBarden/footui/internal/storage"
 	"github.com/JohnSBarden/footui/internal/storage/storagetest"
+	"github.com/JohnSBarden/footui/internal/tui/components"
 	"github.com/JohnSBarden/footui/internal/tui/core"
 	"github.com/JohnSBarden/footui/internal/tui/screens/dashboard"
 	"github.com/JohnSBarden/footui/internal/tui/styles"
@@ -22,7 +23,10 @@ import (
 
 var ctx = context.Background()
 
-func init() { dashboard.PinClock(storagetest.Fixed) }
+func init() {
+	dashboard.PinClock(storagetest.Fixed)
+	components.Emoji = true
+}
 
 type stub struct{ name string }
 
@@ -135,8 +139,8 @@ func TestCardsShowWhereEachFavouriteStands(t *testing.T) {
 	view := load(t, deps, 120).View()
 
 	for _, want := range []string{
-		"▦ Premier League", "England · 2025-26", // a league's badge is a table
-		"▌ Arsenal",           // a club's is its colours, as halves
+		"🏆 Premier League", "England · 2025-26", // a league's badge is a trophy
+		"🥅 Arsenal",           // a club's a goal net
 		"★ Arsenal",           // the starred club in the league table
 		"1st · 90 pts",        // the club card's headline
 		"P38  W28  D6  L4",    // its record
@@ -400,5 +404,16 @@ func TestANarrowLeagueCardKeepsPointsOnly(t *testing.T) {
 	view := load(t, deps, 40).View()
 	if strings.Contains(view, "Pts") || !strings.Contains(view, "● ★ Arsenal") {
 		t.Errorf("narrow league card:\n%s", view)
+	}
+}
+
+// Without emoji, a league is ▦ and a club its colours as halves.
+func TestBadgesFallBackWithoutEmoji(t *testing.T) {
+	components.Emoji = false
+	defer func() { components.Emoji = true }()
+	_, deps, _ := seed(t)
+	view := load(t, deps, 120).View()
+	if !strings.Contains(view, "▦ Premier League") || !strings.Contains(view, "▌ Arsenal") {
+		t.Errorf("fallback badges:\n%s", view)
 	}
 }
