@@ -199,6 +199,33 @@ type PlayerSeasonStats struct {
 	UpdatedAt       time.Time
 }
 
+// PlayerSeasonDetail is the rest of a player's season for one Team in one
+// Competition — what a position is judged on beyond goals and assists:
+// clean sheets and saves for a keeper, tackles and interceptions for a
+// defender. It is fetched per player, on demand, so it exists only for
+// players someone has opened or starred. Every stat is nullable: nil is
+// "not recorded", which a provider's zero sometimes really means.
+type PlayerSeasonDetail struct {
+	PlayerID      string
+	TeamID        string
+	CompetitionID string
+	SeasonID      string
+	// Position is the provider's single position code — "G", "D", "M"
+	// or "F" — or "" when it gave none.
+	Position      string
+	Appearances   *int
+	Minutes       *int
+	CleanSheets   *int
+	GoalsConceded *int
+	Saves         *int
+	Tackles       *int
+	Interceptions *int
+	Clearances    *int
+	// PassPct is the share of passes completed, 0 to 1.
+	PassPct   *float64
+	FetchedAt time.Time
+}
+
 // Trophy is a single honour in a Team's history. Not tied to a Season row
 // since trophies pre-date most in-scope seasons; SeasonLabel is a free-text
 // year/season string for display.

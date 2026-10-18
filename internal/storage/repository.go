@@ -194,6 +194,18 @@ type PlayerStatsRepo interface {
 	PlayerHistory(ctx context.Context, playerID string) ([]models.PlayerSeasonStats, error)
 }
 
+// PlayerDetailRepo persists the per-player season detail fetched when a
+// player is opened or starred.
+type PlayerDetailRepo interface {
+	UpsertPlayerSeasonDetail(ctx context.Context, d models.PlayerSeasonDetail) error
+	// PlayerSeasonDetails returns every detail row for the player, newest
+	// season first.
+	PlayerSeasonDetails(ctx context.Context, playerID string) ([]models.PlayerSeasonDetail, error)
+	// SeasonPlayerLines returns every player's stat line in one
+	// competition-season: the baseline a player is compared against.
+	SeasonPlayerLines(ctx context.Context, competitionID, seasonID string) ([]models.PlayerSeasonStats, error)
+}
+
 // ExternalRefRepo maps a provider's own IDs to footui's canonical ones, so
 // the same club or player fetched from two providers is one entity.
 type ExternalRefRepo interface {
@@ -201,6 +213,9 @@ type ExternalRefRepo interface {
 	// to, or ErrNotFound if it never has been. entityType is "team" or
 	// "player".
 	ExternalRef(ctx context.Context, entityType, provider, providerID string) (string, error)
+	// ProviderID is the reverse: the provider's ID for a canonical
+	// entity, or ErrNotFound if it was never resolved from that provider.
+	ProviderID(ctx context.Context, entityType, canonicalID, provider string) (string, error)
 	PutExternalRef(ctx context.Context, entityType, canonicalID, provider, providerID string) error
 	// TeamPlayers returns every player with a stat line for the team, in
 	// any competition or season — the squad a newly fetched player is
@@ -230,6 +245,7 @@ type Repositories interface {
 	TeamStatsRepo
 	PlayersRepo
 	PlayerStatsRepo
+	PlayerDetailRepo
 	TeamColorsRepo
 	TrophiesRepo
 	SyncLogRepo

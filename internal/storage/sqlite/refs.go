@@ -27,6 +27,25 @@ func (s *Store) ExternalRef(ctx context.Context, entityType, provider, providerI
 	return canonical, nil
 }
 
+func (s *Store) ProviderID(ctx context.Context, entityType, canonicalID, provider string) (string, error) {
+	var id string
+	// Two provider IDs can resolve to one entity (a provider that
+	// re-numbered a player); either reaches the same stats, so the
+	// choice only has to be stable.
+	err := s.db.QueryRowContext(ctx, `
+		SELECT provider_id FROM external_ref
+		WHERE entity_type = ? AND canonical_id = ? AND provider = ?
+		ORDER BY provider_id LIMIT 1`,
+		entityType, canonicalID, provider).Scan(&id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", fmt.Errorf("sqlite: provider id %s/%s/%s: %w", entityType, canonicalID, provider, storage.ErrNotFound)
+	}
+	if err != nil {
+		return "", fmt.Errorf("sqlite: provider id %s/%s/%s: %w", entityType, canonicalID, provider, err)
+	}
+	return id, nil
+}
+
 // PutExternalRef records (or corrects) where a provider's ID resolves.
 func (s *Store) PutExternalRef(ctx context.Context, entityType, canonicalID, provider, providerID string) error {
 	_, err := s.db.ExecContext(ctx, `
