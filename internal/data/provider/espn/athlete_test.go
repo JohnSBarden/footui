@@ -5,6 +5,8 @@ import (
 	"net/http/httptest"
 	"os"
 	"testing"
+
+	"github.com/JohnSBarden/footui/internal/data/models"
 )
 
 // athleteServer serves the core API's per-athlete statistics and one
@@ -89,6 +91,29 @@ func TestAthleteSeasonZeroDefenceIsNotRecorded(t *testing.T) {
 	}
 	if deref(d.CleanSheets) != 17 || deref(d.Minutes) != 3046 {
 		t.Errorf("clean sheets and minutes are kept: cs %d min %d", deref(d.CleanSheets), deref(d.Minutes))
+	}
+}
+
+// Some older seasons aren't zero but a token handful — Gabriel's 2024-25
+// is 1 tackle, 1 interception and 7 clearances in 2365 minutes. That's
+// as unrecorded as zero, and must not read as a defender who never
+// defended.
+func TestImplausibleDefenceIsNotRecorded(t *testing.T) {
+	cases := []struct {
+		name               string
+		mins, tkl, ints, c int
+		want               bool
+	}{
+		{"gabriel 2024-25", 2365, 1, 1, 7, true},
+		{"gabriel 2025-26", 2751, 38, 23, 182, false},
+		{"a striker", 3000, 10, 3, 15, false},
+		{"too few minutes to judge", 300, 0, 1, 0, false},
+	}
+	for _, c := range cases {
+		d := models.PlayerSeasonDetail{Minutes: &c.mins, Tackles: &c.tkl, Interceptions: &c.ints, Clearances: &c.c}
+		if got := implausibleDefence(d); got != c.want {
+			t.Errorf("%s: implausible = %v, want %v", c.name, got, c.want)
+		}
 	}
 }
 

@@ -62,13 +62,31 @@ func (p *Provider) AthleteSeason(ctx context.Context, competitionID string, year
 	if v, ok := st.get("passPct"); ok && v > 0 {
 		d.PassPct = &v
 	}
-	if !keeper && d.Minutes != nil && *d.Minutes >= 90 && zero(d.Tackles) && zero(d.Interceptions) && zero(d.Clearances) {
+	if !keeper && (implausibleDefence(d) ||
+		d.Minutes != nil && *d.Minutes >= 90 && zero(d.Tackles) && zero(d.Interceptions) && zero(d.Clearances)) {
 		d.Tackles, d.Interceptions, d.Clearances = nil, nil, nil
 	}
 	return d, nil
 }
 
 func zero(n *int) bool { return n == nil || *n == 0 }
+
+// implausibleDefence reports a season whose defensive numbers are a token
+// handful rather than a record: under half a tackle, interception or
+// clearance per 90 over 900 minutes or more. Even a pure striker manages
+// nearly twice that; ESPN's older seasons often carry less.
+func implausibleDefence(d models.PlayerSeasonDetail) bool {
+	if d.Minutes == nil || *d.Minutes < 900 {
+		return false
+	}
+	n := 0
+	for _, p := range []*int{d.Tackles, d.Interceptions, d.Clearances} {
+		if p != nil {
+			n += *p
+		}
+	}
+	return float64(n)*90/float64(*d.Minutes) < 0.5
+}
 
 // Squad lists a club's roster for a season: each player's ESPN ID, name
 // and position, for matching cached players to ESPN's.
