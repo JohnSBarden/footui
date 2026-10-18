@@ -73,6 +73,14 @@ type SeasonMatchesProvider interface {
 	SeasonMatches(ctx context.Context, comp CompetitionRef, season SeasonRef) ([]models.Match, error)
 }
 
+// SquadMember is one player on a provider's club roster: enough to match
+// them to a cached player and learn the provider's ID and position.
+type SquadMember struct {
+	ID       string
+	Name     string
+	Position string // "G", "D", "M", "F", or "" when the provider gave none
+}
+
 // ErrRateLimited means the source refused footui for asking too often, and
 // kept refusing after the polite retries. Nothing more should be asked of
 // it for a while: a refresh that gets this stops rather than carrying on.

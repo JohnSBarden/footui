@@ -8,6 +8,28 @@ import (
 	"github.com/JohnSBarden/footui/internal/data/models"
 )
 
+// statSlugs are the leagues understat syncs, whose players' season detail
+// (clean sheets, tackles) still comes from ESPN. They aren't in
+// leagueSlugs, which is the routing table for what ESPN syncs.
+var statSlugs = map[string]string{
+	"eng-premier-league": "eng.1",
+	"esp-la-liga":        "esp.1",
+	"ger-bundesliga":     "ger.1",
+	"ita-serie-a":        "ita.1",
+	"fra-ligue-1":        "fra.1",
+	"rus-premier-league": "rus.1",
+}
+
+// slugFor is the ESPN league for a competition's player detail: a
+// league ESPN syncs, or one of understat's.
+func slugFor(competitionID string) (string, bool) {
+	if s, ok := statSlugs[competitionID]; ok {
+		return s, true
+	}
+	s, ok := leagueSlugs[competitionID]
+	return s, ok
+}
+
 // leagueSlugs maps canonical competition IDs to ESPN's league slugs. Every
 // competition sync.Coverages routes to ESPN needs a row here.
 var leagueSlugs = map[string]string{

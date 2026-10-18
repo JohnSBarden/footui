@@ -1,0 +1,82 @@
+{
+ "splits": {
+  "categories": [
+   {
+    "name": "defensive",
+    "stats": [
+     {
+      "name": "blockedShots",
+      "value": 0.0
+     },
+     {
+      "name": "interceptions",
+      "value": 1.0
+     },
+     {
+      "name": "totalClearance",
+      "value": 37.0
+     },
+     {
+      "name": "totalTackles",
+      "value": 1.0
+     }
+    ]
+   },
+   {
+    "name": "general",
+    "stats": [
+     {
+      "name": "appearances",
+      "value": 37.0
+     },
+     {
+      "name": "minutes",
+      "value": 3330.0
+     },
+     {
+      "name": "starts",
+      "value": 37.0
+     },
+     {
+      "name": "passPct",
+      "value": 0.648
+     }
+    ]
+   },
+   {
+    "name": "goalKeeping",
+    "stats": [
+     {
+      "name": "cleanSheet",
+      "value": 19.0
+     },
+     {
+      "name": "goalsConceded",
+      "value": 26.0
+     },
+     {
+      "name": "saves",
+      "value": 60.0
+     },
+     {
+      "name": "shotsFaced",
+      "value": 0.0
+     }
+    ]
+   },
+   {
+    "name": "offensive",
+    "stats": [
+     {
+      "name": "goalAssists",
+      "value": 0.0
+     },
+     {
+      "name": "totalGoals",
+      "value": 0.0
+     }
+    ]
+   }
+  ]
+ }
+}
