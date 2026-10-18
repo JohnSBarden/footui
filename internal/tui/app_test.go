@@ -468,7 +468,7 @@ func TestRRefreshesTheCurrentScreensCompetition(t *testing.T) {
 	if cmd == nil {
 		t.Fatal("r should start a refresh")
 	}
-	if got := app.View(); !strings.Contains(got, "Refreshing esp-la-liga") {
+	if got := app.View(); !strings.Contains(got, "🔄 Refreshing esp-la-liga") {
 		t.Errorf("the user should be told a refresh started, got %q", got)
 	}
 

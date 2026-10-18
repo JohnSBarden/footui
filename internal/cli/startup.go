@@ -124,7 +124,31 @@ func staleRefreshes(ctx context.Context, repos storage.Repositories, now time.Ti
 		out = append(out, core.RefreshRequest{CompetitionID: comp.ID, Seasons: []string{current}, Why: why, Automatic: true})
 	}
 	out = append(out, internationalRefreshes(ctx, repos, now, maxAge)...)
-	return append(out, clubRefreshes(ctx, repos, now, maxAge)...)
+	out = append(out, clubRefreshes(ctx, repos, now, maxAge)...)
+	return append(out, playerRefreshes(ctx, repos)...)
+}
+
+// playerRefreshes asks for every starred player's season detail, after
+// the leagues so the dashboard's tables come first. Each is automatic:
+// the sync layer fetches only what is missing or stale, so a player
+// refreshed an hour ago costs nothing.
+func playerRefreshes(ctx context.Context, repos storage.Repositories) []core.RefreshRequest {
+	favs, err := repos.ListFavorites(ctx)
+	if err != nil {
+		return nil
+	}
+	var out []core.RefreshRequest
+	for _, f := range favs {
+		if f.Kind != models.FavoritePlayer {
+			continue
+		}
+		name := f.ID
+		if p, err := repos.GetPlayer(ctx, f.ID); err == nil {
+			name = p.Name
+		}
+		out = append(out, core.RefreshRequest{PlayerID: f.ID, Name: name, Automatic: true})
+	}
+	return out
 }
 
 // newestDownloaded is the newest season of a competition that was

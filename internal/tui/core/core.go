@@ -57,10 +57,10 @@ type Deps struct {
 	// queues the club's refresh when they do. Nil means never (tests, or
 	// the stale check turned off).
 	ClubDue func(club models.Team) (why string, due bool)
-	// ProviderPause names a data source that has paused footui after
-	// rate-limiting it, and when it may be asked again; a zero time means
-	// none is paused. Nil means the host can't tell.
-	ProviderPause func() (provider string, until time.Time)
+	// ProviderPause is when footui may ask its data sources again after
+	// being rate-limited; a zero time means nothing is paused. Nil means
+	// the host can't tell. The TUI never names the source.
+	ProviderPause func() (until time.Time)
 	// Version is the build's version, for the launch splash; empty
 	// leaves it off.
 	Version string

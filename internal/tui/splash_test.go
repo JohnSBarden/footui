@@ -159,9 +159,9 @@ func TestTheSplashTimesOut(t *testing.T) {
 
 func TestSplashShowsTheESPNPause(t *testing.T) {
 	app := newApp(newFake("Dashboard"))
-	app.deps.ProviderPause = func() (string, time.Time) { return "ESPN", time.Now().Add(47 * time.Minute) }
+	app.deps.ProviderPause = func() time.Time { return time.Now().Add(47 * time.Minute) }
 	app.ShowSplash(false)
-	if v := ansi.Strip(app.View()); !strings.Contains(v, "✕ ESPN paused requests: retrying in 4") {
+	if v := ansi.Strip(app.View()); !strings.Contains(v, "✕ refreshes paused: retrying in 4") {
 		t.Errorf("pause missing\n%s", v)
 	}
 }

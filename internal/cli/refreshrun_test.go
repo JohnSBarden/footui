@@ -19,7 +19,7 @@ func TestTUIErrorKeepsTheCauseAndDropsTheChain(t *testing.T) {
 	err := fmt.Errorf("sync: fetch teams: %w", &understat.ExhaustedError{Attempts: 3, Last: timeout})
 
 	got := tuiError(err).Error()
-	for _, want := range []string{"no response from understat.com", "15s", "3 attempts"} {
+	for _, want := range []string{"no response within", "15s", "3 attempts"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("%q should mention %q", got, want)
 		}

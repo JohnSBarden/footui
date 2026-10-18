@@ -82,6 +82,10 @@ func (ev refreshEvents) unitFunc() sync.Progress {
 	}
 }
 
+// newDetailSource builds the source of players' season detail. It is a
+// variable so tests can swap in a stub.
+var newDetailSource = func() sync.DetailSource { return espn.New() }
+
 // newMatchSource builds the source of international matches. It is a
 // variable so tests can point it at a fake server.
 var newMatchSource = func(ev refreshEvents) sync.MatchSource {
@@ -234,6 +238,8 @@ func tuiRefresher(store storage.Repositories, staleAfter time.Duration) core.Ref
 			stale = staleAfter
 		}
 		switch {
+		case req.PlayerID != "":
+			return refreshPlayer(ctx, store, req.PlayerID, stale)
 		case req.Directory:
 			n, err := seedDirectory(ctx, store, ev)
 			if err != nil {
@@ -325,6 +331,25 @@ func tuiRefresher(store storage.Repositories, staleAfter time.Duration) core.Ref
 	}
 }
 
+// refreshPlayer fetches a player's season detail; maxAge holds the
+// current season to the stale threshold for an automatic refresh.
+func refreshPlayer(ctx context.Context, store storage.Repositories, playerID string, maxAge time.Duration) (string, error) {
+	res, err := sync.RefreshPlayerDetail(ctx, store, newDetailSource(), playerID, time.Now(), maxAge)
+	if errors.Is(err, provider.ErrRateLimited) {
+		return "", core.ErrRateLimited
+	}
+	if err != nil {
+		return "", tuiError(err)
+	}
+	switch res.Fetched {
+	case 0:
+		return "stats up to date", nil
+	case 1:
+		return "1 season of stats refreshed", nil
+	}
+	return fmt.Sprintf("%d seasons of stats refreshed", res.Fetched), nil
+}
+
 // calendarYears parses requested years, defaulting to this year and last.
 func calendarYears(seasons []string, now time.Time) ([]int, error) {
 	if len(seasons) == 0 {
@@ -413,13 +438,13 @@ func tuiError(err error) error {
 	var et *espn.TimeoutError
 	switch {
 	case errors.As(err, &ut):
-		msg = fmt.Sprintf("no response from %s within %s", ut.Host, ut.After)
+		msg = fmt.Sprintf("no response within %s", ut.After)
 		var ex *understat.ExhaustedError
 		if errors.As(err, &ex) {
 			attempts = ex.Attempts
 		}
 	case errors.As(err, &et):
-		msg = fmt.Sprintf("no response from ESPN within %s", et.After)
+		msg = fmt.Sprintf("no response within %s", et.After)
 		var ex *espn.ExhaustedError
 		if errors.As(err, &ex) {
 			attempts = ex.Attempts
@@ -427,7 +452,7 @@ func tuiError(err error) error {
 	case errors.Is(err, provider.ErrRateLimited):
 		return core.ErrRateLimited
 	case errors.Is(err, espn.ErrNoTable):
-		return errors.New("ESPN has no table for that season")
+		return errors.New("no table for that season yet")
 	default:
 		return err
 	}

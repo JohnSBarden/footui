@@ -211,7 +211,7 @@ func (a *App) cancelRefresh() tea.Cmd {
 func (a *App) describe(req core.RefreshRequest, progress string) string {
 	text := progress
 	if text == "" {
-		text = "Refreshing " + req.Label()
+		text = "🔄 Refreshing " + req.Label()
 		if n := len(req.Seasons); n > 1 {
 			text += fmt.Sprintf(" (%d seasons)", n)
 		}
@@ -305,6 +305,7 @@ func refreshedMsg(req core.RefreshRequest) core.RefreshedMsg {
 		CompetitionID: req.CompetitionID,
 		TeamID:        req.TeamID,
 		International: req.TeamID != "" || req.Nations != "" || req.Directory,
+		PlayerID:      req.PlayerID,
 	}
 }
 

@@ -25,6 +25,10 @@ type RefreshRequest struct {
 	// Directory asks for the list of national teams, so search can find
 	// every nation before any of its matches are fetched.
 	Directory bool
+	// PlayerID asks for one player's season detail (clean sheets, saves,
+	// tackles): every season of theirs that needs it, the current one
+	// only once it's older than the stale threshold when Automatic.
+	PlayerID string
 	// Seasons are bare start years ("2025" for 2025-26), most recent
 	// first. Empty means the current season — what the refresh key
 	// fetches. For TeamID and Nations they are calendar years, and empty
@@ -48,6 +52,8 @@ func (r RefreshRequest) Key() string {
 	switch {
 	case r.Directory:
 		return "directory"
+	case r.PlayerID != "":
+		return "player:" + r.PlayerID
 	case r.TeamID != "":
 		return "team:" + r.TeamID
 	case r.Nations != "":
@@ -63,6 +69,8 @@ func (r RefreshRequest) Label() string {
 		return r.Name
 	case r.Directory:
 		return "national teams"
+	case r.PlayerID != "":
+		return r.PlayerID
 	case r.TeamID != "":
 		return r.TeamID
 	case r.Nations != "":
@@ -74,7 +82,7 @@ func (r RefreshRequest) Label() string {
 // ErrRateLimited is what a Refresher returns when the source has asked
 // footui to stop for a while. The root app then drops everything queued
 // rather than carrying on asking.
-var ErrRateLimited = errors.New("ESPN is rate-limiting footui; try again later")
+var ErrRateLimited = errors.New("refreshes are paused: too many requests; try again later")
 
 // RefreshRequester is implemented by screens whose refresh isn't a single
 // competition — a nation's — and so hand the root app a whole request. It
@@ -116,6 +124,8 @@ type RefreshedMsg struct {
 	// (a nation's, or every nation's of a gender), which any screen
 	// showing a nation or a tournament may want to re-read.
 	International bool
+	// PlayerID is the player whose season detail was fetched.
+	PlayerID string
 }
 
 // RefreshRequestMsg asks the root app to queue refresh work. Screens that

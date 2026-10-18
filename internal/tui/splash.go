@@ -183,9 +183,9 @@ func (a *App) splashBody(th styles.Theme) string {
 		lines = append(lines, padBetween(status, "", width))
 	}
 	if a.deps.ProviderPause != nil {
-		if name, until := a.deps.ProviderPause(); !until.IsZero() && time.Now().Before(until) {
+		if until := a.deps.ProviderPause(); !until.IsZero() && time.Now().Before(until) {
 			mins := int(time.Until(until).Minutes()) + 1
-			lines = append(lines, "", th.Negative.Render(fmt.Sprintf("✕ %s paused requests: retrying in %d min", name, mins)))
+			lines = append(lines, "", th.Negative.Render(fmt.Sprintf("✕ refreshes paused: retrying in %d min", mins)))
 		}
 	}
 	return strings.Join(lines, "\n")
