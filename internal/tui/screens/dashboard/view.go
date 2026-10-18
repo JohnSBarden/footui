@@ -10,30 +10,11 @@ import (
 
 	"github.com/JohnSBarden/footui/internal/data/models"
 	"github.com/JohnSBarden/footui/internal/tui/components"
-)
-
-// Card geometry. A card is cardWidth columns wide including its border,
-// and holds cardLines lines of content: a name, a context line, five
-// table rows and a freshness line for a league, which is the tallest.
-const (
-	cardWidth = 38
-	cardGap   = 1
-	cardLines = 8
-	// headerLines is the dashboard's own title and the blank line under it.
-	headerLines = 2
+	"github.com/JohnSBarden/footui/internal/tui/styles"
 )
 
 // now is the clock freshness is measured against; tests pin it.
 var now = time.Now
-
-// columns is how many cards fit side by side; one on a narrow terminal.
-func (m *Model) columns() int {
-	cols := (m.width + cardGap) / (cardWidth + cardGap)
-	if cols < 1 {
-		return 1
-	}
-	return cols
-}
 
 // View implements core.Screen.
 func (m *Model) View() string {
@@ -75,103 +56,12 @@ func (m *Model) header() string {
 	return left + strings.Repeat(" ", gap) + date
 }
 
-// block is one vertical slice of the card area: a group heading or a row
-// of cards.
-type block struct {
-	text  string
-	lines int
-	// row is the grid row this block draws, -1 for a heading.
-	row int
-}
-
-// cardsView lays the cards out in groups, scrolled so the selected card's
-// row is on screen.
-func (m *Model) cardsView() string {
+// renderCard draws one card width columns wide. The selected card's
+// border is drawn in the accent color and, so it still stands out without
+// color, heavier.
+func (m *Model) renderCard(c Card, selected bool, width int) string {
 	th := m.deps.Theme
-	rows := m.grid()
-	selRow, _ := position(rows, m.cursor)
-
-	var blocks []block
-	for r, row := range rows {
-		if r == 0 || m.cards[row[0]].Group != m.cards[rows[r-1][0]].Group {
-			if r > 0 {
-				blocks = append(blocks, block{text: "", lines: 1, row: -1})
-			}
-			blocks = append(blocks, block{text: components.Label(th, groupName(m.cards[row[0]].Group)), lines: 1, row: -1})
-		}
-		rendered := make([]string, 0, len(row))
-		for c, i := range row {
-			if c > 0 {
-				rendered = append(rendered, strings.Repeat(" ", cardGap))
-			}
-			rendered = append(rendered, m.renderCard(m.cards[i], i == m.cursor))
-		}
-		text := lipgloss.JoinHorizontal(lipgloss.Top, rendered...)
-		blocks = append(blocks, block{text: text, lines: lipgloss.Height(text), row: r})
-	}
-
-	// Scroll: the first block shown is the earliest one that still lets
-	// the selected row fit, so moving down scrolls only once it must.
-	budget := m.height - headerLines
-	last := 0
-	for i, bl := range blocks {
-		if bl.row == selRow {
-			last = i
-		}
-	}
-	first := 0
-	for first < last && linesBetween(blocks, first, last) > budget {
-		first++
-	}
-	var out []string
-	used := 0
-	for _, bl := range blocks[first:] {
-		if used+bl.lines > budget && used > 0 {
-			break
-		}
-		out = append(out, bl.text)
-		used += bl.lines
-	}
-	return strings.Join(out, "\n")
-}
-
-func linesBetween(blocks []block, from, to int) int {
-	n := 0
-	for _, bl := range blocks[from : to+1] {
-		n += bl.lines
-	}
-	return n
-}
-
-func groupName(g Group) string {
-	switch g {
-	case GroupLeagues:
-		return "Leagues"
-	case GroupTournaments:
-		return "Tournaments"
-	case GroupClubs:
-		return "Clubs"
-	case GroupNations:
-		return "Nations"
-	default:
-		return "Players"
-	}
-}
-
-// cardInner is the usable width inside a card's border and padding.
-func (m *Model) cardInner() int {
-	w := cardWidth
-	if m.columns() == 1 && m.width < cardWidth {
-		w = m.width
-	}
-	return w - 4
-}
-
-// renderCard draws one card. The selected card's border is drawn in the
-// accent color and, so it still stands out without color, heavier.
-func (m *Model) renderCard(c Card, selected bool) string {
-	th := m.deps.Theme
-	inner := m.cardInner()
+	inner := max(width-4, 8)
 	var lines []string
 	switch {
 	case c.Missing:
@@ -187,12 +77,9 @@ func (m *Model) renderCard(c Card, selected bool) string {
 	default:
 		lines = m.playerLines(c, inner)
 	}
-	for len(lines) < cardLines {
-		lines = append(lines, "")
-	}
 
-	style := th.Panel.Width(inner + 2).Height(cardLines)
-	body := strings.Join(lines[:cardLines], "\n")
+	style := th.Panel.Width(inner + 2)
+	body := strings.Join(lines, "\n")
 	if selected {
 		style = style.Border(lipgloss.ThickBorder()).BorderForeground(th.Palette.Accent)
 		if th.NoColor {
@@ -211,63 +98,153 @@ func (m *Model) renderCard(c Card, selected bool) string {
 	return style.Render(body)
 }
 
+// badge says at a glance what a card is, by shape and colour: a nation's
+// flag; a club's two colours as halves; ▦, a table, for a league; ◈ in
+// gold for a tournament; and ◉ in the colour of a player's club.
+func (m *Model) badge(c Card) string {
+	th := m.deps.Theme
+	switch {
+	case c.Group == GroupNations || (c.Missing && strings.HasPrefix(c.ID, "nat-")):
+		if f := components.Flag(c.ID); f != "" {
+			return f
+		}
+		return th.Muted.Render("⚑")
+	case c.Group == GroupLeagues:
+		return th.Accent.Render("▦")
+	case c.Group == GroupTournaments:
+		return th.Draw.Render("◈")
+	case c.Group == GroupClubs:
+		return m.halves(c.Colors[c.ID])
+	}
+	if col, ok := styles.ClubForeground(c.Colors[c.Team.ID].PrimaryHex); ok && !th.NoColor {
+		return lipgloss.NewStyle().Foreground(col).Render("◉")
+	}
+	return th.Accent.Render("◉")
+}
+
+// halves is a club's two colours in one cell, like a halved shirt.
+func (m *Model) halves(col models.TeamColors) string {
+	th := m.deps.Theme
+	a, ok := styles.ClubForeground(col.PrimaryHex)
+	if th.NoColor || !ok {
+		return th.Faint.Render("▌")
+	}
+	st := lipgloss.NewStyle().Foreground(a)
+	if b, ok := styles.ClubForeground(col.SecondaryHex); ok {
+		st = st.Background(b)
+	}
+	return st.Render("▌")
+}
+
+// heading is a card's first line: its badge and name, and on the right
+// how fresh its numbers are.
 func (m *Model) heading(c Card, inner int) string {
-	return m.deps.Theme.PanelTitle.Render(components.Truncate("★ "+c.Name(), inner))
+	th := m.deps.Theme
+	badge, age := m.badge(c), m.age(c)
+	room := inner - lipgloss.Width(badge) - 1
+	if age != "" {
+		room -= lipgloss.Width(age) + 1
+	}
+	name := th.PanelTitle.Render(components.Truncate(c.Name(), room))
+	if age == "" {
+		return badge + " " + name
+	}
+	gap := max(inner-lipgloss.Width(badge)-1-lipgloss.Width(name)-lipgloss.Width(age), 1)
+	return badge + " " + name + strings.Repeat(" ", gap) + age
 }
 
 func (m *Model) missingLines(c Card, inner int) []string {
 	th := m.deps.Theme
 	return []string{
 		m.heading(c, inner),
-		th.Muted.Render(string(c.Kind)),
-		"",
-		th.Empty.Render(components.Truncate("Not cached.", inner)),
-		th.Muted.Render(components.Truncate("d downloads leagues;", inner)),
-		th.Muted.Render(components.Truncate("f removes this favourite.", inner)),
+		th.Empty.Render(components.Truncate("Not cached ("+string(c.Kind)+").", inner)),
+		th.Muted.Render(components.Truncate("d downloads leagues; f un-stars it.", inner)),
 	}
 }
+
+// wideTable is the inner width from which a league card's rows carry the
+// whole record, not just points.
+const wideTable = 56
 
 func (m *Model) leagueLines(c Card, inner int) []string {
 	th := m.deps.Theme
 	lines := []string{m.heading(c, inner)}
 	if c.Season.ID == "" {
-		return append(lines, "", th.Empty.Render(components.Truncate("No seasons cached — press r.", inner)))
+		return append(lines, th.Empty.Render(components.Truncate("No seasons cached — press r.", inner)))
 	}
 	lines = append(lines, th.Muted.Render(components.Truncate(c.Competition.Country+" · "+components.SeasonName(c.Season), inner)))
 	if len(c.Table) == 0 {
-		lines = append(lines, "", th.Empty.Render(components.Truncate("No table cached yet.", inner)))
+		return append(lines, th.Empty.Render(components.Truncate("No table cached yet.", inner)))
 	}
 	rows := c.Table
 	// Starred clubs below the top rows replace its tail, so the card stays
 	// the same height.
 	if n := len(c.Starred); n > 0 {
-		keep := max(tableRows-n, 1)
+		keep := max(leagueRows-n, 1)
 		if keep < len(rows) {
 			rows = rows[:keep]
 		}
 		rows = append(append([]StandingRow{}, rows...), c.Starred...)
-		if len(rows) > tableRows {
-			rows = rows[:tableRows]
+		if len(rows) > leagueRows {
+			rows = rows[:leagueRows]
 		}
 	}
 	maxPts := 0
 	for _, r := range rows {
 		maxPts = max(maxPts, r.Points)
 	}
+	wide := inner >= wideTable
+	if wide {
+		lines = append(lines, m.tableHeader(inner))
+	}
 	for _, r := range rows {
 		lines = append(lines, m.standingLine(c, r, maxPts, inner))
 	}
-	for len(lines) < cardLines-1 {
+	// A two-column card keeps its full height, so the cards flowing in
+	// beneath it line up.
+	for wide && len(lines) < leagueHeight-2 {
 		lines = append(lines, "")
 	}
-	return append(lines, m.freshness(c, inner))
+	return lines
 }
 
-// pointsBarWidth is the points bar on a league card's rows.
-const pointsBarWidth = 5
+// pointsBarWidth is the points bar on a narrow league card's rows;
+// wideBarWidth the least a wide one's gets.
+const (
+	pointsBarWidth = 5
+	wideBarWidth   = 10
+)
+
+// recordWidth is "   P   W   D   L   GD" on a wide row: four 4-wide counts
+// and a 5-wide goal difference.
+const recordWidth = 4*4 + 5
+
+// wideNameMax caps the club column on a wide row; any width past it goes
+// to the points bar.
+const wideNameMax = 26
+
+// wideColumns are the club column and points bar on a wide row: what's
+// left after the position and dot, the record and the points.
+func wideColumns(inner int) (name, bar int) {
+	name = inner - 6 - recordWidth - (2 + wideBarWidth + 1) - 3
+	if name > wideNameMax {
+		return wideNameMax, wideBarWidth + name - wideNameMax
+	}
+	return name, wideBarWidth
+}
+
+func (m *Model) tableHeader(inner int) string {
+	name, bar := wideColumns(inner)
+	head := "  #   " + padRight("Club", name) +
+		fmt.Sprintf("%4s%4s%4s%4s%5s", "P", "W", "D", "L", "GD") +
+		strings.Repeat(" ", 2+bar+1) + "Pts"
+	return m.deps.Theme.Label.Render(head)
+}
 
 // standingLine is "  1 ● Arsenal ……… ███▌ 85": position, the club's dot,
 // its name (a starred club picked out) and points as a bar and a number.
+// A wide card adds the record between: played, won, drawn, lost and goal
+// difference.
 func (m *Model) standingLine(c Card, r StandingRow, maxPts, inner int) string {
 	th := m.deps.Theme
 	pos := "–"
@@ -280,20 +257,39 @@ func (m *Model) standingLine(c Card, r StandingRow, maxPts, inner int) string {
 	if starred {
 		name = "★ " + name
 	}
-	nameWidth := inner - 4 - 2 - len(pts) - 1 - (pointsBarWidth + 1)
-	name = components.Truncate(name, nameWidth)
 	nameStyle := th.TableCell
 	if starred {
 		nameStyle = th.Accent.Bold(true)
 	}
-	bar := components.Bar(float64(r.Points), float64(maxPts), pointsBarWidth)
+	wide := inner >= wideTable
+	nameWidth, barWidth := inner-4-2-len(pts)-1-(pointsBarWidth+1), pointsBarWidth
+	if wide {
+		nameWidth, barWidth = wideColumns(inner)
+	}
+	name = components.Truncate(name, nameWidth)
+	bar := th.Accent.Faint(true).Render(padBar(components.Bar(float64(r.Points), float64(maxPts), barWidth), barWidth))
 	// Padded by display width, not with %-*s, which counts bytes and
 	// would misalign names with accents.
-	return th.TableCell.Render(fmt.Sprintf("%3s ", pos)) +
+	line := th.TableCell.Render(fmt.Sprintf("%3s ", pos)) +
 		components.Dot(th, c.Colors[r.Team.ID].PrimaryHex) + " " +
-		nameStyle.Render(name+strings.Repeat(" ", max(nameWidth-lipgloss.Width(name), 0))) + " " +
-		th.Accent.Faint(true).Render(bar+strings.Repeat(" ", pointsBarWidth-lipgloss.Width(bar))) + " " +
-		nameStyle.Render(pts)
+		nameStyle.Render(name+strings.Repeat(" ", max(nameWidth-lipgloss.Width(name), 0)))
+	if !wide {
+		return line + " " + bar + " " + nameStyle.Render(pts)
+	}
+	return line +
+		th.Muted.Render(fmt.Sprintf("%4d%4d%4d%4d", r.Played, r.Wins, r.Draws, r.Losses)) +
+		gdStyle(th, r.GoalDiff).Render(fmt.Sprintf("%5s", components.Signed(r.GoalDiff))) +
+		"  " + bar + " " + nameStyle.Render(fmt.Sprintf("%3s", pts))
+}
+
+func gdStyle(th styles.Theme, gd int) lipgloss.Style {
+	switch {
+	case gd > 0:
+		return th.Positive
+	case gd < 0:
+		return th.Negative
+	}
+	return th.Muted
 }
 
 func (m *Model) teamLines(c Card, inner int) []string {
@@ -301,7 +297,7 @@ func (m *Model) teamLines(c Card, inner int) []string {
 	lines := []string{m.heading(c, inner)}
 	s := c.TeamStats
 	if s == nil {
-		return append(lines, "", th.Empty.Render(components.Truncate("No seasons cached.", inner)))
+		return append(lines, th.Empty.Render(components.Truncate("No seasons cached.", inner)))
 	}
 	lines = append(lines, th.Muted.Render(components.Truncate(c.Competition.Name+" "+components.SeasonName(c.Season), inner)))
 
@@ -314,8 +310,14 @@ func (m *Model) teamLines(c Card, inner int) []string {
 			headStyle = th.Negative.Bold(true)
 		}
 	}
-	lines = append(lines,
-		headStyle.Render(components.Truncate(headline, inner)),
+	// Form sits at the headline's right when there's room for both.
+	head := headStyle.Render(components.Truncate(headline, inner))
+	form := components.FormChips(th, c.Summary.Form)
+	if gap := inner - lipgloss.Width(head) - lipgloss.Width(form); form != "" && gap >= 2 {
+		head += strings.Repeat(" ", gap) + form
+		form = ""
+	}
+	lines = append(lines, head,
 		th.TableCell.Render(components.Truncate(fmt.Sprintf("P%d  W%d  D%d  L%d  GD %s", s.MatchesPlayed, s.Wins, s.Draws, s.Losses, components.Signed(s.GoalDiff)), inner)),
 	)
 	if s.XG != nil {
@@ -328,18 +330,14 @@ func (m *Model) teamLines(c Card, inner int) []string {
 			th.Muted.Render("goals ")+th.TableCell.Render(padBar(components.Bar(float64(s.GoalsFor), scale, barWidth), barWidth))+" "+th.TableCell.Render(strconv.Itoa(s.GoalsFor)),
 		)
 	} else {
-		lines = append(lines,
-			th.TableCell.Render(components.Truncate(fmt.Sprintf("GF %d · GA %d", s.GoalsFor, s.GoalsAgainst), inner)),
-			th.Faint.Render(components.Truncate("no xG for this league", inner)),
-		)
+		goals := fmt.Sprintf("GF %d · GA %d", s.GoalsFor, s.GoalsAgainst)
+		lines = append(lines, th.TableCell.Render(components.Truncate(goals, inner))+
+			th.Faint.Render(components.Truncate(" · no xG", max(inner-lipgloss.Width(goals), 0))))
 	}
-	if form := c.Summary.Form; form != "" {
-		lines = append(lines, th.Muted.Render("form ")+components.FormChips(th, form))
+	if form != "" {
+		lines = append(lines, th.Muted.Render("form ")+form)
 	}
-	for len(lines) < cardLines-1 {
-		lines = append(lines, "")
-	}
-	return append(lines, m.freshness(c, inner))
+	return lines
 }
 
 func (m *Model) playerLines(c Card, inner int) []string {
@@ -347,55 +345,76 @@ func (m *Model) playerLines(c Card, inner int) []string {
 	lines := []string{m.heading(c, inner)}
 	s := c.PlayerStats
 	if s == nil {
-		return append(lines, "", th.Empty.Render(components.Truncate("No seasons cached.", inner)))
+		return append(lines, th.Empty.Render(components.Truncate("No seasons cached.", inner)))
 	}
-	lines = append(lines,
-		th.Muted.Render(components.Truncate(c.Team.Name+" · "+components.SeasonName(c.Season), inner)),
-		th.Muted.Render(components.Truncate(c.Competition.Name, inner)),
-		th.Accent.Bold(true).Render(components.Truncate(fmt.Sprintf("%d goals · %d assists", s.Goals, s.Assists), inner)),
+	parts := []string{}
+	if s.XG != nil {
+		parts = append(parts, "xG "+components.Float(s.XG, 1))
+	}
+	if s.XA != nil {
+		parts = append(parts, "xA "+components.Float(s.XA, 1))
+	}
+	parts = append(parts, fmt.Sprintf("%d apps", s.Appearances))
+	// Minutes only where they fit whole.
+	if mins := strconv.Itoa(s.Minutes) + " min"; s.Minutes > 0 && lipgloss.Width(strings.Join(append(parts, mins), " · ")) <= inner {
+		parts = append(parts, mins)
+	}
+	return append(lines,
+		th.Muted.Render(components.Truncate(c.Team.Name+" · "+c.Competition.Abbrev()+" "+components.SeasonName(c.Season), inner)),
+		th.Accent.Bold(true).Render(components.Truncate(count(s.Goals, "goal")+" · "+count(s.Assists, "assist"), inner)),
+		th.TableCell.Render(components.Truncate(strings.Join(parts, " · "), inner)),
 	)
-	if s.XG != nil || s.XA != nil {
-		var parts []string
-		if s.XG != nil {
-			parts = append(parts, "xG "+components.Float(s.XG, 1))
-		}
-		if s.XA != nil {
-			parts = append(parts, "xA "+components.Float(s.XA, 1))
-		}
-		lines = append(lines, th.TableCell.Render(components.Truncate(strings.Join(parts, " · "), inner)))
-	}
-	played := fmt.Sprintf("%d apps", s.Appearances)
-	if s.Minutes > 0 {
-		played += " · " + strconv.Itoa(s.Minutes) + " min"
-	}
-	lines = append(lines, th.TableCell.Render(components.Truncate(played, inner)))
-	for len(lines) < cardLines-1 {
-		lines = append(lines, "")
-	}
-	return append(lines, m.freshness(c, inner))
 }
 
-// freshness says how current a card's numbers are, or that they're being
-// brought up to date right now.
-func (m *Model) freshness(c Card, inner int) string {
+// age is how current a card's numbers are, short enough for its heading
+// ("3h"), or that they're being brought up to date right now.
+func (m *Model) age(c Card) string {
 	th := m.deps.Theme
-	var text string
+	if c.Missing {
+		return ""
+	}
 	running, waiting := m.inFlight(c)
 	switch {
 	case running:
-		return th.Status.Render(components.Truncate("◐ refreshing now…", inner))
+		return th.Status.Render("◐ refreshing")
 	case waiting:
-		return th.Faint.Render(components.Truncate("◌ queued for refresh", inner))
-	case c.Group == GroupNations && !c.Updated.IsZero():
-		text = "updated " + components.Freshness(c.Updated, now())
+		return th.Faint.Render("◌ queued")
+	case c.Group == GroupNations:
+		if c.Updated.IsZero() {
+			return ""
+		}
+		return th.Muted.Render(shortAge(c.Updated))
 	case c.LastSync == nil:
-		text = "never refreshed"
+		return th.Faint.Render("never")
 	case !c.LastSync.Succeeded():
-		text = "last refresh failed " + components.Freshness(c.LastSync.FinishedAt, now())
-	default:
-		text = "updated " + components.Freshness(c.LastSync.FinishedAt, now())
+		return th.Negative.Render("⚠ " + shortAge(c.LastSync.FinishedAt))
 	}
-	return th.Muted.Render(components.Truncate(text, inner))
+	return th.Muted.Render(shortAge(c.LastSync.FinishedAt))
+}
+
+// shortAge is how long ago something was, in one unit: "now", "5m",
+// "3h", "2d", "4mo".
+func shortAge(then time.Time) string {
+	d := now().Sub(then)
+	switch {
+	case d < time.Minute:
+		return "now"
+	case d < time.Hour:
+		return strconv.Itoa(int(d.Minutes())) + "m"
+	case d < 24*time.Hour:
+		return strconv.Itoa(int(d.Hours())) + "h"
+	case d < 30*24*time.Hour:
+		return strconv.Itoa(int(d.Hours()/24)) + "d"
+	}
+	return strconv.Itoa(int(d.Hours()/24/30)) + "mo"
+}
+
+// count is "1 goal", "3 goals".
+func count(n int, unit string) string {
+	if n == 1 {
+		return "1 " + unit
+	}
+	return strconv.Itoa(n) + " " + unit + "s"
 }
 
 // padBar pads a bar to width so the number after it lines up.

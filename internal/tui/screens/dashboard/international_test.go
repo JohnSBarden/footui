@@ -48,9 +48,11 @@ func TestGroupsRunLeaguesTournamentsClubsNationsPlayers(t *testing.T) {
 		t.Fatalf("groups %v, want %v", groups, want)
 	}
 	out := m.View()
-	l, tn, n := strings.Index(out, "LEAGUES"), strings.Index(out, "TOURNAMENTS"), strings.Index(out, "NATIONS")
+	// Each wears its kind's badge: a table, a gold diamond, a flag (or a
+	// plain one for a nation we have no flag for).
+	l, tn, n := strings.Index(out, "▦ Premier League"), strings.Index(out, "◈ FIFA World Cup"), strings.Index(out, "⚑ Arcadia")
 	if l < 0 || tn < l || n < tn {
-		t.Errorf("headings out of order:\n%s", out)
+		t.Errorf("cards out of order:\n%s", out)
 	}
 }
 
@@ -101,7 +103,7 @@ func TestANationCardShowsResultsNextFixtureAndForm(t *testing.T) {
 		t.Errorf("summary %+v", card.Summary)
 	}
 	out := m.View()
-	for _, want := range []string{"★ Arcadia", "national team · men · all matches", "P7 W4 D2 L1  DWWLD", "next:", "v Borduria"} {
+	for _, want := range []string{"⚑ Arcadia", "men · all matches", "P7 W4 D2 L1", "D W W L D", "next:", "v Borduria"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("view missing %q\n%s", want, out)
 		}
@@ -136,7 +138,7 @@ func TestANationCardRefreshesItsMatchesAndSaysSo(t *testing.T) {
 		t.Error("a nation card has no single competition to refresh")
 	}
 	updated, _ := m.Update(core.RefreshQueueMsg{Pending: []core.RefreshRequest{{Nations: "men"}}})
-	if !strings.Contains(updated.View(), "queued for refresh") {
+	if !strings.Contains(updated.View(), "◌ queued") {
 		t.Error("a queued gender-wide refresh covers the nation's card")
 	}
 }

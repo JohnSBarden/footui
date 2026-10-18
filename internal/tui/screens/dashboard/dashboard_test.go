@@ -2,6 +2,7 @@ package dashboard_test
 
 import (
 	"context"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -122,8 +123,10 @@ func TestAClubCardShowsItsForm(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if view := load(t, deps, 120).View(); !strings.Contains(view, "form L W") {
-		t.Errorf("no form line:\n%s", view)
+	// Beside the headline, where there's room.
+	view := load(t, deps, 120).View()
+	if !regexp.MustCompile(`1st · 90 pts +L W`).MatchString(view) {
+		t.Errorf("no form beside the headline:\n%s", view)
 	}
 }
 
@@ -132,17 +135,17 @@ func TestCardsShowWhereEachFavouriteStands(t *testing.T) {
 	view := load(t, deps, 120).View()
 
 	for _, want := range []string{
-		"LEAGUES", "CLUBS", "PLAYERS",
-		"★ Premier League", "England · 2025-26",
+		"▦ Premier League", "England · 2025-26", // a league's badge is a table
+		"▌ Arsenal",           // a club's is its colours, as halves
 		"★ Arsenal",           // the starred club in the league table
 		"1st · 90 pts",        // the club card's headline
 		"P38  W28  D6  L4",    // its record
 		"84.2",                // xG, drawn against the 91 scored
-		"★ Bukayo Saka",       // the player card
+		"◉ Bukayo Saka",       // the player card
 		"7 goals · 5 assists", // their season
 		"xG 8.7 · xA 8.6",     // with understat's expected numbers
-		"Not cached.",         // the missing club
-		"updated 3 hours ago", // freshness
+		"Not cached (team).",  // the missing club
+		"3h │",                // freshness, at the heading's right
 	} {
 		if !strings.Contains(view, want) {
 			t.Errorf("dashboard is missing %q:\n%s", want, view)
@@ -152,18 +155,21 @@ func TestCardsShowWhereEachFavouriteStands(t *testing.T) {
 
 func TestArrowKeysMoveAcrossTheGrid(t *testing.T) {
 	_, deps, _ := seed(t)
-	// 120 columns hold three cards: rows are [league] [arsenal, gone] [saka].
+	// 120 columns hold three: the league spans the first two, and the
+	// other cards stack down the third beside it.
 	var s core.Screen = load(t, deps, 120)
 	sel := func() string { c, _ := s.(*dashboard.Model).Selected(); return c.ID }
 
 	steps := []struct{ key, want string }{
-		{"down", "eng-arsenal"},
-		{"right", "eng-gone"},
-		{"down", "p-saka"}, // the shorter row's only card
-		{"up", "eng-arsenal"},
+		{"down", "eng-premier-league"}, // nothing under the league
+		{"right", "eng-arsenal"},       // level with its top
+		{"down", "eng-gone"},
+		{"down", "p-saka"},
+		{"down", "p-saka"}, // stays put at the bottom
+		{"left", "eng-premier-league"},
 		{"up", "eng-premier-league"},
-		{"up", "eng-premier-league"}, // stays put at the top
 		{"G", "p-saka"},
+		{"up", "eng-gone"},
 		{"g", "eng-premier-league"},
 	}
 	for _, st := range steps {
@@ -178,7 +184,7 @@ func TestEnterOpensTheCardsScreenWithItsSeason(t *testing.T) {
 	_, deps, got := seed(t)
 	m := load(t, deps, 120)
 
-	m.Update(tea.KeyMsg{Type: tea.KeyDown})
+	m.Update(tea.KeyMsg{Type: tea.KeyRight})
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	if _, ok := tuitest.CapturedCmd(cmd).(core.PushMsg); !ok {
 		t.Fatal("enter should push a screen")
@@ -196,7 +202,6 @@ func TestEnterOpensTheCardsScreenWithItsSeason(t *testing.T) {
 
 	// A missing card explains itself rather than opening an empty screen.
 	m.Update(tea.KeyMsg{Type: tea.KeyUp})
-	m.Update(tea.KeyMsg{Type: tea.KeyRight})
 	_, cmd = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	if msg, ok := tuitest.CapturedCmd(cmd).(core.StatusMsg); !ok || !strings.Contains(msg.Text, "isn't cached") {
 		t.Errorf("enter on a missing card gave %#v", msg)
@@ -288,7 +293,7 @@ func TestRefreshQueueShowsOnTheCards(t *testing.T) {
 	_, deps, _ := seed(t)
 	var s core.Screen = load(t, deps, 120)
 	s, _ = s.Update(core.RefreshQueueMsg{Active: &core.RefreshRequest{CompetitionID: "eng-premier-league"}})
-	if !strings.Contains(s.View(), "refreshing now…") {
+	if !strings.Contains(s.View(), "◐ refreshing") {
 		t.Error("cards from the competition being refreshed should say so")
 	}
 }
@@ -311,7 +316,7 @@ func TestClubCardWithoutXGSaysSo(t *testing.T) {
 	}
 	deps.Favorites = core.NewFavorites(append(mustFavorites(t, repos), luton))
 	view := load(t, deps, 120).View()
-	if !strings.Contains(view, "no xG for this league") || !strings.Contains(view, "GF 39 · GA 85") {
+	if !strings.Contains(view, "GF 39 · GA 85 · no xG") {
 		t.Errorf("no-xG club card:\n%s", view)
 	}
 }
@@ -355,3 +360,45 @@ func mustFavorites(t *testing.T, repos storage.Repositories) []models.Favorite {
 }
 
 func stripANSI(s string) string { return ansi.Strip(s) }
+
+// A league's card is twice the others each way: two columns wide, with
+// the whole record on each row, and the other cards flow in beside it.
+func TestALeagueCardSpansTwoColumnsWithTheWholeRecord(t *testing.T) {
+	_, deps, _ := seed(t)
+	view := load(t, deps, 120).View()
+	lines := strings.Split(view, "\n")
+	var head, arsenal string
+	for _, l := range lines {
+		if strings.Contains(l, "Club") && strings.Contains(l, "Pts") {
+			head = l
+		}
+		if strings.Contains(l, "★ Arsenal") {
+			arsenal = l
+		}
+	}
+	for _, col := range []string{"P", "W", "D", "L", "GD"} {
+		if !strings.Contains(head, " "+col+" ") {
+			t.Errorf("table header %q has no %s column", head, col)
+		}
+	}
+	if !regexp.MustCompile(`★ Arsenal +38 +28 +6 +4 +\+62 .* 90`).MatchString(arsenal) {
+		t.Errorf("Arsenal's row %q lacks its record", arsenal)
+	}
+	// The club card sits beside the league's heading, past its two columns.
+	top := lines[3]
+	if !strings.Contains(top, "Premier League") || !strings.Contains(top, "Arsenal") {
+		t.Errorf("the club card should flow in beside the league:\n%s", view)
+	}
+	if got := strings.Count(view, "\n") + 1; got > 2+20 {
+		t.Errorf("%d lines: the cards should pack beside the league, not under it", got)
+	}
+}
+
+// On one column a league card is one column wide, like the rest.
+func TestANarrowLeagueCardKeepsPointsOnly(t *testing.T) {
+	_, deps, _ := seed(t)
+	view := load(t, deps, 40).View()
+	if strings.Contains(view, "Pts") || !strings.Contains(view, "● ★ Arsenal") {
+		t.Errorf("narrow league card:\n%s", view)
+	}
+}

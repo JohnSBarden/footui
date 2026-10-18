@@ -166,22 +166,25 @@ into the results, where `j`/`k` and the plain keys work again.
 Star what you follow with `f`. It stars whatever is highlighted: on a league
 table, the league while the cursor is on its header (where the screen
 opens) and the club once you move into the table. Starred names carry a ★.
-Once anything is starred, `footui` opens on a dashboard of cards, grouped
-leagues, tournaments, clubs, nations, then players:
+Once anything is starred, `footui` opens on a dashboard of cards that flow
+together into columns, leagues first, then tournaments, clubs, nations and
+players. Each card's title carries a badge that says what it is:
 
-- **League** — the top of the current table, with your starred clubs picked
-  out even further down.
-- **Tournament** — your nation's group during the group stage, the latest
-  round after it.
-- **Club** — position, points, record, xG against goals where understat
-  covers the league, and form over its last five games in every competition.
-- **Nation** — its last three results, its next fixture and its form, under
-  its saved filter.
-- **Player** — the season's goals and assists, plus xG and xA where
-  available.
+- **League** `▦` — twice the size of the others, two columns wide: the top
+  fifteen of the current table with each club's full record, and your
+  starred clubs picked out even further down.
+- **Tournament** `◈` — your nation's group during the group stage, the
+  latest round after it.
+- **Club** — its colours, as halves on the badge and a scarf along the top:
+  position, points and form, record, and xG against goals where understat
+  covers the league.
+- **Nation** — its flag: its last three results, its next fixture and its
+  form, under its saved filter.
+- **Player** `◉`, in their club's colour — the season's goals and assists,
+  plus xG and xA where available.
 
-Each card says how fresh its numbers are and when a refresh of them is
-running. Favourites are keyed by footui's own IDs, so a club starred from its
+Each card says at its top right how fresh its numbers are (`3h`), and when a
+refresh of them is running. Favourites are keyed by footui's own IDs, so a club starred from its
 Premier League page is the same favourite reached through the Champions
 League.
 

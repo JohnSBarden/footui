@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/charmbracelet/lipgloss"
+
 	"github.com/JohnSBarden/footui/internal/data/models"
 	"github.com/JohnSBarden/footui/internal/tui/components"
 	"github.com/JohnSBarden/footui/internal/tui/core"
@@ -60,7 +62,7 @@ func loadTournament(deps core.Deps, comp models.Competition) (Card, error) {
 		}
 		for _, s := range stats {
 			if s.GroupLabel == c.GroupLabel && len(c.Table) < tableRows {
-				c.Table = append(c.Table, StandingRow{Position: s.Position, Team: c.team(s.TeamID), Points: s.Points, Played: s.MatchesPlayed})
+				c.Table = append(c.Table, standingRow(s, c.team(s.TeamID)))
 			}
 		}
 	case len(matches) > 0:
@@ -87,7 +89,7 @@ func loadTournament(deps core.Deps, comp models.Competition) (Card, error) {
 	default:
 		for i, s := range stats {
 			if i < tableRows {
-				c.Table = append(c.Table, StandingRow{Position: s.Position, Team: c.team(s.TeamID), Points: s.Points, Played: s.MatchesPlayed})
+				c.Table = append(c.Table, standingRow(s, c.team(s.TeamID)))
 			}
 		}
 	}
@@ -201,12 +203,9 @@ func (m *Model) tournamentLines(c Card, inner int) []string {
 		lines = append(lines, style.Render(components.Truncate(line, inner)))
 	}
 	if len(c.Table) == 0 && len(c.Results) == 0 {
-		lines = append(lines, "", th.Empty.Render(components.Truncate("Nothing cached yet — press r.", inner)))
+		lines = append(lines, th.Empty.Render(components.Truncate("Nothing cached yet — press r.", inner)))
 	}
-	for len(lines) < cardLines-1 {
-		lines = append(lines, "")
-	}
-	return append(lines, m.freshness(c, inner))
+	return lines
 }
 
 // filterLabel says which of a nation's matches its card counts.
@@ -228,17 +227,20 @@ func (m *Model) nationLines(c Card, inner int) []string {
 	th := m.deps.Theme
 	lines := []string{
 		m.heading(c, inner),
-		th.Muted.Render(components.Truncate("national team · "+c.Team.Gender+" · "+filterLabel(c.Filter), inner)),
+		th.Muted.Render(components.Truncate(c.Team.Gender+" · "+filterLabel(c.Filter), inner)),
 	}
 	s := c.Summary
 	if s.Played == 0 && c.Next == nil {
-		return append(lines, "", th.Empty.Render(components.Truncate("No matches cached — press r.", inner)))
+		return append(lines, th.Empty.Render(components.Truncate("No matches cached — press r.", inner)))
 	}
-	record := fmt.Sprintf("P%d W%d D%d L%d", s.Played, s.Won, s.Drawn, s.Lost)
-	if s.Form != "" {
-		record += "  " + s.Form
+	// The record, and its form at the right, as on a club card.
+	record := th.Accent.Bold(true).Render(components.Truncate(fmt.Sprintf("P%d W%d D%d L%d", s.Played, s.Won, s.Drawn, s.Lost), inner))
+	if form := components.FormChips(th, s.Form); form != "" {
+		if gap := inner - lipgloss.Width(record) - lipgloss.Width(form); gap >= 2 {
+			record += strings.Repeat(" ", gap) + form
+		}
 	}
-	lines = append(lines, th.Accent.Bold(true).Render(components.Truncate(record, inner)))
+	lines = append(lines, record)
 	for _, mt := range c.Recent {
 		style := th.TableCell
 		switch mt.Result(c.Team.ID) {
@@ -253,16 +255,11 @@ func (m *Model) nationLines(c Card, inner int) []string {
 		width := inner - len([]rune(score)) - 1
 		lines = append(lines, th.TableCell.Render(padRight(components.Truncate(left, width), width))+" "+style.Render(score))
 	}
-	for len(lines) < cardLines-2 {
-		lines = append(lines, "")
-	}
 	if c.Next != nil {
 		next := "next: " + components.Kickoff(c.Next.Kickoff) + " v " + c.team(c.Next.Opponent(c.Team.ID)).Name
 		lines = append(lines, th.Muted.Render(components.Truncate(next, inner)))
-	} else {
-		lines = append(lines, "")
 	}
-	return append(lines, m.freshness(c, inner))
+	return lines
 }
 
 func padRight(s string, w int) string {

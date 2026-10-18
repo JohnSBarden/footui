@@ -77,50 +77,6 @@ func (m *Model) handleKey(msg tea.KeyMsg) (core.Screen, tea.Cmd) {
 	return m, nil
 }
 
-// grid lays the cards out as rows of indexes into m.cards, each group
-// starting a new row.
-func (m *Model) grid() [][]int {
-	cols := m.columns()
-	var rows [][]int
-	for i := range m.cards {
-		newGroup := i == 0 || m.cards[i].Group != m.cards[i-1].Group
-		if newGroup || len(rows[len(rows)-1]) == cols {
-			rows = append(rows, nil)
-		}
-		rows[len(rows)-1] = append(rows[len(rows)-1], i)
-	}
-	return rows
-}
-
-// move shifts the cursor by whole rows or single cards. Moving up or down
-// keeps the column where the next row has one, and lands on its last card
-// where it's shorter.
-func (m *Model) move(dRow, dCol int) {
-	if len(m.cards) == 0 {
-		return
-	}
-	if dCol != 0 {
-		m.cursor = min(max(m.cursor+dCol, 0), len(m.cards)-1)
-		return
-	}
-	rows := m.grid()
-	r, c := position(rows, m.cursor)
-	r = min(max(r+dRow, 0), len(rows)-1)
-	m.cursor = rows[r][min(max(c, 0), len(rows[r])-1)]
-}
-
-// position finds a card's row and column in the grid.
-func position(rows [][]int, card int) (int, int) {
-	for r, row := range rows {
-		for c, i := range row {
-			if i == card {
-				return r, c
-			}
-		}
-	}
-	return 0, 0
-}
-
 // open drills into the selected card: the same screen Browse would open,
 // with the card's season as context.
 func (m *Model) open() tea.Cmd {

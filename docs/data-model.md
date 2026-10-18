@@ -281,7 +281,7 @@ by `(entity_type, entity_id)` with `entity_type` one of `competition`,
 across providers. There are deliberately no foreign keys: a favourite
 whose entity isn't cached any more stays, and the dashboard shows it as
 not cached so it can still be un-starred. `added_at` orders cards within
-each dashboard group.
+each kind on the dashboard.
 
 ## A SQLite driver caveat worth knowing
 

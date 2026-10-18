@@ -2,8 +2,9 @@
 // card per favourite, each showing where it stands this season, and each
 // drilling into the screen Browse would open.
 //
-// Cards are grouped in a fixed order — leagues, tournaments, clubs,
-// nations, players — and within each group by when they were starred.
+// Cards run in a fixed order — leagues, tournaments, clubs, nations,
+// players — and within each kind by when they were starred, flowing
+// together into columns; each card's badge says what kind it is.
 // Search is one key away (/), so the dashboard replaces the bare search
 // box without hiding it.
 package dashboard
@@ -25,8 +26,13 @@ import (
 // Title is the dashboard's breadcrumb title.
 const Title = "Dashboard"
 
-// tableRows is how many standings rows a league card shows.
-const tableRows = 5
+// tableRows is how many standings rows a tournament card shows;
+// leagueRows how many a league's card, twice the size of the others,
+// does.
+const (
+	tableRows  = 5
+	leagueRows = 15
+)
 
 // StandingRow is one line of a league card's table.
 type StandingRow struct {
@@ -34,6 +40,15 @@ type StandingRow struct {
 	Team     models.Team
 	Points   int
 	Played   int
+	Wins     int
+	Draws    int
+	Losses   int
+	GoalDiff int
+}
+
+func standingRow(s models.TeamSeasonStats, team models.Team) StandingRow {
+	return StandingRow{Position: s.Position, Team: team, Points: s.Points, Played: s.MatchesPlayed,
+		Wins: s.Wins, Draws: s.Draws, Losses: s.Losses, GoalDiff: s.GoalDiff}
 }
 
 // Group is a card's section of the dashboard, in display order.
@@ -118,7 +133,7 @@ func (c Card) Name() string {
 	case c.Kind == models.FavoriteCompetition:
 		return c.Competition.Name
 	case c.Kind == models.FavoriteTeam:
-		return c.Team.Name
+		return c.Team.Label()
 	default:
 		return c.Player.Name
 	}
@@ -239,7 +254,7 @@ func (m *Model) load() tea.Cmd {
 }
 
 // clubIDs are the clubs whose colours the cards draw: each club card's
-// own, and every club on a league card.
+// own, a player's club, and every club on a league card.
 func clubIDs(cards []Card) []string {
 	var ids []string
 	for _, c := range cards {
@@ -247,7 +262,7 @@ func clubIDs(cards []Card) []string {
 			continue
 		}
 		switch c.Group {
-		case GroupClubs:
+		case GroupClubs, GroupPlayers:
 			ids = append(ids, c.Team.ID)
 		case GroupLeagues:
 			for _, r := range c.Table {
@@ -315,9 +330,9 @@ func loadLeague(deps core.Deps, id string) (Card, error) {
 		if !ok {
 			team = models.Team{ID: s.TeamID, Name: s.TeamID}
 		}
-		row := StandingRow{Position: s.Position, Team: team, Points: s.Points, Played: s.MatchesPlayed}
+		row := standingRow(s, team)
 		switch {
-		case i < tableRows:
+		case i < leagueRows:
 			c.Table = append(c.Table, row)
 		case deps.Favorites.Has(models.FavoriteTeam, team.ID):
 			c.Starred = append(c.Starred, row)
