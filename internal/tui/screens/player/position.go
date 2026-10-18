@@ -68,7 +68,7 @@ func enrichHistory(deps core.Deps, p models.Player, stats []models.PlayerSeasonS
 					r.XGA = &xga
 				}
 			}
-			standouts, err := seasonStandouts(deps, s, group)
+			standouts, err := playerstats.SeasonStandouts(deps.Ctx, deps.Repos, s, group)
 			if err != nil {
 				return 0, false, err
 			}
@@ -77,36 +77,6 @@ func enrichHistory(deps core.Deps, p models.Player, stats []models.PlayerSeasonS
 		history[comp] = rows
 	}
 	return group, hasDetail, nil
-}
-
-// seasonStandouts compares one season with everyone else's in the same
-// competition-season.
-func seasonStandouts(deps core.Deps, s models.PlayerSeasonStats, g playerstats.Group) ([]playerstats.Standout, error) {
-	if s.Minutes < 900 {
-		return nil, nil // can't stand out; spare the queries
-	}
-	lines, err := deps.Repos.SeasonPlayerLines(deps.Ctx, s.CompetitionID, s.SeasonID)
-	if err != nil {
-		return nil, err
-	}
-	ids := make([]string, 0, len(lines))
-	byPlayer := map[string][]models.PlayerSeasonStats{}
-	for _, l := range lines {
-		if _, seen := byPlayer[l.PlayerID]; !seen {
-			ids = append(ids, l.PlayerID)
-		}
-		byPlayer[l.PlayerID] = append(byPlayer[l.PlayerID], l)
-	}
-	players, err := deps.Repos.GetPlayers(deps.Ctx, ids)
-	if err != nil {
-		return nil, err
-	}
-	groups := make(map[string]playerstats.Group, len(players))
-	for id, p := range players {
-		groups[id] = playerstats.GroupOf("", p.Position, byPlayer[id])
-	}
-	groups[s.PlayerID] = g
-	return playerstats.Standouts(s, g, lines, groups), nil
 }
 
 // minutesOf is the season's minutes, the detail's when it has them.

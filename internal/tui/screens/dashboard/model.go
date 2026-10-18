@@ -18,6 +18,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/JohnSBarden/footui/internal/data/models"
+	"github.com/JohnSBarden/footui/internal/data/playerstats"
 	"github.com/JohnSBarden/footui/internal/storage"
 	"github.com/JohnSBarden/footui/internal/tui/core"
 	"github.com/JohnSBarden/footui/internal/tui/keys"
@@ -97,6 +98,14 @@ type Card struct {
 	// Player cards. Team is the club the line is for.
 	Player      models.Player
 	PlayerStats *models.PlayerSeasonStats
+	// Position is the player's group; Detail that season's clean sheets,
+	// tackles and so on (nil until fetched); XGA a keeper's estimated
+	// expected goals against; Standouts the season's numbers unusual for
+	// the position.
+	Position  playerstats.Group
+	Detail    *models.PlayerSeasonDetail
+	XGA       *float64
+	Standouts []playerstats.Standout
 
 	// Tournament cards show a group's table (GroupLabel, in Table) during
 	// the group stage, and the latest round's results after it.
@@ -444,6 +453,7 @@ func loadPlayer(deps core.Deps, id string) (Card, error) {
 		c.Competition = models.Competition{ID: stats.CompetitionID, Name: stats.CompetitionID}
 	}
 	c.LastSync = lastSync(deps, stats.CompetitionID, stats.SeasonID)
+	playerDetail(deps, &c, history)
 	return c, nil
 }
 

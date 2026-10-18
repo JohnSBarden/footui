@@ -6,11 +6,13 @@
 package playerstats
 
 import (
+	"context"
 	"math"
 	"slices"
 	"strings"
 
 	"github.com/JohnSBarden/footui/internal/data/models"
+	"github.com/JohnSBarden/footui/internal/storage"
 )
 
 // Group is a position, as broadly as footui shows one.
@@ -181,6 +183,36 @@ func Standouts(line models.PlayerSeasonStats, g Group, baseline []models.PlayerS
 		out = out[:maxStandouts]
 	}
 	return out
+}
+
+// SeasonStandouts compares one season line with every cached line in the
+// same competition-season, each player grouped by their listed position.
+func SeasonStandouts(ctx context.Context, repos storage.Repositories, line models.PlayerSeasonStats, g Group) ([]Standout, error) {
+	if line.Minutes < minMinutes {
+		return nil, nil // can't stand out; spare the queries
+	}
+	lines, err := repos.SeasonPlayerLines(ctx, line.CompetitionID, line.SeasonID)
+	if err != nil {
+		return nil, err
+	}
+	ids := make([]string, 0, len(lines))
+	byPlayer := map[string][]models.PlayerSeasonStats{}
+	for _, l := range lines {
+		if _, seen := byPlayer[l.PlayerID]; !seen {
+			ids = append(ids, l.PlayerID)
+		}
+		byPlayer[l.PlayerID] = append(byPlayer[l.PlayerID], l)
+	}
+	players, err := repos.GetPlayers(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+	groups := make(map[string]Group, len(players))
+	for id, p := range players {
+		groups[id] = GroupOf("", p.Position, byPlayer[id])
+	}
+	groups[line.PlayerID] = g
+	return Standouts(line, g, lines, groups), nil
 }
 
 // KeeperExpected estimates the goals a keeper was expected to concede: his

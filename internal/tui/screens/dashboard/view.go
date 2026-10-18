@@ -10,6 +10,7 @@ import (
 
 	"github.com/JohnSBarden/footui/internal/data/models"
 	"github.com/JohnSBarden/footui/internal/tui/components"
+	"github.com/JohnSBarden/footui/internal/tui/core"
 	"github.com/JohnSBarden/footui/internal/tui/styles"
 )
 
@@ -347,6 +348,11 @@ func (m *Model) playerLines(c Card, inner int) []string {
 	if s == nil {
 		return append(lines, th.Empty.Render(components.Truncate("No seasons cached.", inner)))
 	}
+	club := c.Team.Name + " · " + c.Competition.Abbrev() + " " + components.SeasonName(c.Season)
+	if c.Detail != nil {
+		lines = append(lines, th.Muted.Render(components.Truncate(club, inner)))
+		return append(lines, m.positionLines(c, inner)...)
+	}
 	parts := []string{}
 	if s.XG != nil {
 		parts = append(parts, "xG "+components.Float(s.XG, 1))
@@ -360,7 +366,7 @@ func (m *Model) playerLines(c Card, inner int) []string {
 		parts = append(parts, mins)
 	}
 	return append(lines,
-		th.Muted.Render(components.Truncate(c.Team.Name+" · "+c.Competition.Abbrev()+" "+components.SeasonName(c.Season), inner)),
+		th.Muted.Render(components.Truncate(club, inner)),
 		th.Accent.Bold(true).Render(components.Truncate(count(s.Goals, "goal")+" · "+count(s.Assists, "assist"), inner)),
 		th.TableCell.Render(components.Truncate(strings.Join(parts, " · "), inner)),
 	)
@@ -372,6 +378,16 @@ func (m *Model) age(c Card) string {
 	th := m.deps.Theme
 	if c.Missing {
 		return ""
+	}
+	if c.Kind == models.FavoritePlayer {
+		// A player's own refresh (their season detail) is theirs alone.
+		key := core.RefreshRequest{PlayerID: c.ID}.Key()
+		switch {
+		case m.active[key]:
+			return th.Status.Render("🔄 refreshing")
+		case m.pending[key]:
+			return th.Faint.Render("◌ queued")
+		}
 	}
 	running, waiting := m.inFlight(c)
 	switch {
