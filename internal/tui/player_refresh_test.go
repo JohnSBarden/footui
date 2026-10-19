@@ -38,6 +38,26 @@ func TestSplashPauseNamesNoSource(t *testing.T) {
 	}
 }
 
+// Opening a player is something being looked at now: their request goes
+// ahead of background league refreshes, and asking twice is asking once.
+func TestPlayerRequestJumpsTheQueueOnce(t *testing.T) {
+	app := newAppWithRefresh(newFake("Dashboard"), &fakeRefresher{summary: "ok"})
+	app.active = &core.RefreshRequest{CompetitionID: "eng-premier-league"}
+	app.queue = []core.RefreshRequest{{CompetitionID: "esp-la-liga"}, {CompetitionID: "ita-serie-a"}}
+	raya := core.RefreshRequest{PlayerID: "p1", Name: "David Raya", Automatic: true}
+	app.enqueue(raya)
+	app.enqueue(raya)
+	if len(app.queue) != 3 || app.queue[0].PlayerID != "p1" {
+		t.Fatalf("queue = %+v, want Raya first and once", app.queue)
+	}
+	app.active = &raya
+	app.queue = nil
+	app.enqueue(raya)
+	if len(app.queue) != 0 {
+		t.Errorf("a player already refreshing isn't queued again: %+v", app.queue)
+	}
+}
+
 // Starred players are queued with the leagues on launch; the summary
 // mustn't call them competitions.
 func TestBatchSummaryCountsPlayersApart(t *testing.T) {

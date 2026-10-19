@@ -121,6 +121,22 @@ func (a *App) enqueue(reqs ...core.RefreshRequest) tea.Cmd {
 		return nil
 	}
 	for _, req := range reqs {
+		if req.PlayerID != "" {
+			// A player's stats are asked for once: drop a copy already
+			// running or waiting. One asked for on its own is a player
+			// being opened, looked at now, so it goes ahead of the
+			// background refreshes; the launch's batch keeps its order.
+			if a.active != nil && a.active.Key() == req.Key() {
+				continue
+			}
+			a.queue = slices.DeleteFunc(a.queue, func(q core.RefreshRequest) bool { return q.Key() == req.Key() })
+			if len(reqs) == 1 {
+				a.queue = append([]core.RefreshRequest{req}, a.queue...)
+			} else {
+				a.queue = append(a.queue, req)
+			}
+			continue
+		}
 		if a.active != nil && len(mergeRequest([]core.RefreshRequest{*a.active}, req)) == 1 && len(req.Seasons) == 0 &&
 			(req.TeamID != "" || req.Nations != "" || req.Directory) {
 			// Already running: the same matches are being fetched now.
