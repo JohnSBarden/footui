@@ -151,6 +151,12 @@ func countOr(n *int) string {
 func (m *Model) positionCards(r SeasonRow) []components.Stat {
 	d, s := r.Detail, r.Stats
 	mins := minutesOf(r)
+	// The line's own counts (shots, key passes) go over the line's own
+	// minutes; an ESPN league's line has none, so the detail's stand in.
+	lineMins := s.Minutes
+	if lineMins < 90 {
+		lineMins = mins
+	}
 	notRecorded := func(st components.Stat, n *int) components.Stat {
 		if n == nil {
 			st.Value, st.Hint = "—", "not recorded"
@@ -203,7 +209,7 @@ func (m *Model) positionCards(r SeasonRow) []components.Stat {
 		return []components.Stat{
 			{Label: "Goals", Value: strconv.Itoa(s.Goals), Hint: expected(s.Goals, s.XG, "xG")},
 			{Label: "Assists", Value: strconv.Itoa(s.Assists), Hint: expected(s.Assists, s.XA, "xA")},
-			notRecorded(components.Stat{Label: "Key passes", Value: per90(s.KeyPasses, s.Minutes), Hint: "per 90 · " + countOr(s.KeyPasses)}, s.KeyPasses),
+			notRecorded(components.Stat{Label: "Key passes", Value: per90(s.KeyPasses, lineMins), Hint: "per 90 · " + countOr(s.KeyPasses)}, s.KeyPasses),
 			notRecorded(components.Stat{Label: "Tackles + int.", Value: per90(won, mins), Hint: "per 90 · " + countOr(won)}, won),
 			passing,
 		}
@@ -215,9 +221,9 @@ func (m *Model) positionCards(r SeasonRow) []components.Stat {
 	return []components.Stat{
 		{Label: "Goals", Value: strconv.Itoa(s.Goals), Hint: expected(s.Goals, s.XG, "xG")},
 		{Label: "Assists", Value: strconv.Itoa(s.Assists), Hint: expected(s.Assists, s.XA, "xA")},
-		notRecorded(components.Stat{Label: "Shots", Value: per90(s.Shots, s.Minutes), Hint: "per 90 · " + countOr(s.Shots)}, s.Shots),
+		notRecorded(components.Stat{Label: "Shots", Value: per90(s.Shots, lineMins), Hint: "per 90 · " + countOr(s.Shots)}, s.Shots),
 		onTarget,
-		{Label: "Minutes", Value: strconv.Itoa(s.Minutes), Hint: strconv.Itoa(s.Appearances) + " apps"},
+		{Label: "Minutes", Value: strconv.Itoa(mins), Hint: strconv.Itoa(appsOf(r)) + " apps"},
 	}
 }
 

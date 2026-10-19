@@ -213,6 +213,17 @@ func TestSparseSeasonShowsDash(t *testing.T) {
 	wantAll(t, out, "no tackles, interceptions or clearances recorded that season")
 }
 
+// For an ESPN league the line has no minutes: rates and the minutes tile
+// come from the detail.
+func TestForwardRatesUseDetailMinutes(t *testing.T) {
+	repos := storagetest.New(t)
+	seedArsenalSeason(t, repos, pl2025, "2025")
+	seedLine(t, repos, saka, models.PlayerSeasonStats{Appearances: 28, Goals: 25, Assists: 14, Shots: ip(110)},
+		&models.PlayerSeasonDetail{Position: "F", Minutes: ip(2400), ShotsOnTarget: ip(45)})
+	out := view(t, repos, saka)
+	wantAll(t, out, "4.12", "per 90 · 110", "2400")
+}
+
 // ESPN's synced rosters carry no minutes; the player's detail does.
 func TestTableUsesDetailMinutes(t *testing.T) {
 	repos := storagetest.New(t)

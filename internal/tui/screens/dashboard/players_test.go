@@ -98,6 +98,26 @@ func TestForwardCard(t *testing.T) {
 	wantIn(t, cardView(t, deps), "FWD", "7 goals · 5 assists", "from 8.7 xG · 2.85 shots/90", "38% on target")
 }
 
+// An ESPN league's line has no minutes or key passes; the card takes the
+// minutes from the detail and leaves out what nobody recorded.
+func TestESPNLeagueCardsUseDetailMinutes(t *testing.T) {
+	_, deps := starPlayer(t, models.Player{ID: "p-messi", Name: "Lionel Messi", Position: "F"},
+		models.PlayerSeasonStats{Appearances: 28, Goals: 25, Assists: 14, Shots: ip(110)},
+		&models.PlayerSeasonDetail{Position: "F", Minutes: ip(2400), ShotsOnTarget: ip(45)})
+	out := cardView(t, deps)
+	wantIn(t, out, "4.12 shots/90", "41% on target · 2400 min")
+	if strings.Contains(out, "— shots/90") || strings.Contains(out, " 0 min") {
+		t.Errorf("rates must use the detail's minutes\n%s", out)
+	}
+
+	_, deps = starPlayer(t, models.Player{ID: "p-labonta", Name: "Lo'eau LaBonta", Position: "M"},
+		models.PlayerSeasonStats{Appearances: 26, Goals: 1},
+		&models.PlayerSeasonDetail{Position: "M", Minutes: ip(2200), Tackles: ip(50), Interceptions: ip(31), PassPct: fp(0.81)})
+	if out := cardView(t, deps); strings.Contains(out, "KP/90") {
+		t.Errorf("no key passes recorded, none shown\n%s", out)
+	}
+}
+
 func TestCardWithoutDetail(t *testing.T) {
 	_, deps := starPlayer(t, models.Player{ID: "p-raya", Name: "David Raya", Position: "GK"},
 		models.PlayerSeasonStats{Appearances: 37, Minutes: 3330}, nil)

@@ -90,6 +90,12 @@ func (m *Model) positionLines(c Card, inner int) []string {
 	th := m.deps.Theme
 	d, s := c.Detail, c.PlayerStats
 	mins := detailMinutes(&c)
+	// The line's own counts (shots, key passes) go over the line's own
+	// minutes; an ESPN league's line has none, so the detail's stand in.
+	lineMins := s.Minutes
+	if lineMins < 90 {
+		lineMins = mins
+	}
 	var headline string
 	var rest []string
 	switch c.Position {
@@ -108,7 +114,13 @@ func (m *Model) positionLines(c Card, inner int) []string {
 		}
 	case playerstats.MID:
 		headline = count(s.Goals, "goal") + " · " + count(s.Assists, "assist")
-		rest = append(rest, joinNonEmpty(xParts(s), rate(s.KeyPasses, s.Minutes)+" KP/90"))
+		kp := ""
+		if s.KeyPasses != nil {
+			kp = rate(s.KeyPasses, lineMins) + " KP/90"
+		}
+		if line := joinNonEmpty(xParts(s), kp); line != "" {
+			rest = append(rest, line)
+		}
 		if d.Tackles != nil && d.Interceptions != nil {
 			won := *d.Tackles + *d.Interceptions
 			line := rate(&won, mins) + " tkl+int/90"
@@ -123,9 +135,15 @@ func (m *Model) positionLines(c Card, inner int) []string {
 		if s.XG != nil {
 			from = "from " + components.Float(s.XG, 1) + " xG"
 		}
-		rest = append(rest, joinNonEmpty(from, rate(s.Shots, s.Minutes)+" shots/90"))
+		shots := ""
+		if s.Shots != nil {
+			shots = rate(s.Shots, lineMins) + " shots/90"
+		}
+		if line := joinNonEmpty(from, shots); line != "" {
+			rest = append(rest, line)
+		}
 		if d.ShotsOnTarget != nil && s.Shots != nil && *s.Shots > 0 {
-			rest = append(rest, share(*d.ShotsOnTarget, *s.Shots)+" on target · "+strconv.Itoa(s.Minutes)+" min")
+			rest = append(rest, share(*d.ShotsOnTarget, *s.Shots)+" on target · "+strconv.Itoa(mins)+" min")
 		}
 	}
 
