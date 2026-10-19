@@ -139,13 +139,13 @@ func TestCardsShowWhereEachFavouriteStands(t *testing.T) {
 	view := load(t, deps, 120).View()
 
 	for _, want := range []string{
-		"🏆 Premier League", "England · 2025-26", // a league's badge is a trophy
-		"🥅 Arsenal",           // a club's a goal net
+		"🥅 Premier League", "England · 2025-26", // a league's badge is a goal net
+		"◆ Arsenal",           // a club's a diamond in its colour
 		"★ Arsenal",           // the starred club in the league table
 		"1st · 90 pts",        // the club card's headline
 		"P38  W28  D6  L4",    // its record
 		"84.2",                // xG, drawn against the 91 scored
-		"◉ Bukayo Saka",       // the player card
+		"● Bukayo Saka",       // the player card, a dot in his club's colour
 		"7 goals · 5 assists", // their season
 		"xG 8.7 · xA 8.6",     // with understat's expected numbers
 		"Not cached (team).",  // the missing club
@@ -407,13 +407,13 @@ func TestANarrowLeagueCardKeepsPointsOnly(t *testing.T) {
 	}
 }
 
-// Without emoji, a league is ▦ and a club its colours as halves.
+// Without emoji, a league is ▦; a club's ◆ needs none.
 func TestBadgesFallBackWithoutEmoji(t *testing.T) {
 	components.Emoji = false
 	defer func() { components.Emoji = true }()
 	_, deps, _ := seed(t)
 	view := load(t, deps, 120).View()
-	if !strings.Contains(view, "▦ Premier League") || !strings.Contains(view, "▌ Arsenal") {
+	if !strings.Contains(view, "▦ Premier League") || !strings.Contains(view, "◆ Arsenal") {
 		t.Errorf("fallback badges:\n%s", view)
 	}
 }

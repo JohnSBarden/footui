@@ -170,17 +170,17 @@ Once anything is starred, `footui` opens on a dashboard of cards that flow
 together into columns, leagues first, then tournaments, clubs, nations and
 players. Each card's title carries a badge that says what it is:
 
-- **League** 🏆 — twice the size of the others, two columns wide: the top
+- **League** 🥅 — twice the size of the others, two columns wide: the top
   fifteen of the current table with each club's full record, and your
   starred clubs picked out even further down.
 - **Tournament** 🏆 — your nation's group during the group stage, the
   latest round after it.
-- **Club** 🥅 — its colours in a scarf along the top:
+- **Club** `◆` in its colour, with its colours in a scarf along the top —
   position, points and form, record, and xG against goals where understat
   covers the league.
 - **Nation** — its flag: its last three results, its next fixture and its
   form, under its saved filter.
-- **Player** `◉`, in their club's colour — the season's goals and assists,
+- **Player** `●` in their club's colour — the season's goals and assists,
   plus xG and xA where available.
 
 Each card says at its top right how fresh its numbers are (`3h`), and when a
