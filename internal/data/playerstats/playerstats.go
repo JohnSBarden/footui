@@ -215,6 +215,37 @@ func SeasonStandouts(ctx context.Context, repos storage.Repositories, line model
 	return Standouts(line, g, lines, groups), nil
 }
 
+// sparseShare is how far below a player's own best defensive rate a
+// season must fall to count as barely recorded rather than quiet.
+const sparseShare = 0.25
+
+// ClearSparseDefence blanks the tackles, interceptions and clearances of
+// seasons the source barely recorded. ESPN's older seasons often carry a
+// token handful (Rice's 2024-25: 18 in 2876 minutes, against 185 the next
+// season), which reads as a player who stopped defending. A season under
+// a quarter of the player's own best rate, both over 900 minutes, is
+// treated as not recorded. A player quiet every season keeps his
+// numbers: it's the drop against himself that gives a season away.
+func ClearSparseDefence(details []*models.PlayerSeasonDetail) {
+	rate := func(d *models.PlayerSeasonDetail) (float64, bool) {
+		if d.Minutes == nil || *d.Minutes < minMinutes || d.Tackles == nil || d.Interceptions == nil || d.Clearances == nil {
+			return 0, false
+		}
+		return float64(*d.Tackles+*d.Interceptions+*d.Clearances) * 90 / float64(*d.Minutes), true
+	}
+	best := 0.0
+	for _, d := range details {
+		if r, ok := rate(d); ok {
+			best = max(best, r)
+		}
+	}
+	for _, d := range details {
+		if r, ok := rate(d); ok && r < best*sparseShare {
+			d.Tackles, d.Interceptions, d.Clearances = nil, nil, nil
+		}
+	}
+}
+
 // KeeperExpected estimates the goals a keeper was expected to concede: his
 // club's xGA, scaled by his share of its minutes. No source has xG faced
 // per keeper, so this is labelled an estimate wherever it's shown. ok is

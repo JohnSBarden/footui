@@ -24,13 +24,19 @@ func enrichHistory(deps core.Deps, p models.Player, stats []models.PlayerSeasonS
 		return 0, false, err
 	}
 	byKey := make(map[string]*models.PlayerSeasonDetail, len(details))
+	byComp := map[string][]*models.PlayerSeasonDetail{}
 	espnPos := ""
 	for i := range details {
 		d := &details[i]
 		byKey[d.TeamID+"|"+d.CompetitionID+"|"+d.SeasonID] = d
+		byComp[d.CompetitionID] = append(byComp[d.CompetitionID], d)
 		if espnPos == "" {
 			espnPos = d.Position // newest season first
 		}
+	}
+	// Within a competition: a league and a cup are defended differently.
+	for _, ds := range byComp {
+		playerstats.ClearSparseDefence(ds)
 	}
 	group := playerstats.GroupOf(espnPos, p.Position, stats)
 

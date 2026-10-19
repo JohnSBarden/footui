@@ -194,6 +194,25 @@ func TestRefreshingLine(t *testing.T) {
 	}
 }
 
+// A season barely recorded next to the player's best reads as —, not as
+// a midfielder who stopped defending.
+func TestSparseSeasonShowsDash(t *testing.T) {
+	repos := storagetest.New(t)
+	seedArsenalSeason(t, repos, pl2025, "2025")
+	seedArsenalSeason(t, repos, pl2024, "2024")
+	seedLine(t, repos, rice, models.PlayerSeasonStats{Appearances: 36, Minutes: 3111, Goals: 4, Assists: 5},
+		&models.PlayerSeasonDetail{Position: "M", Minutes: ip(3099), Tackles: ip(70), Interceptions: ip(37), Clearances: ip(78), PassPct: fp(0.873)})
+	seedLine(t, repos, rice, models.PlayerSeasonStats{SeasonID: pl2024, Appearances: 35, Minutes: 2848, Goals: 4, Assists: 7},
+		&models.PlayerSeasonDetail{Position: "M", Minutes: ip(2876), Tackles: ip(7), Interceptions: ip(4), Clearances: ip(7), PassPct: fp(0.91)})
+	out := view(t, repos, rice)
+	for _, l := range strings.Split(out, "\n") {
+		if strings.Contains(l, "2024-25") && strings.Contains(l, "Arsenal") && strings.Contains(l, "0.34") {
+			t.Errorf("the sparse season should show —: %q", l)
+		}
+	}
+	wantAll(t, out, "no tackles, interceptions or clearances recorded that season")
+}
+
 // ESPN's synced rosters carry no minutes; the player's detail does.
 func TestTableUsesDetailMinutes(t *testing.T) {
 	repos := storagetest.New(t)

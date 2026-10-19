@@ -148,6 +148,32 @@ func TestStandoutAtMostTwo(t *testing.T) {
 	}
 }
 
+// Rice's 2024-25 is 7 tackles, 4 interceptions, 7 clearances in 2876
+// minutes against 185 in 3099 the next season: ESPN barely recorded it.
+func TestClearSparseDefence(t *testing.T) {
+	rice24 := &models.PlayerSeasonDetail{Minutes: n(2876), Tackles: n(7), Interceptions: n(4), Clearances: n(7), PassPct: f(0.91)}
+	rice25 := &models.PlayerSeasonDetail{Minutes: n(3099), Tackles: n(70), Interceptions: n(37), Clearances: n(78)}
+	cameo := &models.PlayerSeasonDetail{Minutes: n(300), Tackles: n(0), Interceptions: n(0), Clearances: n(1)}
+	ClearSparseDefence([]*models.PlayerSeasonDetail{rice24, rice25, cameo})
+	if rice24.Tackles != nil || rice24.Interceptions != nil || rice24.Clearances != nil {
+		t.Errorf("a season at a tenth of his best is unrecorded: %+v", rice24)
+	}
+	if rice24.PassPct == nil {
+		t.Error("passing is kept")
+	}
+	if rice25.Tackles == nil || cameo.Tackles == nil {
+		t.Error("his best season, and one too short to judge, are kept")
+	}
+
+	// A striker who rarely defends, every season, is just that.
+	a := &models.PlayerSeasonDetail{Minutes: n(3000), Tackles: n(10), Interceptions: n(3), Clearances: n(15)}
+	b := &models.PlayerSeasonDetail{Minutes: n(2800), Tackles: n(8), Interceptions: n(2), Clearances: n(12)}
+	ClearSparseDefence([]*models.PlayerSeasonDetail{a, b})
+	if a.Tackles == nil || b.Tackles == nil {
+		t.Error("a consistently quiet player keeps his numbers")
+	}
+}
+
 func TestKeeperExpected(t *testing.T) {
 	team := models.TeamSeasonStats{MatchesPlayed: 38, XGA: f(33.1)}
 	xga, ok := KeeperExpected(3330, team)
