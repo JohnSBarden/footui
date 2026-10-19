@@ -180,13 +180,40 @@ players. Each card's title carries a badge that says what it is:
   covers the league.
 - **Nation** — its flag: its last three results, its next fixture and its
   form, under its saved filter.
-- **Player** `●` in their club's colour — the season's goals and assists,
-  plus xG and xA where available.
+- **Player** `●` in their club's colour — the season's numbers for their
+  position (see below), with a `▲` line when one stands out.
 
 Each card says at its top right how fresh its numbers are (`3h`), and when a
 refresh of them is running. Favourites are keyed by footui's own IDs, so a club starred from its
 Premier League page is the same favourite reached through the Champions
 League.
+
+### Players by position
+
+A player is judged on what their position is for. The player page's tiles,
+the chart in its band and its season table follow one of four groups:
+
+| | Tiles | Chart |
+|---|---|---|
+| Keeper | Clean sheets, saves and save %, goals conceded per 90, goals prevented against an xGA estimate | Clean sheets by season |
+| Defender | Clean sheets, tackles, interceptions and clearances per 90, passing | Clean sheets by season |
+| Midfielder | Goals and assists against xG and xA, key passes per 90, tackles plus interceptions per 90, passing | Assists against xA |
+| Forward | Goals and assists against xG and xA, shots per 90, shots on target %, minutes | Goals against xG |
+
+A keeper's expected goals against is their club's xGA scaled by their share
+of its minutes — no free source has xG faced per keeper — and is marked as
+an estimate.
+
+Under the tiles, `▲ unusual for a defender` names a number outside the
+position's own tiles that's in the top 10% of everyone who has played the
+position in that league and season, per 90, over 900 minutes or more —
+"4.6 xG · top 9% of Premier League defenders".
+
+These numbers are fetched per player, when you open one and on launch for
+the players you've starred, so they're never shown on squad or league
+tables, which couldn't keep them current. A past season is fetched once; the
+current one again once it's stale. Seasons the source barely recorded show
+`—` rather than a misleading zero.
 
 ### Recent games
 
@@ -293,6 +320,7 @@ lists each with its source and history):
 | History | 2014-15 on | 2010-11 on for most; 2016 for NWSL, 2018-19 for the WSL, 2021-22 or later for the newest |
 | Team stats | Results, goals, points, xG, xGA, npxG, PPDA, deep completions, expected points | Results, goals, points, possession, shots, shots on target, corners, fouls, cards |
 | Player stats | Appearances, minutes, goals, assists, shots, key passes, xG, xA, npxG | Appearances, goals, assists, shots, cards — no minutes |
+| Per player, on demand | | Minutes, clean sheets, goals conceded, saves, tackles, interceptions, clearances, passing, shots on target — for ESPN's leagues and understat's |
 | Per match | Score and xG | Score, possession, shots, shots on target, corners, fouls |
 | Not available | Possession, fouls, corners, cards | Expected goals of any kind |
 
