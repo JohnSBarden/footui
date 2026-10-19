@@ -15,7 +15,7 @@ import (
 var (
 	WorldCup     = models.Competition{ID: "world-cup", Name: "FIFA World Cup", ShortName: "WC", Country: "International", Gender: "men", Format: "cup", CalendarYear: true, Category: models.CategoryTournament}
 	Qualifying   = models.Competition{ID: "wcq-uefa", Name: "WC Qualifying – UEFA", ShortName: "WCQ", Country: "International", Gender: "men", Format: "cup", Category: models.CategoryQualifier}
-	Friendlies   = models.Competition{ID: "int-friendly", Name: "International Friendlies", ShortName: "FRI", Country: "International", Gender: "men", Format: "cup", CalendarYear: true, Category: models.CategoryFriendly}
+	Friendlies   = models.Competition{ID: "int-friendly", Name: "International Friendlies", ShortName: "FRND", Country: "International", Gender: "men", Format: "cup", CalendarYear: true, Category: models.CategoryFriendly}
 	nationsByIDs = map[string]string{"nat-arcadia": "Arcadia", "nat-borduria": "Borduria", "nat-carpania": "Carpania", "nat-dravonia": "Dravonia"}
 )
 

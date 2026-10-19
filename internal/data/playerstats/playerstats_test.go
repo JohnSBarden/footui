@@ -226,6 +226,26 @@ func TestClearSparseDefence(t *testing.T) {
 	}
 }
 
+// A season with appearances but no minutes was barely recorded: its
+// zeros (no goals conceded in 29 games) aren't stats.
+func TestScrubUnrecorded(t *testing.T) {
+	henry := &models.PlayerSeasonDetail{Appearances: n(29), Minutes: n(0), CleanSheets: n(0), GoalsConceded: n(0),
+		Saves: n(0), Tackles: n(0), Interceptions: n(0), Clearances: n(3), PassPct: f(0)}
+	ScrubUnrecorded(henry)
+	if henry.Minutes != nil || henry.CleanSheets != nil || henry.GoalsConceded != nil || henry.Saves != nil ||
+		henry.Tackles != nil || henry.Interceptions != nil || henry.Clearances != nil || henry.PassPct != nil {
+		t.Errorf("unrecorded season kept numbers: %+v", henry)
+	}
+	if henry.Appearances == nil || *henry.Appearances != 29 {
+		t.Error("appearances are kept")
+	}
+	maguire := &models.PlayerSeasonDetail{Appearances: n(6), Minutes: n(540), CleanSheets: n(0), GoalsConceded: n(9)}
+	ScrubUnrecorded(maguire)
+	if maguire.CleanSheets == nil || maguire.Minutes == nil {
+		t.Error("a recorded season with a real zero keeps it")
+	}
+}
+
 func TestKeeperExpected(t *testing.T) {
 	team := models.TeamSeasonStats{MatchesPlayed: 38, XGA: f(33.1)}
 	xga, ok := KeeperExpected(3330, team)

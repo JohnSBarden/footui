@@ -238,6 +238,21 @@ func SeasonStandouts(ctx context.Context, repos storage.Repositories, line model
 	return Standouts(line, g, lines, groups), nil
 }
 
+// ScrubUnrecorded blanks a season the source barely recorded: one with
+// appearances but no minutes (ESPN's MLS 2011 has 29 apps, 0 minutes, and
+// so 0 goals conceded), whose zeros aren't stats. Appearances stay. A
+// pass rate of zero is never real either.
+func ScrubUnrecorded(d *models.PlayerSeasonDetail) {
+	if d.PassPct != nil && *d.PassPct == 0 {
+		d.PassPct = nil
+	}
+	if d.Appearances == nil || *d.Appearances == 0 || (d.Minutes != nil && *d.Minutes > 0) {
+		return
+	}
+	d.Minutes, d.CleanSheets, d.GoalsConceded, d.Saves = nil, nil, nil, nil
+	d.Tackles, d.Interceptions, d.Clearances, d.PassPct = nil, nil, nil, nil
+}
+
 // sparseShare is how far below a player's own best defensive rate a
 // season must fall to count as barely recorded rather than quiet.
 const sparseShare = 0.25

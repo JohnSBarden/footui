@@ -6,6 +6,17 @@ import (
 	"time"
 )
 
+// Short names sit beside match dates on cards ("10-06 FRND Canada"), so
+// none may read as a weekday.
+func TestNoShortNameReadsAsAWeekday(t *testing.T) {
+	days := map[string]bool{"MON": true, "TUE": true, "WED": true, "THU": true, "FRI": true, "SAT": true, "SUN": true}
+	for _, c := range Coverages {
+		if days[strings.ToUpper(c.Competition.Abbrev())] {
+			t.Errorf("%s abbreviates to %q, which reads as a day", c.Competition.ID, c.Competition.Abbrev())
+		}
+	}
+}
+
 func cov(t *testing.T, id string) Coverage {
 	t.Helper()
 	c, ok := FindCoverage(id)

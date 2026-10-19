@@ -28,6 +28,7 @@ func enrichHistory(deps core.Deps, p models.Player, stats []models.PlayerSeasonS
 	espnPos := ""
 	for i := range details {
 		d := &details[i]
+		playerstats.ScrubUnrecorded(d)
 		byKey[d.TeamID+"|"+d.CompetitionID+"|"+d.SeasonID] = d
 		byComp[d.CompetitionID] = append(byComp[d.CompetitionID], d)
 		if espnPos == "" {
@@ -209,7 +210,7 @@ func (m *Model) positionCards(r SeasonRow) []components.Stat {
 		return []components.Stat{
 			{Label: "Goals", Value: strconv.Itoa(s.Goals), Hint: expected(s.Goals, s.XG, "xG")},
 			{Label: "Assists", Value: strconv.Itoa(s.Assists), Hint: expected(s.Assists, s.XA, "xA")},
-			notRecorded(components.Stat{Label: "Key passes", Value: per90(s.KeyPasses, lineMins), Hint: "per 90 · " + countOr(s.KeyPasses)}, s.KeyPasses),
+			notRecorded(lineCount("Key passes", s.KeyPasses, lineMins, appsOf(r)), s.KeyPasses),
 			notRecorded(components.Stat{Label: "Tackles + int.", Value: per90(won, mins), Hint: "per 90 · " + countOr(won)}, won),
 			passing,
 		}
@@ -221,10 +222,28 @@ func (m *Model) positionCards(r SeasonRow) []components.Stat {
 	return []components.Stat{
 		{Label: "Goals", Value: strconv.Itoa(s.Goals), Hint: expected(s.Goals, s.XG, "xG")},
 		{Label: "Assists", Value: strconv.Itoa(s.Assists), Hint: expected(s.Assists, s.XA, "xA")},
-		notRecorded(components.Stat{Label: "Shots", Value: per90(s.Shots, lineMins), Hint: "per 90 · " + countOr(s.Shots)}, s.Shots),
+		notRecorded(lineCount("Shots", s.Shots, lineMins, appsOf(r)), s.Shots),
 		onTarget,
-		{Label: "Minutes", Value: strconv.Itoa(mins), Hint: strconv.Itoa(appsOf(r)) + " apps"},
+		minutesTile(mins, appsOf(r)),
 	}
+}
+
+// lineCount is a tile for one of the line's own counts: a rate per 90
+// when there are minutes to divide by, else the plain total.
+func lineCount(label string, n *int, minutes, apps int) components.Stat {
+	if minutes < 90 {
+		return components.Stat{Label: label, Value: countOr(n), Hint: strconv.Itoa(apps) + " apps"}
+	}
+	return components.Stat{Label: label, Value: per90(n, minutes), Hint: "per 90 · " + countOr(n)}
+}
+
+// minutesTile says "not recorded" for a season with appearances but no
+// minutes, rather than 0.
+func minutesTile(minutes, apps int) components.Stat {
+	if minutes == 0 && apps > 0 {
+		return components.Stat{Label: "Minutes", Value: "—", Hint: "not recorded · " + strconv.Itoa(apps) + " apps"}
+	}
+	return components.Stat{Label: "Minutes", Value: strconv.Itoa(minutes), Hint: strconv.Itoa(apps) + " apps"}
 }
 
 // callout names the selected season's numbers unusual for the position,

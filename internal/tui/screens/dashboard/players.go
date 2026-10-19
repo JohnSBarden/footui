@@ -26,6 +26,7 @@ func playerDetail(deps core.Deps, c *Card, history []models.PlayerSeasonStats) {
 	var sameComp []*models.PlayerSeasonDetail
 	for i := range details {
 		d := &details[i]
+		playerstats.ScrubUnrecorded(d)
 		if espnPos == "" {
 			espnPos = d.Position
 		}
@@ -109,7 +110,7 @@ func (m *Model) positionLines(c Card, inner int) []string {
 	case playerstats.GK:
 		headline = count(deref(d.CleanSheets), "clean sheet") + " · " + strconv.Itoa(deref(d.GoalsConceded)) + " conceded"
 		if d.Saves != nil && d.GoalsConceded != nil {
-			rest = append(rest, count(*d.Saves, "save")+" · "+share(*d.Saves, *d.Saves+*d.GoalsConceded)+" of shots on target")
+			rest = append(rest, count(*d.Saves, "save")+" · "+share(*d.Saves, *d.Saves+*d.GoalsConceded)+" saved")
 		}
 		if c.XGA != nil && d.GoalsConceded != nil {
 			rest = append(rest, components.SignedFloat(*c.XGA-float64(*d.GoalsConceded), 1)+" vs expected (est.)")
@@ -142,15 +143,27 @@ func (m *Model) positionLines(c Card, inner int) []string {
 		if s.XG != nil {
 			from = "from " + components.Float(s.XG, 1) + " xG"
 		}
+		// A rate needs minutes; without any (ESPN's older seasons) the
+		// shot total stands in.
 		shots := ""
-		if s.Shots != nil {
+		switch {
+		case s.Shots != nil && lineMins >= 90:
 			shots = rate(s.Shots, lineMins) + " shots/90"
+		case s.Shots != nil:
+			shots = count(*s.Shots, "shot") + " · " + count(detailApps(c), "app")
 		}
 		if line := joinNonEmpty(from, shots); line != "" {
 			rest = append(rest, line)
 		}
-		if d.ShotsOnTarget != nil && s.Shots != nil && *s.Shots > 0 {
-			rest = append(rest, share(*d.ShotsOnTarget, *s.Shots)+" on target · "+strconv.Itoa(mins)+" min")
+		played := ""
+		if mins >= 90 {
+			played = strconv.Itoa(mins) + " min"
+		}
+		switch {
+		case d.ShotsOnTarget != nil && s.Shots != nil && *s.Shots > 0:
+			rest = append(rest, joinNonEmpty(share(*d.ShotsOnTarget, *s.Shots)+" on target", played))
+		case played != "":
+			rest = append(rest, played+" · "+count(detailApps(c), "app"))
 		}
 	}
 

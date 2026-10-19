@@ -63,7 +63,7 @@ func TestKeeperCard(t *testing.T) {
 	_, deps := starPlayer(t, models.Player{ID: "p-raya", Name: "David Raya", Position: "GK"},
 		models.PlayerSeasonStats{Appearances: 37, Minutes: 3330},
 		&models.PlayerSeasonDetail{Position: "G", Appearances: ip(37), Minutes: ip(3330), CleanSheets: ip(19), GoalsConceded: ip(26), Saves: ip(60)})
-	wantIn(t, cardView(t, deps), "GK", "19 clean sheets · 26 conceded", "60 saves · 70% of shots on target", "+6.2 vs expected (est.)")
+	wantIn(t, cardView(t, deps), "GK", "19 clean sheets · 26 conceded", "60 saves · 70% saved", "+6.2 vs expected (est.)")
 }
 
 func TestDefenderCard(t *testing.T) {
@@ -138,6 +138,29 @@ func TestCardSparseSeasonLeavesDefendingOff(t *testing.T) {
 	if out := cardView(t, deps); strings.Contains(out, "tkl ·") {
 		t.Errorf("a barely recorded season shows no tackle line\n%s", out)
 	}
+}
+
+// ESPN's 2011 season has appearances but no minutes, and zeros for
+// everything minutes would have earned: Henry's card shows his shot
+// total rather than a rate it can't work out.
+func TestForwardCardWithoutMinutesShowsTotals(t *testing.T) {
+	_, deps := starPlayer(t, models.Player{ID: "p-henry", Name: "Thierry Henry", Position: "F"},
+		models.PlayerSeasonStats{Appearances: 29, Goals: 15, Assists: 3, Shots: ip(70)},
+		&models.PlayerSeasonDetail{Position: "F", Appearances: ip(29), Minutes: ip(0), CleanSheets: ip(0), GoalsConceded: ip(0),
+			Tackles: ip(0), Interceptions: ip(0), Clearances: ip(3)})
+	out := cardView(t, deps)
+	wantIn(t, out, "70 shots · 29 apps")
+	if strings.Contains(out, "— shots") {
+		t.Errorf("no rate without minutes\n%s", out)
+	}
+}
+
+// Without shots on target, a forward's second line is their playing time.
+func TestForwardCardWithoutAccuracyShowsMinutes(t *testing.T) {
+	_, deps := starPlayer(t, models.Player{ID: "p-zlatan", Name: "Zlatan Ibrahimovic", Position: "F"},
+		models.PlayerSeasonStats{Appearances: 31, Goals: 31, Assists: 8, Shots: ip(159)},
+		&models.PlayerSeasonDetail{Position: "F", Appearances: ip(31), Minutes: ip(2790)})
+	wantIn(t, cardView(t, deps), "5.13 shots/90", "2790 min · 31 apps")
 }
 
 func TestCardWithoutDetail(t *testing.T) {

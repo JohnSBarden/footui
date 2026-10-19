@@ -37,7 +37,7 @@ func key(t *testing.T, m *nation.Model, keys ...string) *nation.Model {
 func TestOpensOnTheNewestYearWithEveryMatch(t *testing.T) {
 	m, _ := open(t)
 	out := m.View()
-	for _, want := range []string{"Arcadia", "national team · men", "[2026]", "2025", "All years", "[All]", "✓WC", "✓FRI"} {
+	for _, want := range []string{"Arcadia", "national team · men", "[2026]", "2025", "All years", "[All]", "✓WC", "✓FRND"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("view missing %q\n%s", want, out)
 		}
@@ -82,7 +82,7 @@ func TestFilterPresetsAndTogglesRecomputeAndAreSaved(t *testing.T) {
 	if s := m.Summary(); s.Played != 5 || s.Won != 2 || s.Drawn != 2 || s.Lost != 1 {
 		t.Errorf("competitive record %+v", s)
 	}
-	if strings.Contains(m.View(), "✓FRI") || !strings.Contains(m.View(), "☐FRI") {
+	if strings.Contains(m.View(), "✓FRND") || !strings.Contains(m.View(), "☐FRND") {
 		t.Errorf("friendlies should be shown unticked:\n%s", m.View())
 	}
 

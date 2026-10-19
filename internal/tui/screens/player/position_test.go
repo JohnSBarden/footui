@@ -224,6 +224,20 @@ func TestForwardRatesUseDetailMinutes(t *testing.T) {
 	wantAll(t, out, "4.12", "per 90 · 110", "2400")
 }
 
+// A season with appearances but no minutes anywhere: no rates, and the
+// minutes tile says so rather than showing 0.
+func TestForwardWithoutMinutes(t *testing.T) {
+	repos := storagetest.New(t)
+	seedArsenalSeason(t, repos, pl2025, "2025")
+	seedLine(t, repos, saka, models.PlayerSeasonStats{Appearances: 29, Goals: 15, Assists: 3, Shots: ip(70)},
+		&models.PlayerSeasonDetail{Position: "F", Appearances: ip(29), Minutes: ip(0)})
+	out := view(t, repos, saka)
+	wantAll(t, out, "SHOTS", "70", "29 apps", "not recorded")
+	if strings.Contains(out, "per 90 · 70") {
+		t.Errorf("no per-90 without minutes\n%s", out)
+	}
+}
+
 // ESPN's synced rosters carry no minutes; the player's detail does.
 func TestTableUsesDetailMinutes(t *testing.T) {
 	repos := storagetest.New(t)

@@ -112,14 +112,14 @@ var Coverages = withShortNames([]Coverage{
 	{international("euro-qualifying", "Euro Qualifying", "EQ", "men", models.CategoryQualifier), ProviderESPN, 2011, nil},
 	{international("nations-league", "UEFA Nations League", "UNL", "men", models.CategoryNationsLeague), ProviderESPN, 2018, nil},
 	{international("concacaf-nations-league", "Concacaf Nations League", "CNL", "men", models.CategoryNationsLeague), ProviderESPN, 2019, nil},
-	{international("int-friendly", "International Friendlies", "FRI", "men", models.CategoryFriendly), ProviderESPN, 2010, nil},
+	{international("int-friendly", "International Friendlies", "FRND", "men", models.CategoryFriendly), ProviderESPN, 2010, nil},
 
 	{international("world-cup-women", "FIFA Women's World Cup", "WWC", "women", models.CategoryTournament), ProviderESPN, 2011,
 		[]int{2011, 2015, 2019, 2023}},
 	{international("euro-women", "Women's Euro", "WEURO", "women", models.CategoryTournament), ProviderESPN, 2017,
 		[]int{2017, 2022, 2025}},
 	{international("nations-league-women", "Women's Nations League", "WNL", "women", models.CategoryNationsLeague), ProviderESPN, 2025, nil},
-	{international("int-friendly-women", "Women's International Friendlies", "FRI", "women", models.CategoryFriendly), ProviderESPN, 2015, nil},
+	{international("int-friendly-women", "Women's International Friendlies", "FRND", "women", models.CategoryFriendly), ProviderESPN, 2015, nil},
 })
 
 // leagueShortNames are the club leagues' compact labels, for the
