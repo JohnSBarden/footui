@@ -142,3 +142,24 @@ func TestANationCardRefreshesItsMatchesAndSaysSo(t *testing.T) {
 		t.Error("a queued gender-wide refresh covers the nation's card")
 	}
 }
+
+// Along the top run the scores: a starred nation's last two games and
+// its next, and a starred tournament's next round, oldest first.
+func TestScoresRunAlongTheTop(t *testing.T) {
+	m, _ := intlDashboard(t)
+	out := m.View()
+	strip := out[:strings.Index(out, "🥅 Premier League")]
+	for _, want := range []string{"WCQ", "FRND", "WC ", "Carpania", "Dravonia", "Borduria", "FT"} {
+		if !strings.Contains(strip, want) {
+			t.Errorf("strip missing %q:\n%s", want, strip)
+		}
+	}
+	// m02 and m03 (qualifiers), m04 (the next friendly), m05 (the World
+	// Cup's first round): the earlier friendly and later rounds stay off.
+	if strings.Count(strip, "WCQ") != 2 || strings.Count(strip, "FRND") != 1 {
+		t.Errorf("strip:\n%s", strip)
+	}
+	if !strings.Contains(m.Keys().Short[2].Help().Key, "<") {
+		t.Error("the strip's scroll key is in the footer")
+	}
+}

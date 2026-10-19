@@ -3,13 +3,20 @@
 package league
 
 import (
+	"time"
+
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/JohnSBarden/footui/internal/data/models"
 	"github.com/JohnSBarden/footui/internal/tui/core"
 	"github.com/JohnSBarden/footui/internal/tui/keys"
+	"github.com/JohnSBarden/footui/internal/tui/scorestrip"
 )
+
+// now is the clock the scores along the top are measured against; tests
+// pin it.
+var now = time.Now
 
 // Row pairs a standings stat line with the team it belongs to. Stats rows
 // carry only team IDs, so the screen resolves names once at load time
@@ -48,6 +55,10 @@ type Model struct {
 	matchesView  bool
 	matchCursor  int
 	matchesShown bool // the view was switched to at least once this season
+
+	// strip is the scores along the top: the season's latest round and
+	// its next.
+	strip scorestrip.Strip
 
 	// lastSync is the most recent refresh attempt for the displayed
 	// season, or nil when it has never been attempted.
@@ -109,6 +120,10 @@ func (m *Model) Keys() core.KeyMap {
 			{keys.Up, keys.Down, keys.PageUp, keys.PageDown},
 			{keys.Home, keys.End, keys.Season, keys.Open},
 		},
+	}
+	if !m.strip.Empty() {
+		km.Short = append(km.Short, keys.Scores)
+		km.Full = append(km.Full, []key.Binding{keys.Scores})
 	}
 	if !m.comp.International() {
 		return km
@@ -199,6 +214,7 @@ type standingsLoadedMsg struct {
 	lastSync *models.SyncRun
 	colors   map[string]models.TeamColors
 	xpts     map[string]float64
+	strip    scorestrip.Strip
 }
 
 // --- commands ---
@@ -240,8 +256,33 @@ func (m *Model) loadStandings(seasonID string) tea.Cmd {
 				return core.ErrMsg{Err: err}
 			}
 		}
+		msg.strip = loadStrip(deps, compID, seasonID, msg.matches)
 		return msg
 	}
+}
+
+// loadStrip is the season's latest round and its next, from matches when
+// they're already loaded. The strip is a nicety, so a failure leaves it
+// empty rather than failing the screen.
+func loadStrip(deps core.Deps, compID, seasonID string, matches []models.Match) scorestrip.Strip {
+	t := now()
+	var round []models.Match
+	if matches != nil {
+		round = scorestrip.Rounds(matches, t)
+	} else {
+		var err error
+		if round, err = scorestrip.ForSeason(deps, compID, seasonID, t); err != nil {
+			return scorestrip.Strip{}
+		}
+	}
+	strip, err := scorestrip.Build(deps, round, t)
+	if err != nil {
+		return scorestrip.Strip{}
+	}
+	if deps.Favorites != nil {
+		strip.Highlight = func(teamID string) bool { return deps.Favorites.Has(models.FavoriteTeam, teamID) }
+	}
+	return strip
 }
 
 // loadTable is one season's standings with every team name resolved in

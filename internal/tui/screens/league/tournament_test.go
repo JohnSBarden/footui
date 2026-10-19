@@ -41,12 +41,15 @@ func TestATournamentShowsOneGroupAtATime(t *testing.T) {
 	if m.Group() != "Group K" || !strings.Contains(out, "[K]") || !strings.Contains(out, " L ") {
 		t.Errorf("group %q:\n%s", m.Group(), out)
 	}
-	if !strings.Contains(out, "Carpania") || strings.Contains(out, "Arcadia") {
+	// The table, below the scores along the top, which name both groups'
+	// sides.
+	table := func(out string) string { return out[strings.Index(out, "TEAM"):] }
+	if !strings.Contains(table(out), "Carpania") || strings.Contains(table(out), "Arcadia") {
 		t.Errorf("Group K only:\n%s", out)
 	}
 	m = press(t, m, "]")
 	out = m.View()
-	if m.Group() != "Group L" || !strings.Contains(out, "Arcadia") || strings.Contains(out, "Carpania") {
+	if m.Group() != "Group L" || !strings.Contains(table(out), "Arcadia") || strings.Contains(table(out), "Carpania") {
 		t.Errorf("after ]: %q\n%s", m.Group(), out)
 	}
 	m = press(t, m, "]")

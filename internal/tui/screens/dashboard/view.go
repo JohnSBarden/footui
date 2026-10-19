@@ -38,6 +38,9 @@ func (m *Model) View() string {
 		}
 		b.WriteString(strings.Join(lines, "\n"))
 	default:
+		if !m.strip.Empty() {
+			b.WriteString(m.strip.View(th, m.width) + "\n\n")
+		}
 		b.WriteString(m.cardsView())
 	}
 	return b.String()

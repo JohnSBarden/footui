@@ -243,6 +243,9 @@ func (m *Model) View() string {
 
 	b.WriteString(m.header())
 	b.WriteString("\n\n")
+	if !m.strip.Empty() {
+		b.WriteString(m.strip.View(th, m.width) + "\n\n")
+	}
 
 	switch {
 	case m.err != nil:
@@ -471,6 +474,9 @@ func (m *Model) deltaStyle(v float64) lipgloss.Style {
 // line.
 func (m *Model) tableHeight() int {
 	chrome := 9
+	if !m.strip.Empty() {
+		chrome += m.strip.Height() + 1 // and the blank line under it
+	}
 	if len(m.groups) > 1 {
 		chrome++ // the group bar
 	}

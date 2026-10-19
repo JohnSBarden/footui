@@ -153,8 +153,8 @@ into the results, where `j`/`k` and the plain keys work again.
 
 | Screen | Keys |
 |---|---|
-| Dashboard | arrows or `hjkl` move between cards |
-| League | `←`/`→` change season; for a tournament, `[`/`]` step through groups and `m` lists every fixture by round |
+| Dashboard | arrows or `hjkl` move between cards, `<`/`>` scroll the scores along the top |
+| League | `←`/`→` change season, `<`/`>` scroll the scores along the top; for a tournament, `[`/`]` step through groups and `m` lists every fixture by round |
 | Team | `←`/`→` change competition, `tab` moves between seasons and squad, `m` opens the last 30 games |
 | Games | `enter` opens a box score, `o` opens the opponent |
 | Player | `←`/`→` change competition |
@@ -182,6 +182,14 @@ players. Each card's title carries a badge that says what it is:
   form, under its saved filter.
 - **Player** `●` in their club's colour — the season's numbers for their
   position (see below), with a `▲` line when one stands out.
+
+Above the cards run the scores, a tile per game the way a league's website
+shows them: each starred club's and nation's last two games and its next
+(a starred player's club's too), and each starred league's and
+tournament's latest round and the one coming. It opens on what's live and
+next, with the latest results to its left; `<`/`>` scroll it. A league,
+cup or tournament's own page has the same strip for the season on screen,
+with your starred clubs picked out.
 
 Each card says at its top right how fresh its numbers are (`3h`), and when a
 refresh of them is running. Favourites are keyed by footui's own IDs, so a club starred from its

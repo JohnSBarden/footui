@@ -22,6 +22,7 @@ import (
 	"github.com/JohnSBarden/footui/internal/storage"
 	"github.com/JohnSBarden/footui/internal/tui/core"
 	"github.com/JohnSBarden/footui/internal/tui/keys"
+	"github.com/JohnSBarden/footui/internal/tui/scorestrip"
 )
 
 // Title is the dashboard's breadcrumb title.
@@ -154,6 +155,9 @@ type Model struct {
 
 	cards  []Card
 	cursor int
+	// strip is the scores along the top: the favourites' latest games
+	// and next ones.
+	strip scorestrip.Strip
 
 	// active and pending are what is being refreshed and waiting to be,
 	// keyed like core.RefreshRequest.Key, so a card can say its numbers
@@ -179,7 +183,7 @@ func (m *Model) Title() string { return Title }
 // Keys implements core.Screen.
 func (m *Model) Keys() core.KeyMap {
 	return core.KeyMap{
-		Short: []key.Binding{keys.MoveCard, keys.Open},
+		Short: []key.Binding{keys.MoveCard, keys.Open, keys.Scores},
 	}
 }
 
@@ -227,7 +231,10 @@ func (m *Model) RefreshRequest() (core.RefreshRequest, bool) {
 	return core.RefreshRequest{TeamID: c.Team.ID, Name: c.Team.Label()}, true
 }
 
-type cardsLoadedMsg struct{ cards []Card }
+type cardsLoadedMsg struct {
+	cards []Card
+	strip scorestrip.Strip
+}
 
 // load builds every card. A favourite whose entity is gone becomes a
 // Missing card rather than an error.
@@ -258,8 +265,44 @@ func (m *Model) load() tea.Cmd {
 		for i := range cards {
 			cards[i].Colors = colors
 		}
-		return cardsLoadedMsg{cards: cards}
+		return cardsLoadedMsg{cards: cards, strip: loadStrip(deps, cards)}
 	}
+}
+
+// loadStrip is the scores along the top: each starred club's and
+// nation's latest games and next, a starred player's club's, and each
+// starred league's and tournament's latest round and next. It is a
+// nicety, so a failure leaves it empty rather than failing the screen.
+func loadStrip(deps core.Deps, cards []Card) scorestrip.Strip {
+	t := now()
+	var teamIDs []string
+	var matches []models.Match
+	for _, c := range cards {
+		switch {
+		case c.Missing:
+		case c.Group == GroupLeagues || c.Group == GroupTournaments:
+			if c.Season.ID == "" {
+				continue
+			}
+			ms, err := scorestrip.ForSeason(deps, c.Competition.ID, c.Season.ID, t)
+			if err != nil {
+				return scorestrip.Strip{}
+			}
+			matches = append(matches, ms...)
+		case c.Team.ID != "":
+			teamIDs = append(teamIDs, c.Team.ID)
+		}
+	}
+	ms, err := scorestrip.ForTeams(deps, teamIDs, t)
+	if err != nil {
+		return scorestrip.Strip{}
+	}
+	strip, err := scorestrip.Build(deps, append(matches, ms...), t)
+	if err != nil {
+		return scorestrip.Strip{}
+	}
+	strip.ShowComp = true
+	return strip
 }
 
 // clubIDs are the clubs whose colours the cards draw: each club card's

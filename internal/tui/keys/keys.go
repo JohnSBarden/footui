@@ -166,6 +166,11 @@ var (
 		key.WithKeys("[", "]"),
 		key.WithHelp("[/]", "group"),
 	)
+	// Scores scrolls the strip of scores along the top of the screen.
+	Scores = key.NewBinding(
+		key.WithKeys("<", ">", ",", "."),
+		key.WithHelp("</>", "scores"),
+	)
 	// Matches switches a tournament between its tables and every fixture
 	// by round.
 	Matches = key.NewBinding(

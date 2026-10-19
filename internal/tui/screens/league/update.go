@@ -68,6 +68,7 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 		m.rows = msg.rows
 		m.lastSync = msg.lastSync
 		m.colors, m.xpts = msg.colors, msg.xpts
+		m.strip = msg.strip
 		m.matches, m.matchTeams = displayOrder(msg.matches), msg.matchTeams
 		m.setGroups(group)
 		m.cursor = headerRow
@@ -147,6 +148,10 @@ func (m *Model) handleKey(msg tea.KeyMsg) (core.Screen, tea.Cmd) {
 		}
 	}
 	switch msg.String() {
+	case "<", ",":
+		m.strip.Scroll(-1, m.width)
+	case ">", ".":
+		m.strip.Scroll(1, m.width)
 	case "up", "k":
 		m.moveCursor(-1)
 	case "down", "j":

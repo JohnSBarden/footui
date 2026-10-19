@@ -96,7 +96,7 @@ func (m *Model) cardsView() string {
 		}
 	}
 
-	budget := max(m.height-headerLines, 1)
+	budget := max(m.height-headerLines-m.stripLines(), 1)
 	first := 0
 	if sel, ok := slotOf(slots, m.cursor); ok && sel.bottom() > budget {
 		first = min(sel.bottom()-budget, sel.top)
@@ -121,6 +121,15 @@ func (m *Model) cardsView() string {
 		out = append(out, strings.TrimRight(strings.Join(segs, strings.Repeat(" ", cardGap)), " "))
 	}
 	return strings.Join(out, "\n")
+}
+
+// stripLines are the lines the scores along the top take, with the blank
+// line under them.
+func (m *Model) stripLines() int {
+	if m.strip.Empty() {
+		return 0
+	}
+	return m.strip.Height() + 1
 }
 
 func slotOf(slots []slot, card int) (slot, bool) {

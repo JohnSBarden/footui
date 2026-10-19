@@ -34,6 +34,7 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 
 	case cardsLoadedMsg:
 		m.cards = msg.cards
+		m.strip = msg.strip
 		m.loading = false
 		m.err = nil
 		if m.cursor >= len(m.cards) {
@@ -71,6 +72,10 @@ func (m *Model) handleKey(msg tea.KeyMsg) (core.Screen, tea.Cmd) {
 		if len(m.cards) > 0 {
 			m.cursor = len(m.cards) - 1
 		}
+	case "<", ",":
+		m.strip.Scroll(-1, m.width)
+	case ">", ".":
+		m.strip.Scroll(1, m.width)
 	case "enter":
 		return m, m.open()
 	}
