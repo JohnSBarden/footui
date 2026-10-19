@@ -1,11 +1,13 @@
 package playerstats
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"testing"
 
 	"github.com/JohnSBarden/footui/internal/data/models"
+	"github.com/JohnSBarden/footui/internal/storage/storagetest"
 )
 
 func f(v float64) *float64 { return &v }
@@ -40,6 +42,56 @@ func TestGroupFromUnderstatCodes(t *testing.T) {
 	for _, c := range cases {
 		if got := GroupOf("", c.code, c.lines); got != c.want {
 			t.Errorf("%q with %+v → %v, want %v", c.code, c.lines, got, c.want)
+		}
+	}
+}
+
+func TestListedGroups(t *testing.T) {
+	got := Listed("F M S")
+	if len(got) != 2 || got[0] != MID || got[1] != FWD {
+		t.Errorf("Listed(F M S) = %v, want [MID FWD]", got)
+	}
+	if g := Listed("GK S"); len(g) != 1 || g[0] != GK {
+		t.Errorf("Listed(GK S) = %v", g)
+	}
+}
+
+// A creative winger listed "F M S" is grouped a midfielder, but has
+// played up front, so he's in the forwards a forward is compared with.
+func TestSeasonStandoutsCountEveryoneWhoPlayedThePosition(t *testing.T) {
+	repos := storagetest.New(t)
+	ctx := context.Background()
+	add := func(id, code string, l models.PlayerSeasonStats) {
+		t.Helper()
+		if err := repos.UpsertPlayer(ctx, models.Player{ID: id, Name: id, Position: code}); err != nil {
+			t.Fatal(err)
+		}
+		l.PlayerID, l.TeamID, l.CompetitionID, l.SeasonID, l.Source = id, "t", "c", "c:2025", "test"
+		if err := repos.UpsertPlayerSeasonStats(ctx, l); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// 20 out-and-out forwards who create little.
+	for i := 0; i < 20; i++ {
+		add(fmt.Sprintf("f%d", i), "F S", models.PlayerSeasonStats{Minutes: 2000, Goals: 10, Assists: 1, XA: f(1)})
+	}
+	// 4 creative wingers, out-creating the star.
+	for i := 0; i < 4; i++ {
+		add(fmt.Sprintf("w%d", i), "F M S", models.PlayerSeasonStats{Minutes: 2000, Goals: 2, Assists: 9, XA: f(12)})
+	}
+	star := models.PlayerSeasonStats{Minutes: 2000, Goals: 9, Assists: 6, XA: f(9)}
+	add("star", "F M S", star)
+	star.PlayerID, star.CompetitionID, star.SeasonID = "star", "c", "c:2025"
+
+	got, err := SeasonStandouts(ctx, repos, star, FWD)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// 4 better of 25 → top 16%: not a standout. Without the wingers he'd
+	// be "top 1%".
+	for _, s := range got {
+		if s.Stat == "xA" {
+			t.Errorf("xA standout %+v: the wingers who've played up front must count", s)
 		}
 	}
 }

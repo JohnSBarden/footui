@@ -93,6 +93,22 @@ func GroupOf(espnPos, understatCode string, lines []models.PlayerSeasonStats) Gr
 	return MID
 }
 
+// Listed is every group an understat position code lists ("F M S" is
+// midfield and forward), in GK, DEF, MID, FWD order.
+func Listed(understatCode string) []Group {
+	codes := strings.Fields(understatCode)
+	var out []Group
+	for _, c := range []struct {
+		code string
+		g    Group
+	}{{"GK", GK}, {"D", DEF}, {"M", MID}, {"F", FWD}} {
+		if slices.Contains(codes, c.code) {
+			out = append(out, c.g)
+		}
+	}
+	return out
+}
+
 // Standout is a number unusual for the player's position.
 type Standout struct {
 	Stat   string // "goals", "assists", "xG", "xA", "shots", "key passes"
@@ -207,9 +223,16 @@ func SeasonStandouts(ctx context.Context, repos storage.Repositories, line model
 	if err != nil {
 		return nil, err
 	}
+	// Everyone who has played the position is in the comparison, not just
+	// those it's their main one: a creative winger listed "F M S" counts
+	// among the forwards a forward is measured against, or the forwards
+	// left would flatter anyone who creates.
 	groups := make(map[string]Group, len(players))
 	for id, p := range players {
 		groups[id] = GroupOf("", p.Position, byPlayer[id])
+		if slices.Contains(Listed(p.Position), g) {
+			groups[id] = g
+		}
 	}
 	groups[line.PlayerID] = g
 	return Standouts(line, g, lines, groups), nil
