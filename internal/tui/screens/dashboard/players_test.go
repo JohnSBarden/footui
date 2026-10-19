@@ -118,6 +118,28 @@ func TestESPNLeagueCardsUseDetailMinutes(t *testing.T) {
 	}
 }
 
+// A card showing a season the source barely recorded leaves the
+// defending off rather than showing a token handful.
+func TestCardSparseSeasonLeavesDefendingOff(t *testing.T) {
+	repos, deps := starPlayer(t, models.Player{ID: "p-gabriel", Name: "Gabriel", Position: "D"},
+		models.PlayerSeasonStats{Appearances: 28, Minutes: 2376},
+		&models.PlayerSeasonDetail{Position: "D", Minutes: ip(2365), CleanSheets: ip(10), Tackles: ip(1), Interceptions: ip(1), Clearances: ip(7)})
+	// An older, fully recorded season in the same competition.
+	storagetest.SeedCompetition(t, repos, storagetest.PremierLeague(), "2024", nil)
+	if err := repos.UpsertPlayerSeasonStats(ctx, models.PlayerSeasonStats{PlayerID: "p-gabriel", TeamID: "eng-arsenal",
+		CompetitionID: "eng-premier-league", SeasonID: "eng-premier-league:2024", Minutes: 2700, Source: "understat"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := repos.UpsertPlayerSeasonDetail(ctx, models.PlayerSeasonDetail{PlayerID: "p-gabriel", TeamID: "eng-arsenal",
+		CompetitionID: "eng-premier-league", SeasonID: "eng-premier-league:2024", Minutes: ip(2700),
+		Tackles: ip(40), Interceptions: ip(25), Clearances: ip(170), FetchedAt: storagetest.Fixed}); err != nil {
+		t.Fatal(err)
+	}
+	if out := cardView(t, deps); strings.Contains(out, "tkl ·") {
+		t.Errorf("a barely recorded season shows no tackle line\n%s", out)
+	}
+}
+
 func TestCardWithoutDetail(t *testing.T) {
 	_, deps := starPlayer(t, models.Player{ID: "p-raya", Name: "David Raya", Position: "GK"},
 		models.PlayerSeasonStats{Appearances: 37, Minutes: 3330}, nil)
