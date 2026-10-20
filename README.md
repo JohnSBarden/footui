@@ -4,6 +4,8 @@
 
 A terminal dashboard for drillable football statistics.
 
+![footui's matchday dashboard: a score strip of recent and upcoming games, MLS and Premier League tables, and favourite club, nation and player cards](docs/screenshots/matchday.png)
+
 `footui` fetches league, team, player and match data into a
 local SQLite database and lets you drill through it in an interactive TUI:
 **Browse → League → Team → Player**, with expected goals, pressing metrics,
