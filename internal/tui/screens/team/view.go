@@ -372,9 +372,12 @@ func (m *Model) seasonsBody(maxRows, width int) string {
 			components.Text(strconv.Itoa(s.GoalsAgainst)),
 			components.Styled(components.Signed(s.GoalDiff), m.deltaStyle(float64(s.GoalDiff))),
 			components.Styled(strconv.Itoa(s.Points), th.Accent.Bold(true)),
-			components.Text(components.Float(s.XG, 1)),
-			components.Text(components.Float(s.XGA, 1)),
 		})
+	}
+	for _, g := range m.seasonGroups() {
+		for i, r := range rows {
+			cells[i] = append(cells[i], g.cells(r.Stats)...)
+		}
 	}
 
 	cursor := -1
@@ -410,17 +413,70 @@ func (m *Model) seasonColumns(width int) []components.Column {
 		{Title: "Pts", Width: 4, Right: true},
 	}
 
-	// A competition without expected goals gets no columns for them, as
-	// on the League screen: a column of dashes is width spent on nothing.
-	if !slices.ContainsFunc(m.CurrentRows(), func(r SeasonRow) bool { return r.Stats.XG != nil }) {
-		return base
+	var groups [][]components.Column
+	for _, g := range m.seasonGroups() {
+		groups = append(groups, g.columns)
 	}
-	return components.FitColumns(width, base, 0, [][]components.Column{
-		{
-			{Title: "xG", Width: 6, Right: true},
-			{Title: "xGA", Width: 6, Right: true},
-		},
-	})
+	return components.FitColumns(width, base, 0, groups)
+}
+
+// extraGroup is a set of optional columns that are shown or dropped
+// together, with the cells each row contributes to them.
+type extraGroup[T any] struct {
+	columns []components.Column
+	cells   func(T) []components.Cell
+}
+
+// seasonGroups picks the optional season columns this competition's data
+// can fill, as the League screen does: expected goals where there are
+// any, otherwise possession and shots. A column with no values in it is
+// never shown — a column of dashes is width spent on nothing.
+func (m *Model) seasonGroups() []extraGroup[models.TeamSeasonStats] {
+	rows := m.CurrentRows()
+	has := func(f func(models.TeamSeasonStats) bool) bool {
+		return slices.ContainsFunc(rows, func(r SeasonRow) bool { return f(r.Stats) })
+	}
+	if has(func(s models.TeamSeasonStats) bool { return s.XG != nil }) {
+		return []extraGroup[models.TeamSeasonStats]{{
+			columns: []components.Column{
+				{Title: "xG", Width: 6, Right: true},
+				{Title: "xGA", Width: 6, Right: true},
+			},
+			cells: func(s models.TeamSeasonStats) []components.Cell {
+				return []components.Cell{
+					components.Text(components.Float(s.XG, 1)),
+					components.Text(components.Float(s.XGA, 1)),
+				}
+			},
+		}}
+	}
+	var groups []extraGroup[models.TeamSeasonStats]
+	if has(func(s models.TeamSeasonStats) bool { return s.PossessionAvg != nil }) {
+		groups = append(groups, extraGroup[models.TeamSeasonStats]{
+			columns: []components.Column{{Title: "Poss", Width: 6, Right: true}},
+			cells: func(s models.TeamSeasonStats) []components.Cell {
+				if s.PossessionAvg == nil {
+					return []components.Cell{components.Text(components.Missing)}
+				}
+				return []components.Cell{components.Text(strconv.FormatFloat(*s.PossessionAvg, 'f', 1, 64) + "%")}
+			},
+		})
+	}
+	if has(func(s models.TeamSeasonStats) bool { return s.Shots != nil }) {
+		groups = append(groups, extraGroup[models.TeamSeasonStats]{
+			columns: []components.Column{
+				{Title: "Sh", Width: 4, Right: true},
+				{Title: "SoT", Width: 4, Right: true},
+			},
+			cells: func(s models.TeamSeasonStats) []components.Cell {
+				return []components.Cell{
+					components.Text(components.Int(s.Shots)),
+					components.Text(components.Int(s.ShotsOnTarget)),
+				}
+			},
+		})
+	}
+	return groups
 }
 
 // squadSeason names the season the squad is from, " — 2025-26", or
@@ -450,20 +506,24 @@ func (m *Model) squadBody(maxRows, width int) string {
 	cells := make([][]components.Cell, 0, len(m.roster))
 	for _, r := range m.roster {
 		s := r.Stats
-		cells = append(cells, []components.Cell{
+		row := []components.Cell{
 			components.Text(r.Player.Name),
 			components.Text(r.Player.Position),
 			components.Text(strconv.Itoa(s.Appearances)),
-			components.Text(strconv.Itoa(s.Minutes)),
+		}
+		if m.squadHasMinutes() {
+			row = append(row, components.Text(strconv.Itoa(s.Minutes)))
+		}
+		row = append(row,
 			components.Styled(strconv.Itoa(s.Goals), toneOr(th, s.Goals, s.XG, th.Accent.Bold(true))),
 			components.Styled(strconv.Itoa(s.Assists), toneOr(th, s.Assists, s.XA, th.TableCell)),
-			components.Text(th.Accent.Render(strings.Repeat("▮", min(s.Goals, squadBarMax))) +
+			components.Text(th.Accent.Render(strings.Repeat("▮", min(s.Goals, squadBarMax)))+
 				th.Info.Render(strings.Repeat("▯", min(s.Assists, squadBarMax)))),
-			components.Text(components.Float(s.XG, 1)),
-			components.Text(components.Float(s.XA, 1)),
-			components.Text(components.Int(s.Shots)),
-			components.Text(components.Int(s.KeyPasses)),
-		})
+		)
+		for _, g := range m.squadGroups() {
+			row = append(row, g.cells(s)...)
+		}
+		cells = append(cells, row)
 	}
 
 	cursor := -1
@@ -508,24 +568,66 @@ func (m *Model) squadColumns(width int) []components.Column {
 		{Title: "Player", Width: playerColWidth},
 		{Title: "Pos", Width: 6},
 		{Title: "Apps", Width: 5, Right: true},
-		{Title: "Mins", Width: 5, Right: true},
-		{Title: "G", Width: 4, Right: true},
-		{Title: "A", Width: 4, Right: true},
-		{Title: "G·A", Width: 2 * squadBarMax},
 	}
+	if m.squadHasMinutes() {
+		base = append(base, components.Column{Title: "Mins", Width: 5, Right: true})
+	}
+	base = append(base,
+		components.Column{Title: "G", Width: 4, Right: true},
+		components.Column{Title: "A", Width: 4, Right: true},
+		components.Column{Title: "G·A", Width: 2 * squadBarMax},
+	)
 
-	// Goals and assists are the squad table's point; shots, key passes,
-	// and expected goals are the detail a narrow terminal gives up.
-	return components.FitColumns(width, base, 0, [][]components.Column{
-		{
-			{Title: "xG", Width: 6, Right: true},
-			{Title: "xA", Width: 6, Right: true},
-		},
-		{
-			{Title: "Sh", Width: 4, Right: true},
-			{Title: "KP", Width: 4, Right: true},
-		},
-	})
+	var groups [][]components.Column
+	for _, g := range m.squadGroups() {
+		groups = append(groups, g.columns)
+	}
+	return components.FitColumns(width, base, 0, groups)
+}
+
+// squadHasMinutes reports whether anyone in the squad has minutes played;
+// some providers have none, and a column of zeros says nothing.
+func (m *Model) squadHasMinutes() bool {
+	return slices.ContainsFunc(m.roster, func(r RosterRow) bool { return r.Stats.Minutes > 0 })
+}
+
+// squadGroups picks the optional squad columns the data can fill. Goals
+// and assists are the squad table's point; expected goals, shots and key
+// passes are the detail a narrow terminal gives up, in that order.
+func (m *Model) squadGroups() []extraGroup[models.PlayerSeasonStats] {
+	has := func(f func(models.PlayerSeasonStats) bool) bool {
+		return slices.ContainsFunc(m.roster, func(r RosterRow) bool { return f(r.Stats) })
+	}
+	var groups []extraGroup[models.PlayerSeasonStats]
+	if has(func(s models.PlayerSeasonStats) bool { return s.XG != nil || s.XA != nil }) {
+		groups = append(groups, extraGroup[models.PlayerSeasonStats]{
+			columns: []components.Column{
+				{Title: "xG", Width: 6, Right: true},
+				{Title: "xA", Width: 6, Right: true},
+			},
+			cells: func(s models.PlayerSeasonStats) []components.Cell {
+				return []components.Cell{
+					components.Text(components.Float(s.XG, 1)),
+					components.Text(components.Float(s.XA, 1)),
+				}
+			},
+		})
+	}
+	if has(func(s models.PlayerSeasonStats) bool { return s.Shots != nil || s.KeyPasses != nil }) {
+		groups = append(groups, extraGroup[models.PlayerSeasonStats]{
+			columns: []components.Column{
+				{Title: "Sh", Width: 4, Right: true},
+				{Title: "KP", Width: 4, Right: true},
+			},
+			cells: func(s models.PlayerSeasonStats) []components.Cell {
+				return []components.Cell{
+					components.Text(components.Int(s.Shots)),
+					components.Text(components.Int(s.KeyPasses)),
+				}
+			},
+		})
+	}
+	return groups
 }
 
 // paneTitle marks which table the cursor is in. The arrow marker means the

@@ -286,6 +286,47 @@ func TestSquadShowsShotsAndKeyPasses(t *testing.T) {
 	}
 }
 
+// A competition without xG or minutes (ESPN's) shows what it does have —
+// possession and shots — instead of columns of dashes and zeros.
+func TestColumnsFollowTheData(t *testing.T) {
+	repos := storagetest.New(t)
+	storagetest.SeedCompetition(t, repos, storagetest.PremierLeague(), "2025", []storagetest.TeamRow{
+		{ID: arsenal.ID, Name: "Arsenal", Position: 1, MP: 38, W: 26, D: 7, L: 5, GF: 71, GA: 27, Pts: 85, NoXG: true},
+	})
+	ctx := context.Background()
+	poss, shots, onTarget := 58.3, 512, 181
+	if err := repos.UpsertTeamSeasonStats(ctx, models.TeamSeasonStats{
+		TeamID: arsenal.ID, CompetitionID: "eng-premier-league", SeasonID: "eng-premier-league:2025",
+		MatchesPlayed: 38, Wins: 26, Draws: 7, Losses: 5, GoalsFor: 71, GoalsAgainst: 27,
+		GoalDiff: 44, Points: 85, PossessionAvg: &poss, Shots: &shots, ShotsOnTarget: &onTarget,
+		Source: "test", UpdatedAt: storagetest.Fixed,
+	}); err != nil {
+		t.Fatalf("UpsertTeamSeasonStats: %v", err)
+	}
+	if err := repos.UpsertPlayer(ctx, models.Player{ID: "p-saka", Name: "Bukayo Saka", Position: "F", Gender: "men"}); err != nil {
+		t.Fatalf("UpsertPlayer: %v", err)
+	}
+	if err := repos.UpsertPlayerSeasonStats(ctx, models.PlayerSeasonStats{
+		PlayerID: "p-saka", TeamID: arsenal.ID,
+		CompetitionID: "eng-premier-league", SeasonID: "eng-premier-league:2025",
+		Appearances: 31, Goals: 7, Assists: 5, Source: "test", UpdatedAt: storagetest.Fixed,
+	}); err != nil {
+		t.Fatalf("UpsertPlayerSeasonStats: %v", err)
+	}
+
+	out := settled(t, newDeps(repos), "eng-premier-league", "eng-premier-league:2025").View()
+	for _, want := range []string{"Poss", "58.3%", "SoT", "512", "181"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %q\n---\n%s", want, out)
+		}
+	}
+	for _, absent := range []string{"xGA", " xA", "Mins", " KP"} {
+		if strings.Contains(out, absent) {
+			t.Errorf("shows an empty %q column\n---\n%s", absent, out)
+		}
+	}
+}
+
 func TestClubColorsThemeTheScreen(t *testing.T) {
 	repos := seedTwoCompetitions(t)
 	ctx := context.Background()
