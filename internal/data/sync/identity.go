@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
+	"time"
 
 	"github.com/JohnSBarden/footui/internal/data/models"
 	"github.com/JohnSBarden/footui/internal/storage"
@@ -486,7 +488,13 @@ func (r *resolver) player(ctx context.Context, provider, local string, p models.
 		if err != nil {
 			return models.Player{}, err
 		}
-		if existing, ok := matchPlayer(p, squad, taken); ok {
+		existing, ok, err := matchPlayer(p, squad, taken, func(s models.Player) (bool, error) {
+			return r.couldBe(ctx, provider, local, p, s)
+		})
+		if err != nil {
+			return models.Player{}, err
+		}
+		if ok {
 			row = enrich(existing, p)
 		}
 	}
@@ -509,8 +517,11 @@ func (r *resolver) squad(ctx context.Context, club string) ([]models.Player, err
 }
 
 // matchPlayer finds a squad member with the same name, or failing that
-// the one squad member whose name is a word-subset of it.
-func matchPlayer(p models.Player, squad []models.Player, taken map[string]bool) (models.Player, bool) {
+// the one squad member whose name is a word-subset of it, among those
+// couldBe allows. A squad is everyone who ever played for the club, so
+// names alone would make 2026's Xavi Espart the Xavi of 2014.
+func matchPlayer(p models.Player, squad []models.Player, taken map[string]bool,
+	couldBe func(models.Player) (bool, error)) (models.Player, bool, error) {
 	name := normalizePerson(p.Name)
 	var exact, loose []models.Player
 	for _, s := range squad {
@@ -525,13 +536,67 @@ func matchPlayer(p models.Player, squad []models.Player, taken map[string]bool) 
 			loose = append(loose, s)
 		}
 	}
+	keep := func(ps []models.Player) ([]models.Player, error) {
+		out := ps[:0]
+		for _, s := range ps {
+			ok, err := couldBe(s)
+			if err != nil {
+				return nil, err
+			}
+			if ok {
+				out = append(out, s)
+			}
+		}
+		return out, nil
+	}
+	var err error
+	if exact, err = keep(exact); err != nil {
+		return models.Player{}, false, err
+	}
+	if loose, err = keep(loose); err != nil {
+		return models.Player{}, false, err
+	}
 	if len(exact) == 1 {
-		return exact[0], true
+		return exact[0], true, nil
 	}
 	if len(exact) == 0 && len(loose) == 1 {
-		return loose[0], true
+		return loose[0], true, nil
 	}
-	return models.Player{}, false
+	return models.Player{}, false, nil
+}
+
+// couldBe reports whether a squad member whose name matches p could be
+// the same person. Two birth dates that differ say not: three
+// goalkeepers called Daniel have kept FC Dallas's and San Jose's goals.
+// Nor could one the provider already knows by another of its IDs —
+// unless the names are the same words, which is the provider listing one
+// player twice ("Thomas Shavar" and "Shavar Thomas").
+func (r *resolver) couldBe(ctx context.Context, provider, local string, p, s models.Player) (bool, error) {
+	if p.DateOfBirth != nil && s.DateOfBirth != nil && !sameDay(*p.DateOfBirth, *s.DateOfBirth) {
+		return false, nil
+	}
+	id, err := r.repos.ProviderID(ctx, "player", s.ID, provider)
+	switch {
+	case errors.Is(err, storage.ErrNotFound):
+		return true, nil
+	case err != nil:
+		return false, err
+	}
+	return id == local || sameWords(normalizePerson(p.Name), normalizePerson(s.Name)), nil
+}
+
+func sameDay(a, b time.Time) bool {
+	ay, am, ad := a.UTC().Date()
+	by, bm, bd := b.UTC().Date()
+	return ay == by && am == bm && ad == bd
+}
+
+// sameWords reports whether two names are the same words in any order.
+func sameWords(a, b string) bool {
+	wa, wb := strings.Fields(a), strings.Fields(b)
+	slices.Sort(wa)
+	slices.Sort(wb)
+	return slices.Equal(wa, wb)
 }
 
 // enrich keeps a cached player's identity and fills in only what it was

@@ -410,8 +410,11 @@ players within their club's squad — and records every mapping, so a later
 refresh never re-guesses. A club it can't confidently match is kept separate
 rather than merged into the wrong one, and so is a club the source already
 knows by another of its IDs (Miami FC is not Inter Miami, nor Atlanta United
-2 Atlanta United); a nation is never matched to a club. A refresh replaces
-the season it fetched rather than adding to it.
+2 Atlanta United); a nation is never matched to a club. A player is never
+matched to one born on another day, or to one the source knows by another
+ID unless the names are the same words: a squad is everyone who ever played
+for the club, and 2026's Xavi Espart is not the Xavi of 2014. A refresh
+replaces the season it fetched rather than adding to it.
 
 **Two grains.** Club seasons are stored as table lines per (team,
 competition, season), which keeps competitions from ever being summed. Games

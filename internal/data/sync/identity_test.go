@@ -3,6 +3,7 @@ package sync
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/JohnSBarden/footui/internal/data/models"
 	"github.com/JohnSBarden/footui/internal/data/provider"
@@ -296,6 +297,39 @@ func TestWomensSidesNeverMergeWithTheMensClub(t *testing.T) {
 	got := teamsIn(t, repos, "eng-wsl")
 	if got["eng-arsenal"] || !got["eng-arsenal-women"] {
 		t.Errorf("WSL Arsenal resolved to %v, want its own eng-arsenal-women", got)
+	}
+}
+
+// A club's squad is everyone who ever played for it, so a name is not
+// enough. Another of the provider's IDs is another player, unless the
+// name is the same words; a different birth date is another player
+// whoever says so.
+func TestPlayersAreNotJoinedAcrossIDsOrBirthDates(t *testing.T) {
+	repos := newStore(t)
+	day := func(y int, m time.Month, d int) *time.Time {
+		t := time.Date(y, m, d, 0, 0, 0, 0, time.UTC)
+		return &t
+	}
+	first := &nativeSource{}
+	first.club("110", "FC Dallas", "men")
+	first.player("33556", "Xavi", "110")
+	first.player("36442", "Shavar Thomas", "110")
+	first.player("243832", "Daniel", "110")
+	first.players[2].DateOfBirth = day(1994, time.May, 6)
+	syncOne(t, repos, first, "usa-mls")
+
+	second := &nativeSource{}
+	second.club("110", "FC Dallas", "men")
+	second.player("14129", "Xavi Espart", "110")    // another ID, another name
+	second.player("126018", "Thomas Shavar", "110") // the same words: one player listed twice
+	second.player("235921", "Daniel", "110")        // the same name, born ten years earlier
+	second.players[2].DateOfBirth = day(1984, time.June, 3)
+	syncOne(t, repos, second, "usa-mls")
+
+	for local, want := range map[string]string{"14129": "espn-14129", "126018": "espn-36442", "235921": "espn-235921"} {
+		if id, _ := repos.ExternalRef(bg, "player", "espn", local); id != want {
+			t.Errorf("espn %s resolved to %q, want %q", local, id, want)
+		}
 	}
 }
 
