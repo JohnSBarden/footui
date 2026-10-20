@@ -86,6 +86,7 @@ func (g *globalFlags) launchTUI(ctx context.Context, build func(core.Deps) (core
 	deps.Favorites = core.NewFavorites(favs)
 
 	deps.ProviderPause = espn.PausedUntil
+	deps.Players = espn.New()
 	deps.Version = Version
 
 	screen, err := build(deps)

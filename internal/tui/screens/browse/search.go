@@ -1,12 +1,16 @@
 package browse
 
 import (
+	"errors"
 	"sort"
 	"strings"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/JohnSBarden/footui/internal/data/models"
+	"github.com/JohnSBarden/footui/internal/storage"
+	"github.com/JohnSBarden/footui/internal/textfold"
 	"github.com/JohnSBarden/footui/internal/tui/core"
 )
 
@@ -92,10 +96,11 @@ const (
 	groupNations
 	groupPlayers
 	groupLeagues
+	groupFound
 )
 
 func (g group) String() string {
-	return [...]string{"clubs", "nations", "players", "leagues"}[g]
+	return [...]string{"clubs", "nations", "players", "leagues", "not downloaded"}[g]
 }
 
 // groupOf is the heading a result is shown under.
@@ -107,8 +112,80 @@ func groupOf(r Result) group {
 		return groupClubs
 	case r.Kind == KindPlayer:
 		return groupPlayers
+	case r.Kind == KindFound:
+		return groupFound
 	}
 	return groupLeagues
+}
+
+// searchFurtherAfter is how long typing must pause before the data
+// source is searched too: one request per settled query, not per key.
+const searchFurtherAfter = 400 * time.Millisecond
+
+// minFurtherQuery is the shortest query worth sending to the source.
+const minFurtherQuery = 3
+
+// searchFurtherDueMsg is the pause after typing running out.
+type searchFurtherDueMsg struct{ query string }
+
+// foundMsg is what the data source's search turned up for query.
+type foundMsg struct {
+	query string
+	found []Result
+}
+
+// scheduleFurther asks for the data source to be searched once typing
+// pauses, if there is one and the query is long enough to mean someone.
+func (m *Model) scheduleFurther(query string) tea.Cmd {
+	if m.deps.Players == nil || len([]rune(strings.TrimSpace(query))) < minFurtherQuery {
+		return nil
+	}
+	return tea.Tick(searchFurtherAfter, func(time.Time) tea.Msg { return searchFurtherDueMsg{query: query} })
+}
+
+// searchFurther searches the data source for players, keeping those not
+// already cached. A failure leaves the local results as they are: the
+// source being unreachable is no reason to hide what is cached.
+func (m *Model) searchFurther(query string) tea.Cmd {
+	deps := m.deps
+	q := strings.TrimSpace(query)
+	return func() tea.Msg {
+		players, err := deps.Players.SearchPlayers(deps.Ctx, q)
+		if err != nil {
+			return foundMsg{query: query}
+		}
+		var out []Result
+		for _, p := range players {
+			_, err := deps.Repos.ExternalRef(deps.Ctx, "player", p.Provider, p.ID)
+			if err == nil {
+				continue
+			}
+			if !errors.Is(err, storage.ErrNotFound) {
+				return foundMsg{query: query}
+			}
+			out = append(out, Result{Kind: KindFound, Found: p})
+		}
+		return foundMsg{query: query, found: out}
+	}
+}
+
+// merge rebuilds the list from the local results and the found players
+// that aren't cached under the same name: a player cached from a source
+// that hasn't linked its ID yet is still the same player.
+func (m *Model) merge() {
+	local := map[string]bool{}
+	for _, r := range m.local {
+		if r.Kind == KindPlayer {
+			local[textfold.Fold(r.Player.Name)] = true
+		}
+	}
+	m.results = append([]Result(nil), m.local...)
+	for _, r := range m.found {
+		if !local[textfold.Fold(r.Found.Name)] {
+			m.results = append(m.results, r)
+		}
+	}
+	m.cursor = min(m.cursor, max(len(m.results)-1, 0))
 }
 
 // rank sorts matches by how well they match and truncates to maxPerKind.

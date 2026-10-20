@@ -129,3 +129,28 @@ func TestLiveCanary(t *testing.T) {
 	t.Logf("%d clubs, %d matches played, %d goals; possession for %d clubs; %d players, %d colors",
 		len(rows), played/2, goals, withPossession, len(players), len(colors))
 }
+
+// TestLivePlayerSearch checks search still finds a player who isn't
+// cached and still lists the seasons of his career.
+func TestLivePlayerSearch(t *testing.T) {
+	if os.Getenv("FOOTUI_LIVE") != "1" {
+		t.Skip("live provider check; set FOOTUI_LIVE=1 to run")
+	}
+	t.Setenv(CacheDirEnv, "")
+	p := New()
+	found, err := p.SearchPlayers(context.Background(), "cristiano ronaldo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(found) == 0 || found[0].Name != "Cristiano Ronaldo" {
+		t.Fatalf("search no longer finds Cristiano Ronaldo first: %+v", found)
+	}
+	career, err := p.PlayerCareer(context.Background(), found[0].ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(career) < 10 {
+		t.Errorf("only %d seasons of Ronaldo's career found: %+v", len(career), career)
+	}
+	t.Logf("%s (%s): %d seasons in covered competitions", found[0].Name, found[0].Context, len(career))
+}

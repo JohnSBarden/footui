@@ -325,3 +325,24 @@ type Favorite struct {
 	ID      string
 	AddedAt time.Time
 }
+
+// FoundPlayer is a player a data source's own search turned up, cached
+// locally or not.
+type FoundPlayer struct {
+	// Provider names the source, and ID is its own ID for the player:
+	// together they are the player's external_ref once a sync has
+	// stored them.
+	Provider string
+	ID       string
+	Name     string
+	// Context is where the source says the player is now, such as
+	// "English Premier League - Man City".
+	Context string
+}
+
+// CareerSeason is one competition-season a player appeared in. Year is
+// the season's bare start year, as footui labels seasons.
+type CareerSeason struct {
+	CompetitionID string
+	Year          string
+}

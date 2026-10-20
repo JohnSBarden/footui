@@ -88,6 +88,16 @@ type CareerSeason struct {
 	Year          int    // the season's start year
 }
 
+// PlayerSearcher finds players by name at the source, beyond what is
+// cached, and lists the competition-seasons a player appeared in, so the
+// ones footui covers can be fetched.
+type PlayerSearcher interface {
+	SearchPlayers(ctx context.Context, query string) ([]models.FoundPlayer, error)
+	// PlayerCareer lists, newest first, the seasons of the player's
+	// career in competitions this source knows; others are left out.
+	PlayerCareer(ctx context.Context, id string) ([]models.CareerSeason, error)
+}
+
 // ErrRateLimited means the source refused footui for asking too often, and
 // kept refusing after the polite retries. Nothing more should be asked of
 // it for a while: a refresh that gets this stops rather than carrying on.

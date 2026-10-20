@@ -31,6 +31,9 @@ import (
 const (
 	siteBaseURL = "https://site.api.espn.com/apis"
 	coreBaseURL = "https://sports.core.api.espn.com/v2/sports/soccer/leagues"
+	// searchBaseURL is ESPN's site-wide search, which finds players
+	// whatever they play in.
+	searchBaseURL = "https://site.web.api.espn.com/apis/common/v3/search"
 
 	// CacheDirEnv is shared with the understat client: one directory of
 	// raw responses for development, so iterating doesn't hammer either
@@ -66,6 +69,7 @@ type Client struct {
 	httpClient *http.Client
 	siteURL    string
 	coreURL    string
+	searchURL  string
 	minGap     time.Duration
 	slowGap    time.Duration
 	cacheDir   string
@@ -89,6 +93,7 @@ func NewClient() *Client {
 		httpClient: &http.Client{Timeout: requestTimeout},
 		siteURL:    siteBaseURL,
 		coreURL:    coreBaseURL,
+		searchURL:  searchBaseURL,
 		minGap:     defaultMinGap,
 		slowGap:    scoreboardGap,
 		cacheDir:   os.Getenv(CacheDirEnv),
@@ -102,6 +107,7 @@ func NewClient() *Client {
 // disk cache, and a breaker of its own.
 func (c *Client) withBaseURLs(site, core string) *Client {
 	c.siteURL, c.coreURL, c.minGap, c.slowGap, c.cacheDir = site, core, 0, 0, ""
+	c.searchURL = site + "/search"
 	c.rateWaits = []time.Duration{0, 0, 0}
 	c.breaker = &breaker{}
 	return c
@@ -116,6 +122,11 @@ func (c *Client) site(ctx context.Context, path string, out any) error {
 // more widely than other requests.
 func (c *Client) scoreboard(ctx context.Context, path string, out any) error {
 	return c.getJSON(ctx, c.siteURL+path, c.slowGap, out)
+}
+
+// search runs a site-wide search query string into out.
+func (c *Client) search(ctx context.Context, query string, out any) error {
+	return c.getJSON(ctx, c.searchURL+"?"+query, c.minGap, out)
 }
 
 // core fetches a path under the core API into out.

@@ -25,6 +25,9 @@ const (
 	KindCompetition Kind = iota
 	KindTeam
 	KindPlayer
+	// KindFound is a player the data source's search found who isn't
+	// cached: opening one downloads their seasons.
+	KindFound
 )
 
 // Result is one row in the results list. Exactly one of the embedded
@@ -34,6 +37,7 @@ type Result struct {
 	Competition models.Competition
 	Team        models.Team
 	Player      models.Player
+	Found       models.FoundPlayer
 }
 
 // Name is the result's primary label.
@@ -43,6 +47,8 @@ func (r Result) Name() string {
 		return r.Competition.Name
 	case KindTeam:
 		return r.Team.Name
+	case KindFound:
+		return r.Found.Name
 	default:
 		return r.Player.Name
 	}
@@ -53,15 +59,30 @@ type Model struct {
 	deps  core.Deps
 	input textinput.Model
 
+	// results are what the list shows: local, then found (those of
+	// found that aren't cached under the same name).
 	results []Result
+	local   []Result
+	found   []Result
+	// searchingFurther is set while the data source is being searched.
+	searchingFurther bool
+	// awaiting is the found player whose seasons are downloading; when
+	// they land the cursor moves to them.
+	awaiting *models.FoundPlayer
+	// awaitStarted is set once the awaited downloads have shown on the
+	// refresh queue, so its draining means they're done.
+	awaitStarted bool
 	// colors are the result clubs' brand colours, for their dots.
 	colors map[string]models.TeamColors
 	cursor int
 
 	// query is the search the current results belong to, so a slow query's
 	// results can't overwrite a newer one's.
-	query   string
-	loading bool
+	query string
+	// searched is set once the query's first local results are in; a
+	// later re-run (after a refresh) keeps the cursor where it was.
+	searched bool
+	loading  bool
 	err     error
 
 	width  int
@@ -128,8 +149,7 @@ func (m *Model) Escape() (bool, tea.Cmd) {
 		return false, nil
 	}
 	m.input.SetValue("")
-	m.query = ""
-	m.loading = true
+	m.newQuery("")
 	return true, m.search("")
 }
 
@@ -162,7 +182,7 @@ func (m *Model) RefreshTarget() (string, bool) {
 // FavoriteTarget implements core.Favoritable: the highlighted result.
 func (m *Model) FavoriteTarget() (core.FavoriteTarget, bool) {
 	r, ok := m.SelectedResult()
-	if !ok {
+	if !ok || r.Kind == KindFound {
 		return core.FavoriteTarget{}, false
 	}
 	kind, id := r.favoriteKey()

@@ -15,7 +15,11 @@ func (m *Model) View() string {
 	var b strings.Builder
 
 	b.WriteString(components.Wordmark(th))
-	b.WriteString(th.Subtitle.Render("  search what you've cached locally"))
+	subtitle := "  search what you've cached locally"
+	if m.deps.Players != nil {
+		subtitle = "  search what you've cached, and every player"
+	}
+	b.WriteString(th.Subtitle.Render(subtitle))
 	b.WriteString("\n\n")
 	b.WriteString(m.input.View())
 	b.WriteString("\n\n")
@@ -23,12 +27,15 @@ func (m *Model) View() string {
 	switch {
 	case m.err != nil:
 		b.WriteString(th.Error.Render("Search failed: " + m.err.Error()))
-	case m.loading:
+	case m.loading, len(m.results) == 0 && m.searchingFurther:
 		b.WriteString(th.Muted.Render("Searching…"))
 	case len(m.results) == 0:
 		b.WriteString(m.emptyState())
 	default:
 		b.WriteString(m.resultsList())
+		if m.searchingFurther {
+			b.WriteString("\n" + th.Muted.Render("  searching further for players…"))
+		}
 	}
 
 	return b.String()
@@ -91,10 +98,16 @@ func (m *Model) resultLine(r Result, selected bool) string {
 		dot = m.colors[r.Team.ID].PrimaryHex
 	}
 	meta := m.context(r)
-	name := m.deps.Star(kind, id, r.Name())
+	name := r.Name()
+	if r.Kind != KindFound {
+		name = m.deps.Star(kind, id, name)
+	}
 	marker := ""
 	if selected {
 		marker = " ←"
+		if r.Kind == KindFound {
+			marker = " ← enter downloads"
+		}
 	}
 	// Names keep their room; the context gives way first.
 	room := m.width - 6 - lipgloss.Width(marker)
@@ -139,6 +152,8 @@ func (m *Model) context(r Result) string {
 			parts = append(parts, r.Team.Gender)
 		}
 		return strings.Join(parts, " · ")
+	case KindFound:
+		return r.Found.Context
 	default:
 		return r.Player.Position
 	}
@@ -173,6 +188,11 @@ func (m *Model) emptyState() string {
 				th.Accent.Render("footui refresh --competition "+defaultCompetition),
 		}
 		return strings.Join(lines, "\n")
+	}
+	if m.deps.Players != nil && len([]rune(strings.TrimSpace(m.query))) >= minFurtherQuery {
+		return th.Empty.Render("Nothing matches that, cached or not.") + "\n\n" +
+			th.Muted.Render("Leagues, clubs and nations are searched once downloaded — press  ") +
+			th.Accent.Render("ctrl+g") + th.Muted.Render("  to download more.")
 	}
 	return th.Empty.Render("No cached competition, team, or player matches that.") + "\n\n" +
 		th.Muted.Render("Only downloaded competitions are searchable — press  ") +

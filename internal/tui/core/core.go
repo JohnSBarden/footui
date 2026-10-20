@@ -61,9 +61,21 @@ type Deps struct {
 	// being rate-limited; a zero time means nothing is paused. Nil means
 	// the host can't tell. The TUI never names the source.
 	ProviderPause func() (until time.Time)
+	// Players searches the data source for players who aren't cached,
+	// and lists the seasons they played, so search can offer them. Nil
+	// means search is local only.
+	Players PlayerSearcher
 	// Version is the build's version, for the launch splash; empty
 	// leaves it off.
 	Version string
+}
+
+// PlayerSearcher finds players at the data source, beyond the cache, and
+// lists the seasons a player appeared in, newest first. It mirrors the
+// provider contract of the same name, so the TUI needn't import it.
+type PlayerSearcher interface {
+	SearchPlayers(ctx context.Context, query string) ([]models.FoundPlayer, error)
+	PlayerCareer(ctx context.Context, id string) ([]models.CareerSeason, error)
 }
 
 // ThemeMode is the current theme mode, weak when none was configured.
