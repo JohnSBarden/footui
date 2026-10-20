@@ -11,7 +11,7 @@
 #
 # `aliases` exist for exactly that reason. As of 2026-09-30 every club in
 # all six leagues' 2026-27 payloads was checked against a live refresh:
-# 110 of 112 match an entry (Akron and Rodina are still uncurated). Clubs
+# 110 of 112 matched an entry; Akron and Rodina were added 2026-10-19. Clubs
 # from earlier seasons that aren't in the top flight now are still the
 # usual-spelling guesses, with aliases. An entry that matches nothing is simply
 # never applied — a wrong guess is inert, not harmful. Run `footui colors`
@@ -420,6 +420,18 @@
   aliases: [rus-fc-krasnodar]
   primary: "#00A650"
   secondary: "#000000"
+- id: rus-akron
+  name: Akron
+  aliases: [rus-akron-tolyatti, rus-akron-togliatti]
+  # Red and black, per the club's official site.
+  primary: "#D0021B"
+  secondary: "#000000"
+- id: rus-rodina
+  name: Rodina
+  aliases: [rus-rodina-moscow]
+  # Navy and light blue, from the 2026-27 kits (no official statement).
+  primary: "#1B2A5C"
+  secondary: "#6CACE4"
 
 # --- Added 2026-09-30 ---------------------------------------------------
 # Clubs that were in the six leagues' 2026-27 payloads with no entry. IDs
