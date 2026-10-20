@@ -217,6 +217,75 @@ func TestDomesticClubsFollowedBetweenDivisions(t *testing.T) {
 	}
 }
 
+// A club the provider already knows by another of its IDs is another
+// club, however its name reduces: Miami FC is a subset of Inter Miami,
+// and Atlanta United 2 loses its digit to become Atlanta United exactly.
+// The same name under a second ID is the provider listing one club
+// twice, and still joins it.
+func TestAClubTheProviderKnowsByAnotherIDIsAnotherClub(t *testing.T) {
+	repos := newStore(t)
+	mls := &nativeSource{}
+	mls.club("20232", "Inter Miami CF", "men")
+	mls.club("18418", "Atlanta United FC", "men")
+	mls.club("183", "Columbus Crew", "men")
+	syncOne(t, repos, mls, "usa-mls")
+
+	usl := &nativeSource{}
+	usl.club("18159", "Miami FC", "men")
+	usl.club("18989", "Atlanta United 2", "men")
+	usl.club("99183", "Columbus Crew", "men")
+	syncOne(t, repos, usl, "usa-usl-championship")
+
+	got := teamsIn(t, repos, "usa-usl-championship")
+	for _, id := range []string{"usa-inter-miami-cf", "usa-atlanta-united-fc"} {
+		if got[id] {
+			t.Errorf("%s was given another club's season: %v", id, got)
+		}
+	}
+	for _, id := range []string{"usa-miami-fc", "usa-atlanta-united-2", "usa-columbus-crew"} {
+		if !got[id] {
+			t.Errorf("want %s in the USL table: %v", id, got)
+		}
+	}
+}
+
+// A refresh replaces the season: a club no longer in it, or one that has
+// since been resolved to another canonical club, leaves nothing behind.
+func TestARefreshReplacesTheSeason(t *testing.T) {
+	repos := newStore(t)
+	first := &nativeSource{}
+	first.club("1", "Coventry City", "men")
+	first.club("2", "Sheffield Wednesday", "men")
+	first.player("10", "Haji Wright", "1")
+	first.player("20", "Barry Bannan", "2")
+	syncOne(t, repos, first, "eng-championship")
+
+	second := &nativeSource{}
+	second.club("1", "Coventry City", "men")
+	second.player("10", "Haji Wright", "1")
+	syncOne(t, repos, second, "eng-championship")
+
+	if got := teamsIn(t, repos, "eng-championship"); len(got) != 1 || !got["eng-coventry-city"] {
+		t.Errorf("table after the refresh: %v", got)
+	}
+	history, err := repos.TeamHistory(bg, "eng-sheffield-wednesday")
+	must(t, err)
+	if len(history) != 0 {
+		t.Errorf("Wednesday keeps %d season lines", len(history))
+	}
+	lines, err := repos.SeasonPlayerLines(bg, "eng-championship", NewSeason("eng-championship", "2025").ID)
+	must(t, err)
+	if len(lines) != 1 {
+		t.Errorf("%d squad lines, want Wright's alone", len(lines))
+	}
+
+	// A fetch with no clubs leaves the season as it was.
+	syncOne(t, repos, &nativeSource{}, "eng-championship")
+	if got := teamsIn(t, repos, "eng-championship"); len(got) != 1 {
+		t.Errorf("an empty fetch emptied the season: %v", got)
+	}
+}
+
 func TestWomensSidesNeverMergeWithTheMensClub(t *testing.T) {
 	repos := newStore(t)
 	seedClub(t, repos, "eng-premier-league", "England", "eng-arsenal", "Arsenal")

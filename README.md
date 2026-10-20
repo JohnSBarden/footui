@@ -408,7 +408,10 @@ Before anything is written, sync maps them to footui's canonical ones —
 matching clubs by normalised name within a country, exactly within Europe,
 players within their club's squad — and records every mapping, so a later
 refresh never re-guesses. A club it can't confidently match is kept separate
-rather than merged into the wrong one; a nation is never matched to a club.
+rather than merged into the wrong one, and so is a club the source already
+knows by another of its IDs (Miami FC is not Inter Miami, nor Atlanta United
+2 Atlanta United); a nation is never matched to a club. A refresh replaces
+the season it fetched rather than adding to it.
 
 **Two grains.** Club seasons are stored as table lines per (team,
 competition, season), which keeps competitions from ever being summed. Games

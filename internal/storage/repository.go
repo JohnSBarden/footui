@@ -155,6 +155,11 @@ type TeamColorsRepo interface {
 // team_competition_season anchor rows that make them queryable per
 // competition rather than blended across a team's whole season.
 type TeamStatsRepo interface {
+	// ClearCompetitionSeason removes one competition-season's table,
+	// squad lines and the links that place clubs in it, so a refresh
+	// replaces the season rather than adding to it: a club resolved to the
+	// wrong canonical one and since corrected leaves no row behind.
+	ClearCompetitionSeason(ctx context.Context, competitionID, seasonID string) error
 	LinkTeamCompetitionSeason(ctx context.Context, teamID, competitionID, seasonID string) error
 	UpsertTeamSeasonStats(ctx context.Context, s models.TeamSeasonStats) error
 	Standings(ctx context.Context, competitionID, seasonID string) ([]models.TeamSeasonStats, error)

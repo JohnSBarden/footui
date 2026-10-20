@@ -563,6 +563,22 @@ func (s *Store) TeamColorsFor(ctx context.Context, teamIDs []string) (map[string
 
 // --- TeamStatsRepo ---
 
+func (s *Store) ClearCompetitionSeason(ctx context.Context, competitionID, seasonID string) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("sqlite: clear %s/%s: %w", competitionID, seasonID, err)
+	}
+	defer tx.Rollback()
+	// team_season_stats references the links, so it goes first.
+	for _, table := range []string{"team_season_stat_extra", "team_season_stats", "player_season_stats", "team_competition_season"} {
+		if _, err := tx.ExecContext(ctx,
+			`DELETE FROM `+table+` WHERE competition_id = ? AND season_id = ?`, competitionID, seasonID); err != nil {
+			return fmt.Errorf("sqlite: clear %s %s/%s: %w", table, competitionID, seasonID, err)
+		}
+	}
+	return tx.Commit()
+}
+
 func (s *Store) LinkTeamCompetitionSeason(ctx context.Context, teamID, competitionID, seasonID string) error {
 	_, err := s.db.ExecContext(ctx, `
 		INSERT INTO team_competition_season (team_id, competition_id, season_id)

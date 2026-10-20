@@ -215,6 +215,14 @@ func (s *Syncer) syncCompetitionSeason(ctx context.Context, comp models.Competit
 	if err := s.repos.UpsertSeason(ctx, season); err != nil {
 		return res, err
 	}
+	// The fetch is the season as it stands, so it replaces what was
+	// cached rather than adding to it. A fetch with no clubs in it is
+	// taken as the source having nothing, never as a season emptied.
+	if len(teams) > 0 {
+		if err := s.repos.ClearCompetitionSeason(ctx, comp.ID, season.ID); err != nil {
+			return res, fmt.Errorf("sync: clear season: %w", err)
+		}
+	}
 
 	for _, t := range teams {
 		if err := s.repos.UpsertTeam(ctx, t); err != nil {

@@ -31,7 +31,10 @@ import (
 //     "Paris Saint-Germain" must never become "Paris FC". A domestic
 //     cup's word-subset match only counts when the words that differ are
 //     club suffixes ("Leeds United" = "Leeds", but "FC United of
-//     Manchester" is not Manchester United).
+//     Manchester" is not Manchester United). A club the provider already
+//     knows by a different one of its IDs is never a match: the
+//     provider says it's another club ("Miami FC" is not "Inter Miami
+//     CF", "Columbus Crew 2" not "Columbus Crew").
 //  3. Otherwise a new canonical club.
 //
 // A player is matched within the squad of the club they were resolved
@@ -234,7 +237,10 @@ func (r *resolver) team(ctx context.Context, provider, local string, t models.Te
 		return models.Team{}, err
 	}
 
-	row, ok := r.match(t)
+	row, ok, err := r.match(ctx, provider, local, t)
+	if err != nil {
+		return models.Team{}, err
+	}
 	if !ok {
 		row = t
 		row.ID = r.newTeamID(t)
@@ -258,7 +264,10 @@ func (r *resolver) cachedTeam(id string) (models.Team, bool) {
 }
 
 // match finds the cached club a fetched one denotes, if exactly one fits.
-func (r *resolver) match(t models.Team) (models.Team, bool) {
+// A club the provider already knows by another of its IDs is, on the
+// provider's own word, another club, however alike the names: Miami FC
+// is not Inter Miami, nor Atlanta United 2 Atlanta United.
+func (r *resolver) match(ctx context.Context, provider, local string, t models.Team) (models.Team, bool, error) {
 	europe := r.comp.Country == "Europe"
 	name := normalizeClub(t.Name)
 	var exact, loose []models.Team
@@ -278,13 +287,39 @@ func (r *resolver) match(t models.Team) (models.Team, bool) {
 			loose = append(loose, c)
 		}
 	}
+	var err error
+	if exact, err = r.unclaimedBy(ctx, provider, local, t, exact); err != nil {
+		return models.Team{}, false, err
+	}
+	if loose, err = r.unclaimedBy(ctx, provider, local, t, loose); err != nil {
+		return models.Team{}, false, err
+	}
 	if len(exact) == 1 {
-		return exact[0], true
+		return exact[0], true, nil
 	}
 	if len(exact) == 0 && len(loose) == 1 {
-		return loose[0], true
+		return loose[0], true, nil
 	}
-	return models.Team{}, false
+	return models.Team{}, false, nil
+}
+
+// unclaimedBy drops the clubs provider already maps a different one of
+// its IDs to, unless t has the very same name: that's the provider
+// listing one club twice, as it does some nations.
+func (r *resolver) unclaimedBy(ctx context.Context, provider, local string, t models.Team, clubs []models.Team) ([]models.Team, error) {
+	out := clubs[:0]
+	for _, c := range clubs {
+		id, err := r.repos.ProviderID(ctx, "team", c.ID, provider)
+		switch {
+		case errors.Is(err, storage.ErrNotFound):
+		case err != nil:
+			return nil, err
+		case id != local && normalizePerson(c.Name) != normalizePerson(t.Name):
+			continue
+		}
+		out = append(out, c)
+	}
+	return out, nil
 }
 
 // newTeamID mints a canonical ID for a club footui hasn't seen: the
