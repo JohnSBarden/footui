@@ -379,12 +379,21 @@ func (m *Model) table() string {
 	rows := make([][]components.Cell, 0, len(m.rows))
 
 	extras := m.extraGroups()
-	for _, r := range m.visibleRows() {
+	// A club competition's group is a slice of the overall table, ranked
+	// overall: on its own tab it's numbered from 1, and the zones (which
+	// go by overall place) are left off.
+	inGroup := m.Group() != "" && !m.comp.International()
+	for i, r := range m.visibleRows() {
 		s := r.Stats
+		pos, zone := s.Position, m.zoneCell(s.Position)
+		if inGroup {
+			n := i + 1
+			pos, zone = &n, components.Text(" ")
+		}
 
 		row := []components.Cell{
-			m.zoneCell(s.Position),
-			components.Text(components.Int(s.Position)),
+			zone,
+			components.Text(components.Int(pos)),
 			components.Text(components.Dot(th, m.colors[r.Team.ID].PrimaryHex) + " " +
 				m.deps.Star(models.FavoriteTeam, r.Team.ID, r.Team.Name)),
 			components.Text(strconv.Itoa(s.MatchesPlayed)),

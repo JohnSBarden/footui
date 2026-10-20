@@ -119,9 +119,17 @@ func (m *Model) groupBar() string {
 		return ""
 	}
 	th := m.deps.Theme
-	parts := []string{th.Muted.Render("Groups ")}
+	heading := "Groups "
+	if m.groups[0] == "" {
+		// A club competition's: the overall table, then its groups.
+		heading = "Table "
+	}
+	parts := []string{th.Muted.Render(heading)}
 	for i, g := range m.groups {
 		label := strings.TrimPrefix(g, "Group ")
+		if g == "" {
+			label = "Overall"
+		}
 		if i == m.groupIdx {
 			parts = append(parts, th.Accent.Bold(true).Render("["+label+"]"))
 		} else {

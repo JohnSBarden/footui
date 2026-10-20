@@ -1,6 +1,8 @@
 package league
 
 import (
+	"slices"
+
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/JohnSBarden/footui/internal/data/models"
@@ -108,21 +110,23 @@ func (m *Model) handleKey(msg tea.KeyMsg) (core.Screen, tea.Cmd) {
 	if m.strip.HandleKey(msg.String(), m.width) {
 		return m, nil
 	}
+	switch msg.String() {
+	case "[", "]":
+		if len(m.groups) > 1 && !m.matchesView {
+			step := 1
+			if msg.String() == "[" {
+				step = -1
+			}
+			m.groupIdx = (m.groupIdx + step + len(m.groups)) % len(m.groups)
+			m.cursor = headerRow
+		}
+		return m, nil
+	}
 	if m.comp.International() {
 		switch msg.String() {
 		case "m":
 			m.matchesView = !m.matchesView
 			m.matchesShown = true
-			return m, nil
-		case "[", "]":
-			if len(m.groups) > 1 && !m.matchesView {
-				step := 1
-				if msg.String() == "[" {
-					step = -1
-				}
-				m.groupIdx = (m.groupIdx + step + len(m.groups)) % len(m.groups)
-				m.cursor = headerRow
-			}
 			return m, nil
 		}
 		if m.matchesView {
@@ -189,6 +193,11 @@ func (m *Model) setGroups(keep string) {
 	m.groups = nil
 	seen := map[string]bool{}
 	starred := ""
+	// A club competition's groups (MLS conferences, an old Champions
+	// League group stage) come after the overall table, its first tab.
+	if !m.comp.International() && slices.ContainsFunc(m.rows, func(r Row) bool { return r.Stats.GroupLabel != "" }) {
+		m.groups = append(m.groups, "")
+	}
 	for _, r := range m.rows {
 		g := r.Stats.GroupLabel
 		if g == "" || seen[g] {
@@ -196,6 +205,11 @@ func (m *Model) setGroups(keep string) {
 		}
 		seen[g] = true
 		m.groups = append(m.groups, g)
+	}
+	if len(m.groups) > 0 && m.groups[0] == "" {
+		// Ranked overall, the rows come in no group order; the tabs go
+		// A to H, East before West.
+		slices.Sort(m.groups[1:])
 	}
 	for _, r := range m.rows {
 		if r.Stats.GroupLabel != "" && m.deps.Favorites.Has(models.FavoriteTeam, r.Team.ID) {

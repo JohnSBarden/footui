@@ -193,8 +193,10 @@ func mapStandings(resp standingsResponse, comp models.Competition, seasonID stri
 	var teams []models.Team
 	var rows []models.TeamSeasonStats
 	// A tournament's groups are its table: each keeps its label and its
-	// own ranking. Only club competitions are folded into one table.
-	groups := comp.International() && len(resp.Children) > 1
+	// own ranking. A club competition's (MLS conferences, an old
+	// Champions League group stage) keep their labels too, but are ranked
+	// as one table, which is what the screen opens on.
+	groups := len(resp.Children) > 1
 	for _, group := range resp.Children {
 		for _, e := range group.Standings.Entries {
 			teams = append(teams, mapTeam(e.Team, comp))
@@ -221,7 +223,7 @@ func mapStandings(resp standingsResponse, comp models.Competition, seasonID stri
 			rows = append(rows, row)
 		}
 	}
-	if len(resp.Children) > 1 && !groups {
+	if groups && !comp.International() {
 		rankOverall(rows)
 	}
 	return teams, rows

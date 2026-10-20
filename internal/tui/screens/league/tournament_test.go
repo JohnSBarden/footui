@@ -109,6 +109,49 @@ func TestASeasonWithoutATableOpensOnItsFixtures(t *testing.T) {
 	}
 }
 
+// MLS's conferences: the overall table first, ranked across both, then
+// each conference on a tab of its own, numbered from 1.
+func TestConferencesAreTabsAfterTheOverallTable(t *testing.T) {
+	repos := storagetest.New(t)
+	mls := models.Competition{ID: "usa-mls", Name: "MLS", Country: "USA", Tier: 1, Gender: "men", CalendarYear: true}
+	storagetest.SeedCompetition(t, repos, mls, "2025", []storagetest.TeamRow{
+		{ID: "usa-riverside", Name: "Riverside", Position: 1, MP: 34, Pts: 54, NoXG: true, Group: "Western Conference"},
+		{ID: "usa-lakeshore", Name: "Lakeshore", Position: 2, MP: 34, Pts: 53, NoXG: true, Group: "Eastern Conference"},
+		{ID: "usa-prairie", Name: "Prairie City", Position: 3, MP: 34, Pts: 44, NoXG: true, Group: "Western Conference"},
+		{ID: "usa-highland", Name: "Highland", Position: 4, MP: 34, Pts: 41, NoXG: true, Group: "Eastern Conference"},
+	})
+	m := tuitest.Resize(t, tuitest.Settle(t, league.New(newDeps(repos), mls.ID)), 110, 40).(*league.Model)
+	table := func(out string) string { return out[strings.Index(out, "TEAM"):] }
+
+	out := m.View()
+	if m.Group() != "" || !strings.Contains(out, "[Overall]") {
+		t.Fatalf("should open on the overall table, got %q:\n%s", m.Group(), out)
+	}
+	order := []string{"Riverside", "Lakeshore", "Prairie City", "Highland"}
+	for i := 1; i < len(order); i++ {
+		if strings.Index(table(out), order[i-1]) > strings.Index(table(out), order[i]) {
+			t.Errorf("overall table out of order:\n%s", out)
+		}
+	}
+	found := false
+	for _, b := range m.Keys().Short {
+		found = found || b.Help().Key == "[/]"
+	}
+	if !found {
+		t.Error("[/] isn't offered")
+	}
+
+	m = press(t, m, "]", "]")
+	out = m.View()
+	if m.Group() != "Western Conference" || strings.Contains(table(out), "Lakeshore") {
+		t.Fatalf("group %q:\n%s", m.Group(), out)
+	}
+	// Prairie City is third overall but second in the West.
+	if !strings.Contains(table(out), "2 ● Prairie City") {
+		t.Errorf("a conference is numbered from 1:\n%s", out)
+	}
+}
+
 func TestClubLeaguesHaveNoTournamentKeys(t *testing.T) {
 	s, _ := screen(t, storagetest.SampleStandings())
 	for _, b := range s.Keys().Short {

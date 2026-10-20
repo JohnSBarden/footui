@@ -78,6 +78,14 @@ func TestStandingsMapGroupsAndGoalDifference(t *testing.T) {
 	if lakeshore.XG != nil {
 		t.Error("ESPN has no expected goals; xG must stay unset")
 	}
+	// Each club still knows its conference, for the screen's tabs.
+	groups := map[string]bool{}
+	for _, r := range rows {
+		groups[r.GroupLabel] = true
+	}
+	if !groups["Eastern Conference"] || !groups["Western Conference"] || len(groups) != 2 {
+		t.Errorf("conference labels %v", groups)
+	}
 }
 
 func find(t *testing.T, rows []models.TeamSeasonStats, id string) models.TeamSeasonStats {

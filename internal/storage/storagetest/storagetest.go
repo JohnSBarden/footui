@@ -46,6 +46,8 @@ type TeamRow struct {
 	// NoXG seeds the row with null xG/xGA, as a provider without expected
 	// goals would.
 	NoXG bool
+	// Group is the row's group or conference, empty for none.
+	Group string
 }
 
 // SeedCompetition upserts a competition, one season, and a standings table.
@@ -78,7 +80,7 @@ func SeedCompetition(t *testing.T, repos storage.Repositories, comp models.Compe
 			TeamID: r.ID, CompetitionID: comp.ID, SeasonID: seasonID,
 			MatchesPlayed: r.MP, Wins: r.W, Draws: r.D, Losses: r.L,
 			GoalsFor: r.GF, GoalsAgainst: r.GA, GoalDiff: r.GF - r.GA,
-			Points: r.Pts, Source: "test", UpdatedAt: Fixed,
+			Points: r.Pts, Source: "test", UpdatedAt: Fixed, GroupLabel: r.Group,
 		}
 		if r.Position != 0 {
 			pos := r.Position

@@ -125,12 +125,16 @@ func (m *Model) Keys() core.KeyMap {
 		km.Short = append(km.Short, keys.Scores)
 		km.Full = append(km.Full, []key.Binding{keys.Scores})
 	}
-	if !m.comp.International() {
-		return km
-	}
 	var extra []key.Binding
 	if len(m.groups) > 1 && !m.matchesView {
 		extra = append(extra, keys.Group)
+	}
+	if !m.comp.International() {
+		if len(extra) > 0 {
+			km.Short = append(km.Short, extra...)
+			km.Full = append(km.Full, extra)
+		}
+		return km
 	}
 	if m.matchesView {
 		extra = append(extra, keys.Tables)

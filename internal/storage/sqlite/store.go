@@ -716,7 +716,13 @@ func (s *Store) Standings(ctx context.Context, competitionID, seasonID string) (
 			source, updated_at, COALESCE(group_label, '')
 		FROM team_season_stats
 		WHERE competition_id = ? AND season_id = ?
-		ORDER BY COALESCE(group_label, ''), position IS NULL, position`, competitionID, seasonID)
+		-- A tournament's rows are ranked within their groups, so they
+		-- come group by group; a club competition's groups (MLS
+		-- conferences) are ranked as one table, which comes in order.
+		ORDER BY CASE WHEN COALESCE((SELECT c.category FROM competition c
+				WHERE c.id = team_season_stats.competition_id), '') IN ('', 'cup')
+			THEN '' ELSE COALESCE(group_label, '') END,
+			position IS NULL, position`, competitionID, seasonID)
 	if err != nil {
 		return nil, fmt.Errorf("sqlite: standings %s/%s: %w", competitionID, seasonID, err)
 	}
