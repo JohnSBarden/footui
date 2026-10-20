@@ -237,6 +237,16 @@ func lineCount(label string, n *int, minutes, apps int) components.Stat {
 	return components.Stat{Label: label, Value: per90(n, minutes), Hint: "per 90 · " + countOr(n)}
 }
 
+// minutesCell is a table's minutes for the season, "—" for a season
+// played whose minutes weren't recorded.
+func minutesCell(r SeasonRow) string {
+	mins := minutesOf(r)
+	if mins == 0 && appsOf(r) > 0 {
+		return "—"
+	}
+	return strconv.Itoa(mins)
+}
+
 // minutesTile says "not recorded" for a season with appearances but no
 // minutes, rather than 0.
 func minutesTile(minutes, apps int) components.Stat {
@@ -342,7 +352,7 @@ func (m *Model) positionTable(rows []SeasonRow) (base []components.Column, extra
 			components.Text(components.SeasonName(r.Season)),
 			components.Text(r.Team.Name),
 			components.Text(strconv.Itoa(appsOf(r))),
-			components.Text(strconv.Itoa(mins)),
+			components.Text(minutesCell(r)),
 		}
 		switch m.group {
 		case playerstats.GK:

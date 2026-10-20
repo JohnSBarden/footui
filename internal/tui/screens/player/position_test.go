@@ -256,6 +256,43 @@ func TestTableUsesDetailMinutes(t *testing.T) {
 	}
 }
 
+// A forward keeps the standard table, which took the line's minutes: an
+// ESPN league showed 0 in the table and the career line, beside a minutes
+// tile reading 1240. Both now take the detail's, and the career line
+// stops counting key passes ESPN never recorded.
+func TestForwardTableAndCareerUseDetailMinutes(t *testing.T) {
+	repos := storagetest.New(t)
+	seedArsenalSeason(t, repos, pl2025, "2025")
+	seedLine(t, repos, saka, models.PlayerSeasonStats{Appearances: 14, Goals: 12, Assists: 7, Shots: ip(42)},
+		&models.PlayerSeasonDetail{Position: "F", Appearances: ip(14), Minutes: ip(1240), ShotsOnTarget: ip(20)})
+	out := view(t, repos, saka)
+	var row string
+	for _, l := range strings.Split(out, "\n") {
+		if strings.Contains(l, "2025-26") && strings.Contains(l, "Arsenal") {
+			row = l
+		}
+	}
+	if !strings.Contains(row, " 1240 ") {
+		t.Errorf("Mins should come from the detail: %q", row)
+	}
+	wantAll(t, out, "1240 mins", "42 shots")
+	if strings.Contains(out, "key passes") {
+		t.Errorf("no key passes were recorded\n%s", out)
+	}
+}
+
+// Without detail, an ESPN season's minutes are unknown, not zero.
+func TestUnknownMinutesShowAsDash(t *testing.T) {
+	repos := storagetest.New(t)
+	seedArsenalSeason(t, repos, pl2025, "2025")
+	seedLine(t, repos, saka, models.PlayerSeasonStats{Appearances: 14, Goals: 12, Assists: 7, Shots: ip(42)}, nil)
+	out := view(t, repos, saka)
+	if strings.Contains(out, "0 mins") {
+		t.Errorf("career line should leave out minutes it doesn't have\n%s", out)
+	}
+	wantAll(t, out, "not recorded")
+}
+
 // Opening a player asks the root app to bring their detail up to date.
 func TestOpenRequestsPlayerRefresh(t *testing.T) {
 	m := player.New(newDeps(rayaRepos(t, true)), raya, "eng-arsenal")

@@ -165,18 +165,27 @@ type Career struct {
 	// HasXG reports whether any season contributed expected-goals data, so
 	// a career with none shows "—" rather than a misleading 0.0.
 	HasXG bool
-	// HasShots likewise for the shot-based counters.
-	HasShots bool
+	// HasShots and HasKeyPasses likewise for those counters.
+	HasShots     bool
+	HasKeyPasses bool
+	// HasMinutes reports whether every season played has its minutes. An
+	// ESPN line without the player's detail has none, and a total that
+	// silently left those seasons out would undercount.
+	HasMinutes bool
 }
 
 // CareerInCurrentCompetition totals the selected competition's rows.
 func (m *Model) CareerInCurrentCompetition() Career {
-	var c Career
+	c := Career{HasMinutes: true}
 	for _, r := range m.CurrentRows() {
 		s := r.Stats
 		c.Seasons++
-		c.Appearances += s.Appearances
-		c.Minutes += s.Minutes
+		apps, mins := appsOf(r), minutesOf(r)
+		c.Appearances += apps
+		c.Minutes += mins
+		if mins == 0 && apps > 0 {
+			c.HasMinutes = false
+		}
 		c.Goals += s.Goals
 		c.Assists += s.Assists
 		if s.XG != nil {
@@ -193,7 +202,7 @@ func (m *Model) CareerInCurrentCompetition() Career {
 		}
 		if s.KeyPasses != nil {
 			c.KeyPasses += *s.KeyPasses
-			c.HasShots = true
+			c.HasKeyPasses = true
 		}
 	}
 	return c

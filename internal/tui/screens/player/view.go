@@ -274,7 +274,7 @@ func (m *Model) stats() []components.Stat {
 
 	stats := []components.Stat{
 		{Label: "Season", Value: components.SeasonName(row.Season), Hint: row.Team.Name},
-		{Label: "Minutes", Value: strconv.Itoa(s.Minutes), Hint: strconv.Itoa(s.Appearances) + " apps"},
+		minutesTile(s.Minutes, s.Appearances),
 		{Label: "Goals", Value: strconv.Itoa(s.Goals), Hint: per90Hint(s.Goals, s.Minutes)},
 		{Label: "Assists", Value: strconv.Itoa(s.Assists), Hint: per90Hint(s.Assists, s.Minutes)},
 	}
@@ -374,8 +374,8 @@ func (m *Model) tableParts(rows []SeasonRow, width int) ([]components.Column, []
 		cells = append(cells, []components.Cell{
 			components.Text(components.SeasonName(r.Season)),
 			components.Text(r.Team.Name),
-			components.Text(strconv.Itoa(s.Appearances)),
-			components.Text(strconv.Itoa(s.Minutes)),
+			components.Text(strconv.Itoa(appsOf(r))),
+			components.Text(minutesCell(r)),
 			components.Styled(strconv.Itoa(s.Goals), toneOr(th, s.Goals, s.XG, th.Accent.Bold(true))),
 			components.Styled(strconv.Itoa(s.Assists), toneOr(th, s.Assists, s.XA, th.TableCell)),
 			components.Text(components.Float(s.XG, 1)),
@@ -447,15 +447,16 @@ func (m *Model) careerLines(width int) []string {
 		return nil
 	}
 
-	parts := []string{
-		plural(c.Seasons, "season"),
-		plural(c.Appearances, "app"),
-		strconv.Itoa(c.Minutes) + " mins",
-		plural(c.Goals, "goal"),
-		plural(c.Assists, "assist"),
+	parts := []string{plural(c.Seasons, "season"), plural(c.Appearances, "app")}
+	if c.HasMinutes {
+		parts = append(parts, strconv.Itoa(c.Minutes)+" mins")
 	}
+	parts = append(parts, plural(c.Goals, "goal"), plural(c.Assists, "assist"))
 	if c.HasShots {
-		parts = append(parts, strconv.Itoa(c.Shots)+" shots", strconv.Itoa(c.KeyPasses)+" key passes")
+		parts = append(parts, strconv.Itoa(c.Shots)+" shots")
+	}
+	if c.HasKeyPasses {
+		parts = append(parts, strconv.Itoa(c.KeyPasses)+" key passes")
 	}
 	if c.HasXG {
 		parts = append(parts,
