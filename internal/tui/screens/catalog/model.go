@@ -88,7 +88,10 @@ type Model struct {
 	pending []core.RefreshRequest
 
 	loading bool
-	err     error
+	// held are keys pressed before the catalog finished loading; they
+	// are replayed once it has, rather than dropped.
+	held []tea.KeyMsg
+	err  error
 
 	width  int
 	height int

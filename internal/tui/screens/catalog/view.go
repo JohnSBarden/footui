@@ -22,6 +22,9 @@ func (m *Model) View() string {
 
 	b.WriteString(th.Title.Render(Title))
 	b.WriteString(th.Subtitle.Render("  pick a league, then the seasons to fetch"))
+	if n := m.downloading(); n > 0 {
+		b.WriteString("  " + th.Accent.Render(fmt.Sprintf("◐ %d downloading", n)) + th.Muted.Render(" · s stops"))
+	}
 	b.WriteString("\n\n")
 
 	switch {
@@ -49,6 +52,16 @@ func (m *Model) View() string {
 	b.WriteString("\n\n")
 	b.WriteString(m.selectionLine())
 	return b.String()
+}
+
+// downloading counts the leagues running on, or waiting in, the app's
+// refresh queue.
+func (m *Model) downloading() int {
+	n := len(m.pending)
+	if m.active != nil {
+		n++
+	}
+	return n
 }
 
 func (m *Model) leagueTable() string {

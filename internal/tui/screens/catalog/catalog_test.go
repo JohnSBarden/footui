@@ -211,3 +211,30 @@ func TestSStopsDownloadsOnlyWhileOneIsRunning(t *testing.T) {
 		t.Error("s while downloading should ask the app to stop")
 	}
 }
+
+func TestKeysPressedWhileLoadingAreReplayed(t *testing.T) {
+	m := newCatalog(t)
+	m.loading = true
+	press(m, "C")
+	if n, _ := m.SelectedCount(); n != 0 {
+		t.Fatalf("C acted before the catalog loaded: %d selected", n)
+	}
+	m.Update(m.load()())
+	if n, leagues := m.SelectedCount(); n != 2 || leagues != 2 {
+		t.Errorf("after loading, C selected %d season(s) across %d league(s), want 2 across 2", n, leagues)
+	}
+}
+
+func TestHeaderCountsDownloads(t *testing.T) {
+	m := newCatalog(t)
+	if strings.Contains(m.View(), "downloading") {
+		t.Fatal("header mentions downloads with an empty queue")
+	}
+	m.Update(core.RefreshQueueMsg{
+		Active:  &core.RefreshRequest{CompetitionID: laLiga.ID},
+		Pending: []core.RefreshRequest{{CompetitionID: "eng-premier-league"}},
+	})
+	if v := m.View(); !strings.Contains(v, "◐ 2 downloading") {
+		t.Errorf("header doesn't count the two downloads:\n%s", v)
+	}
+}

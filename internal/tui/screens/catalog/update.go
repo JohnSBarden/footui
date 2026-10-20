@@ -26,7 +26,7 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 		m.loading = false
 		m.err = nil
 		m.clampCursors()
-		return m, nil
+		return m, m.replayHeld()
 
 	case core.ErrMsg:
 		m.err = msg.Err
@@ -43,9 +43,26 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 		return m, m.load()
 
 	case tea.KeyMsg:
+		if m.loading {
+			m.held = append(m.held, msg)
+			return m, nil
+		}
 		return m.handleKey(msg)
 	}
 	return m, nil
+}
+
+// replayHeld runs the keys pressed while the catalog was loading, in
+// order, now that there is something for them to act on.
+func (m *Model) replayHeld() tea.Cmd {
+	held := m.held
+	m.held = nil
+	var cmds []tea.Cmd
+	for _, k := range held {
+		_, cmd := m.handleKey(k)
+		cmds = append(cmds, cmd)
+	}
+	return tea.Batch(cmds...)
 }
 
 func (m *Model) handleKey(msg tea.KeyMsg) (core.Screen, tea.Cmd) {
