@@ -154,8 +154,10 @@ func (a *App) splashBody(th styles.Theme) string {
 			spin := splashSpinner[int(a.splash.elapsed/splashSpinEvery)%len(splashSpinner)]
 			lines = append(lines, splashTask(width, th.Accent.Render(string(spin)), th.TableCell, a.active.Label(), th.Muted.Render("refreshing")))
 		}
+		// A queued league says why it's being refreshed: how old its
+		// cache is ("cached 21h ago"), or that it's new.
 		for _, q := range a.queue {
-			lines = append(lines, splashTask(width, th.Faint.Render("·"), th.Muted, q.Label(), ""))
+			lines = append(lines, splashTask(width, th.Faint.Render("·"), th.Muted, q.Label(), th.Faint.Render(q.Why)))
 		}
 
 		// The refresh under way counts as half done.

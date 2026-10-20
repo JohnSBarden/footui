@@ -16,10 +16,10 @@ func TestSplashListsWhatIsRefreshing(t *testing.T) {
 	app := newApp(newFake("Dashboard"))
 	app.ShowSplash(false)
 	app.active = &core.RefreshRequest{CompetitionID: "eng-premier-league", Name: "Premier League"}
-	app.queue = []core.RefreshRequest{{CompetitionID: "ita-serie-a", Name: "Serie A"}}
+	app.queue = []core.RefreshRequest{{CompetitionID: "ita-serie-a", Name: "Serie A", Why: "cached 21h ago"}}
 	app.splash.done = []splashDone{{label: "NWSL"}}
 	v := ansi.Strip(app.View())
-	for _, want := range []string{"football stats in your terminal", "✓ NWSL", "up to date", "⠋ Premier League", "refreshing", "· Serie A", "50%", "syncing local cache…"} {
+	for _, want := range []string{"football stats in your terminal", "✓ NWSL", "up to date", "⠋ Premier League", "refreshing", "· Serie A", "cached 21h ago", "50%", "syncing local cache…"} {
 		if !strings.Contains(v, want) {
 			t.Errorf("missing %q\n%s", want, v)
 		}
