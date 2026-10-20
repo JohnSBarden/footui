@@ -310,13 +310,14 @@ footui config path    # print the file's location
 
 ```yaml
 theme: strong        # weak | strong
+accent: terminal     # lime | #rrggbb | terminal (your terminal's own palette)
 stale_after: 2h      # refresh-on-open threshold; 0 turns it off
 db: ~/footui/footui.db # database location
 no_color: false
 ```
 
 A flag always wins, then an environment variable (`FOOTUI_THEME`,
-`NO_COLOR`), then the file, then the default. A misspelt key is an error
+`FOOTUI_ACCENT`, `NO_COLOR`), then the file, then the default. A misspelt key is an error
 naming the file, not a setting silently ignored.
 
 ## What's covered

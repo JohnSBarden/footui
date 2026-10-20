@@ -74,6 +74,7 @@ func showSettings(cmd *cobra.Command, g *globalFlags) error {
 	fmt.Fprintf(out, "Settings file: %s\n\n", configPath())
 	rows := []struct{ name, value string }{
 		{"theme", s.theme.String()},
+		{"accent", s.accent.String()},
 		{"stale_after", staleText(s)},
 		{"db", s.dbPath},
 		{"no_color", strconv.FormatBool(s.noColor)},

@@ -32,7 +32,7 @@ const (
 // TeamPalette derives a readable palette from a club's brand colors.
 // secondary and tertiary may be empty; the primary alone is enough.
 func TeamPalette(primaryHex, secondaryHex string) Palette {
-	base := DefaultPalette()
+	base := applyAccent(DefaultPalette())
 
 	primary, ok := parseHex(primaryHex)
 	if !ok {

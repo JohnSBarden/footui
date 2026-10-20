@@ -133,7 +133,7 @@ func New(p Palette) Theme {
 }
 
 // Default returns the un-branded theme.
-func Default() Theme { return New(DefaultPalette()) }
+func Default() Theme { return New(applyAccent(DefaultPalette())) }
 
 // Plain returns a theme with every color stripped, for NO_COLOR and
 // --no-color. Layout, padding, and bold/italic are kept: they still convey
@@ -203,5 +203,5 @@ func BaseFor(mode Mode, noColorFlag bool) Theme {
 	if t.NoColor || mode != Strong {
 		return t
 	}
-	return strongTheme(mustHex(grassDark), mustHex(grassDark), mustHex(grassLight), baseLime)
+	return strongTheme(mustHex(grassDark), mustHex(grassDark), mustHex(grassLight), strongAccentHex())
 }

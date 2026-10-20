@@ -25,6 +25,7 @@ const (
 // the config file, and the built-in default.
 type settings struct {
 	theme      styles.Mode
+	accent     styles.Accent
 	staleAfter time.Duration
 	dbPath     string
 	noColor    bool
@@ -80,6 +81,22 @@ func (g *globalFlags) resolveSettings(cmd *cobra.Command) error {
 		return fmt.Errorf("%s (from %s)", err, src)
 	}
 	s.theme, s.sources["theme"] = mode, src
+
+	// accent: FOOTUI_ACCENT, file, lime.
+	accentName, src := "", fromDefault
+	switch {
+	case envSetting("FOOTUI_ACCENT") != "":
+		accentName, src = envSetting("FOOTUI_ACCENT"), fromEnv
+	case file.Accent != nil:
+		accentName, src = *file.Accent, fromFile
+	}
+	accent, err := styles.ParseAccent(accentName)
+	if err != nil {
+		return fmt.Errorf("%s (from %s)", err, src)
+	}
+	s.accent, s.sources["accent"] = accent, src
+	// Every theme is built from it, so it is in place before any is.
+	styles.UseAccent(accent)
 
 	// stale_after: --stale-after, file, 6h.
 	switch {

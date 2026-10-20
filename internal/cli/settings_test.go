@@ -6,6 +6,8 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/JohnSBarden/footui/internal/tui/styles"
 )
 
 func withConfig(t *testing.T, body string) string {
@@ -43,6 +45,26 @@ func TestDefaultsWhenNothingIsSet(t *testing.T) {
 	}
 	if v, src := setting(t, out, "stale_after"); v != "6h0m0s" || src != fromDefault {
 		t.Errorf("stale_after %q from %q", v, src)
+	}
+}
+
+func TestAccentFromFileThenEnv(t *testing.T) {
+	withConfig(t, "accent: terminal\n")
+	t.Setenv("FOOTUI_ACCENT", "")
+	t.Cleanup(func() { styles.UseAccent(styles.Accent{}) })
+
+	out, _ := run(t, "config")
+	if v, src := setting(t, out, "accent"); v != "terminal" || src != fromFile {
+		t.Errorf("file: accent %q from %q", v, src)
+	}
+	t.Setenv("FOOTUI_ACCENT", "#FF8800")
+	out, _ = run(t, "config")
+	if v, src := setting(t, out, "accent"); v != "#ff8800" || src != fromEnv {
+		t.Errorf("env: accent %q from %q", v, src)
+	}
+	t.Setenv("FOOTUI_ACCENT", "chartreuse")
+	if _, err := run(t, "config"); err == nil || !strings.Contains(err.Error(), "environment") {
+		t.Errorf("a bad accent should fail naming its source, got %v", err)
 	}
 }
 

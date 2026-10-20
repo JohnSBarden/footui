@@ -20,6 +20,9 @@ import (
 type File struct {
 	// Theme is the club theme mode, "weak" or "strong".
 	Theme *string `yaml:"theme"`
+	// Accent is footui's own highlight colour: "lime", "terminal", or a
+	// colour as #rrggbb.
+	Accent *string `yaml:"accent"`
 	// StaleAfter is how old a followed league's current season may get
 	// before opening the interface refreshes it. "0" disables.
 	StaleAfter *Duration `yaml:"stale_after"`
@@ -111,6 +114,11 @@ const Template = `# footui settings. Every line is optional; a flag on the comma
 # Environment: FOOTUI_THEME. Flag: --theme. Pressing t while running
 # switches theme and saves the choice here.
 # theme: weak
+
+# footui's own highlight colour, on screens that belong to no club: lime,
+# any colour as #rrggbb, or terminal to draw everything in your terminal's
+# own palette so footui follows its theme. Environment: FOOTUI_ACCENT.
+# accent: lime
 
 # When the interface opens, leagues you follow whose current season is
 # older than this are refreshed in the background. 0 turns it off.
