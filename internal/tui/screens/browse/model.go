@@ -83,7 +83,7 @@ type Model struct {
 	// later re-run (after a refresh) keeps the cursor where it was.
 	searched bool
 	loading  bool
-	err     error
+	err      error
 
 	width  int
 	height int
