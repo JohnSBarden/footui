@@ -15,7 +15,7 @@ type Stat struct {
 	// Hint is an optional third line for context — a delta, a rank, or the
 	// same figure per-90. Empty hints collapse the card to two lines.
 	Hint string
-	// Style optionally colors the value (e.g. green for over-performance).
+	// Style optionally colours the value (e.g. green for over-performance).
 	Style *lipgloss.Style
 }
 

@@ -265,7 +265,7 @@ func mapTeam(t wireTeam, comp models.Competition) models.Team {
 	return team
 }
 
-// mapColors extracts brand colors for clubs that have them.
+// mapColors extracts brand colours for clubs that have them.
 func mapColors(resp teamsResponse) []models.TeamColors {
 	var out []models.TeamColors
 	for _, s := range resp.Sports {

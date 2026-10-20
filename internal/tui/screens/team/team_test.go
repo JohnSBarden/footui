@@ -294,11 +294,10 @@ func TestColumnsFollowTheData(t *testing.T) {
 		{ID: arsenal.ID, Name: "Arsenal", Position: 1, MP: 38, W: 26, D: 7, L: 5, GF: 71, GA: 27, Pts: 85, NoXG: true},
 	})
 	ctx := context.Background()
-	poss, shots, onTarget := 58.3, 512, 181
 	if err := repos.UpsertTeamSeasonStats(ctx, models.TeamSeasonStats{
 		TeamID: arsenal.ID, CompetitionID: "eng-premier-league", SeasonID: "eng-premier-league:2025",
 		MatchesPlayed: 38, Wins: 26, Draws: 7, Losses: 5, GoalsFor: 71, GoalsAgainst: 27,
-		GoalDiff: 44, Points: 85, PossessionAvg: &poss, Shots: &shots, ShotsOnTarget: &onTarget,
+		GoalDiff: 44, Points: 85, PossessionAvg: new(58.3), Shots: new(512), ShotsOnTarget: new(181),
 		Source: "test", UpdatedAt: storagetest.Fixed,
 	}); err != nil {
 		t.Fatalf("UpsertTeamSeasonStats: %v", err)
@@ -337,7 +336,7 @@ func TestClubColorsThemeTheScreen(t *testing.T) {
 	}
 
 	deps := newDeps(repos)
-	deps.Theme = styles.Default() // a color-capable theme
+	deps.Theme = styles.Default() // a colour-capable theme
 	s := tuitest.Settle(t, team.New(deps, arsenal, "eng-premier-league", "eng-premier-league:2025"))
 
 	if !s.(*team.Model).Themed() {
@@ -385,7 +384,7 @@ func TestClubWithoutColorsStaysOnTheNeutralTheme(t *testing.T) {
 	}
 }
 
-// NO_COLOR means no color; a club's branding is not an exception.
+// NO_COLOR means no colour; a club's branding is not an exception.
 func TestNoColorSuppressesClubBranding(t *testing.T) {
 	repos := seedTwoCompetitions(t)
 	if err := repos.UpsertTeamColors(context.Background(), models.TeamColors{
@@ -403,7 +402,7 @@ func TestNoColorSuppressesClubBranding(t *testing.T) {
 }
 
 // Branding belongs to the screen it's on: a player who turned out for
-// three clubs should not be rendered in one club's colors.
+// three clubs should not be rendered in one club's colours.
 func TestClubBrandingDoesNotLeakIntoPushedScreens(t *testing.T) {
 	repos := seedTwoCompetitions(t)
 	ctx := context.Background()

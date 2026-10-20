@@ -298,7 +298,7 @@ type CompetitionCache struct {
 	LastSync *SyncRun
 }
 
-// TeamColors are the brand colors used to theme a Team's dashboard.
+// TeamColors are the brand colours used to theme a Team's dashboard.
 type TeamColors struct {
 	TeamID       string
 	PrimaryHex   string

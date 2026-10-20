@@ -56,7 +56,7 @@ func scanNullInt(dst **int, v sql.NullInt64) {
 	}
 }
 
-// nullString maps "" to SQL NULL, keeping "no secondary color recorded"
+// nullString maps "" to SQL NULL, keeping "no secondary colour recorded"
 // distinct from an empty string in the column.
 func nullString(s string) sql.NullString {
 	if s == "" {

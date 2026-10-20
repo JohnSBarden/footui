@@ -32,10 +32,10 @@ func TestContrastRatioMatchesTheWCAGExtremes(t *testing.T) {
 	}
 }
 
-// The point of the whole file: a club color must end up readable on
+// The point of the whole file: a club colour must end up readable on
 // whichever terminal background the user has.
 func TestBrandColorsBecomeReadableOnBothBackgrounds(t *testing.T) {
-	// Real brand colors chosen to be hard cases at each end.
+	// Real brand colours chosen to be hard cases at each end.
 	cases := map[string]string{
 		"Newcastle black":   "#241F20",
 		"Norwich yellow":    "#FFF200",
@@ -62,7 +62,7 @@ func TestBrandColorsBecomeReadableOnBothBackgrounds(t *testing.T) {
 }
 
 // Adjusting must move lightness only: a club's hue is the part that makes
-// the color recognizably theirs.
+// the colour recognizably theirs.
 func TestAdjustingPreservesHue(t *testing.T) {
 	chelsea := hex(t, "#034694")
 	wantHue, _, _ := chelsea.Hsl()
@@ -76,7 +76,7 @@ func TestAdjustingPreservesHue(t *testing.T) {
 	}
 }
 
-// A color that is already readable must be left exactly as the club chose.
+// A colour that is already readable must be left exactly as the club chose.
 func TestAlreadyReadableColorsAreNotTouched(t *testing.T) {
 	// A mid-tone red clears 4.5:1 against white already.
 	c := hex(t, "#8B0000")
@@ -88,7 +88,7 @@ func TestAlreadyReadableColorsAreNotTouched(t *testing.T) {
 
 func TestTextOnBrandColorPicksTheReadableEnd(t *testing.T) {
 	cases := map[string]string{
-		"#241F20": "#ffffff", // near-black club color needs white text
+		"#241F20": "#ffffff", // near-black club colour needs white text
 		"#FFF200": "#000000", // bright yellow needs black text
 		"#FFFFFF": "#000000",
 		"#034694": "#ffffff",
@@ -122,7 +122,7 @@ func TestTeamPaletteUsesTheBrandColor(t *testing.T) {
 }
 
 // Plain() exists so NO_COLOR users still get structure; it must not leak
-// any club color.
+// any club colour.
 func TestPlainThemeCarriesNoColor(t *testing.T) {
 	if !Plain().NoColor {
 		t.Error("Plain() should report NoColor")

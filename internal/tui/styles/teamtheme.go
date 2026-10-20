@@ -7,18 +7,18 @@ import (
 	"github.com/lucasb-eyer/go-colorful"
 )
 
-// A club's brand colors are chosen for shirts and crests, not for text on a
+// A club's brand colours are chosen for shirts and crests, not for text on a
 // terminal. Navy on black and yellow on white are both unreadable, and a
 // terminal's background is not knowable in advance — it may be light, dark,
-// or change while the program is running. So brand colors are never used
+// or change while the program is running. So brand colours are never used
 // raw: they are adjusted per terminal background, and the two adjusted
 // variants are handed to Lip Gloss as an AdaptiveColor.
 const (
-	// minContrast is the WCAG AA ratio for normal-size text. Brand colors
+	// minContrast is the WCAG AA ratio for normal-size text. Brand colours
 	// are lightened or darkened until they clear it.
 	minContrast = 4.5
 	// minLargeContrast is WCAG AA for large text, applied to the header
-	// bar where the club color is a background behind bold text. Holding
+	// bar where the club colour is a background behind bold text. Holding
 	// the header to the full 4.5 would wash out nearly every club's
 	// primary into something unrecognizable.
 	minLargeContrast = 3.0
@@ -29,15 +29,15 @@ const (
 	darkBackground  = "#0b0b0b"
 )
 
-// TeamPalette derives a readable palette from a club's brand colors.
+// TeamPalette derives a readable palette from a club's brand colours.
 // secondary and tertiary may be empty; the primary alone is enough.
 func TeamPalette(primaryHex, secondaryHex string) Palette {
 	base := applyAccent(DefaultPalette())
 
 	primary, ok := parseHex(primaryHex)
 	if !ok {
-		// An unparseable or missing brand color falls back to the neutral
-		// palette rather than rendering a club in an arbitrary color.
+		// An unparseable or missing brand colour falls back to the neutral
+		// palette rather than rendering a club in an arbitrary colour.
 		return base
 	}
 
@@ -46,7 +46,7 @@ func TeamPalette(primaryHex, secondaryHex string) Palette {
 	base.Highlight = selectionBackground(primary)
 
 	if secondary, ok := parseHex(secondaryHex); ok {
-		// The secondary color is used where a second brand accent helps
+		// The secondary colour is used where a second brand accent helps
 		// (panel borders); it gets the same readability treatment.
 		base.Border = adaptiveForeground(secondary, minLargeContrast)
 	}
@@ -89,7 +89,7 @@ func HeroStyles(th Theme, primaryHex, secondaryHex string, mode Mode) (fill, rul
 	return fill, rule
 }
 
-// TeamTheme builds a full Theme from a club's brand colors.
+// TeamTheme builds a full Theme from a club's brand colours.
 func TeamTheme(primaryHex, secondaryHex string) Theme {
 	return New(TeamPalette(primaryHex, secondaryHex))
 }
@@ -105,11 +105,11 @@ func TeamThemeFor(primaryHex, secondaryHex string, mode Mode) Theme {
 }
 
 // StrongTeamTheme builds a theme whose background is the club's primary
-// color, cut into mowing stripes: the primary itself alternating with a
+// colour, cut into mowing stripes: the primary itself alternating with a
 // shade of it, like a pitch. Unlike the weak theme the background is known
-// exactly, so every color is solved against both shades once rather than
+// exactly, so every colour is solved against both shades once rather than
 // adapted per terminal: text is black or white, whichever contrasts more;
-// the secondary color becomes the accent if it can be made readable on
+// the secondary colour becomes the accent if it can be made readable on
 // the primary; and the selected row and title bar are drawn inverse, the
 // strongest contrast available.
 func StrongTeamTheme(primaryHex, secondaryHex string) (Theme, bool) {
@@ -143,7 +143,7 @@ func mowingShade(c colorful.Color) colorful.Color {
 }
 
 // strongTheme builds a strong theme on stripes a and b. primary is the
-// color drawn on inverse elements (the title bar, keys, the selected row).
+// colour drawn on inverse elements (the title bar, keys, the selected row).
 func strongTheme(primary, a, b colorful.Color, secondaryHex string) Theme {
 	bgs := []colorful.Color{a, b}
 	text := mustHex("#ffffff")
@@ -173,7 +173,7 @@ func strongTheme(primary, a, b colorful.Color, secondaryHex string) Theme {
 	t.Background, t.Stripe = hex(a), hex(b)
 	t.Title = t.Title.Foreground(hex(primary)).Background(hex(text))
 	t.TableSelected = lipgloss.NewStyle().Foreground(hex(primary)).Background(hex(text)).Bold(true)
-	// Highlight is the text color here, so New's keycap (text on
+	// Highlight is the text colour here, so New's keycap (text on
 	// Highlight) and idle tab (muted on Highlight) would vanish: keys are
 	// drawn inverse like the title, idle tabs sit unfilled on the screen.
 	t.Keycap = t.Keycap.Foreground(hex(primary)).Background(hex(text))
@@ -246,9 +246,9 @@ func solveOn(c colorful.Color, bgs []colorful.Color, threshold float64) colorful
 	return best
 }
 
-// quantize rounds a color to what it will actually be rendered as: an
+// quantize rounds a colour to what it will actually be rendered as: an
 // in-gamut, 8-bit-per-channel hex value. Contrast is checked on this,
-// not on the float color, or a blend that clears the threshold
+// not on the float colour, or a blend that clears the threshold
 // in-memory can miss it once written out.
 func quantize(c colorful.Color) colorful.Color {
 	return mustHex(c.Clamped().Hex())
@@ -287,10 +287,10 @@ func parseHex(hex string) (colorful.Color, bool) {
 	return c, true
 }
 
-// adaptiveForeground returns the brand color adjusted separately for light
+// adaptiveForeground returns the brand colour adjusted separately for light
 // and dark terminals, each lightened or darkened only as far as needed to
 // clear the contrast threshold. Adjusting in HSL keeps the hue — the part
-// that makes the color recognizably the club's — while moving only
+// that makes the colour recognizably the club's — while moving only
 // lightness.
 func adaptiveForeground(c colorful.Color, threshold float64) lipgloss.TerminalColor {
 	return lipgloss.AdaptiveColor{
@@ -299,7 +299,7 @@ func adaptiveForeground(c colorful.Color, threshold float64) lipgloss.TerminalCo
 	}
 }
 
-// adjustForBackground walks a color's lightness toward the opposite end
+// adjustForBackground walks a colour's lightness toward the opposite end
 // from bg until it meets the contrast threshold, giving up at the extreme.
 func adjustForBackground(c, bg colorful.Color, threshold float64) colorful.Color {
 	if contrastRatio(c, bg) >= threshold {
@@ -332,7 +332,7 @@ func adjustForBackground(c, bg colorful.Color, threshold float64) colorful.Color
 }
 
 // readableTextOn picks black or white for text drawn on top of a brand
-// color, whichever contrasts more. This is what keeps the header bar
+// colour, whichever contrasts more. This is what keeps the header bar
 // legible for both a near-black club (Newcastle) and a near-white one
 // (Real Madrid).
 func readableTextOn(bg colorful.Color) lipgloss.TerminalColor {
@@ -344,7 +344,7 @@ func readableTextOn(bg colorful.Color) lipgloss.TerminalColor {
 }
 
 // TextOn is black or white, whichever reads on bg, for text drawn on a
-// fill of a theme color. An adaptive bg (any weak-theme color) has no
+// fill of a theme colour. An adaptive bg (any weak-theme colour) has no
 // single value to solve against, and gets fallback.
 func TextOn(bg, fallback lipgloss.TerminalColor) lipgloss.TerminalColor {
 	if c, ok := parseHex(colorHex(bg)); ok {
@@ -354,7 +354,7 @@ func TextOn(bg, fallback lipgloss.TerminalColor) lipgloss.TerminalColor {
 }
 
 // selectionBackground derives the selected-row background from the brand
-// color: heavily desaturated and pushed toward the terminal background, so
+// colour: heavily desaturated and pushed toward the terminal background, so
 // it tints the row without competing with the text on it.
 func selectionBackground(c colorful.Color) lipgloss.TerminalColor {
 	h, s, _ := c.Hsl()
@@ -374,7 +374,7 @@ func clamp(v float64) float64 {
 	return v
 }
 
-// relativeLuminance is the WCAG 2.x relative luminance of a color.
+// relativeLuminance is the WCAG 2.x relative luminance of a colour.
 func relativeLuminance(c colorful.Color) float64 {
 	channel := func(v float64) float64 {
 		if v <= 0.03928 {
@@ -386,7 +386,7 @@ func relativeLuminance(c colorful.Color) float64 {
 	return 0.2126*channel(c.R) + 0.7152*channel(c.G) + 0.0722*channel(c.B)
 }
 
-// contrastRatio is the WCAG contrast ratio between two colors, from 1
+// contrastRatio is the WCAG contrast ratio between two colours, from 1
 // (identical) to 21 (black against white).
 func contrastRatio(a, b colorful.Color) float64 {
 	la, lb := relativeLuminance(a), relativeLuminance(b)

@@ -19,10 +19,9 @@ type fakeSource struct{}
 
 func (fakeSource) Standings(ctx context.Context, comp provider.CompetitionRef, season provider.SeasonRef) ([]models.TeamSeasonStats, error) {
 	xg, xga := 40.0, 20.0
-	pos := 1
 	return []models.TeamSeasonStats{{
 		TeamID: "eng-arsenal", CompetitionID: comp.CompetitionID, SeasonID: season.SeasonID,
-		Position: &pos, MatchesPlayed: 10, Wins: 8, Draws: 1, Losses: 1,
+		Position: new(1), MatchesPlayed: 10, Wins: 8, Draws: 1, Losses: 1,
 		GoalsFor: 25, GoalsAgainst: 10, GoalDiff: 15, Points: 25,
 		XG: &xg, XGA: &xga, Source: "fake", UpdatedAt: time.Now(),
 	}}, nil
@@ -37,10 +36,9 @@ func (fakeSource) Players(ctx context.Context, comp provider.CompetitionRef, sea
 }
 
 func (fakeSource) AllRosterStats(ctx context.Context, comp provider.CompetitionRef, season provider.SeasonRef) ([]models.PlayerSeasonStats, error) {
-	xg, xa := 5.0, 2.0
 	return []models.PlayerSeasonStats{{
 		PlayerID: "fake-1", TeamID: "eng-arsenal", CompetitionID: comp.CompetitionID, SeasonID: season.SeasonID,
-		Appearances: 10, Minutes: 900, Goals: 6, Assists: 2, XG: &xg, XA: &xa,
+		Appearances: 10, Minutes: 900, Goals: 6, Assists: 2, XG: new(5.0), XA: new(2.0),
 		Source: "fake", UpdatedAt: time.Now(),
 	}}, nil
 }

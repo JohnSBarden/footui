@@ -24,8 +24,7 @@ func (s stubDetail) AthleteSeason(context.Context, string, int, string, bool) (m
 	if s.err != nil {
 		return models.PlayerSeasonDetail{}, s.err
 	}
-	cs := 3
-	return models.PlayerSeasonDetail{CleanSheets: &cs}, nil
+	return models.PlayerSeasonDetail{CleanSheets: new(3)}, nil
 }
 func (s stubDetail) Squad(context.Context, string, int, string) ([]provider.SquadMember, error) {
 	return nil, nil

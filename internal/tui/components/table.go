@@ -94,7 +94,7 @@ func renderRow(opts TableOpts, row []Cell, selected bool) string {
 
 		switch {
 		case selected:
-			// Per-cell colors are deliberately dropped here: the selection
+			// Per-cell colours are deliberately dropped here: the selection
 			// background has to win, and mixing it with per-cell
 			// foregrounds produces unreadable combinations on some
 			// terminals.

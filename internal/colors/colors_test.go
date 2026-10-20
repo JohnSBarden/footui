@@ -27,7 +27,7 @@ func TestSeedFileParsesAndIsWellFormed(t *testing.T) {
 			t.Errorf("entry %+v is missing a required field", e)
 		}
 		// Every ID and alias must be unique, or one club would silently
-		// shadow another's colors depending on file order.
+		// shadow another's colours depending on file order.
 		for _, id := range append([]string{e.ID}, e.Aliases...) {
 			if prev, dup := seen[id]; dup {
 				t.Errorf("id/alias %q used by both %q and %q", id, prev, e.Name)
@@ -128,7 +128,7 @@ func TestSeedReportsUncoloredTeams(t *testing.T) {
 }
 
 // A club whose provider spells its name differently should still find its
-// colors through an alias.
+// colours through an alias.
 func TestAliasesResolveAlternativeTeamIDs(t *testing.T) {
 	repos := storagetest.New(t)
 	seedTeams(t, repos, models.Team{ID: "eng-wolves", Name: "Wolves", Gender: "men"})

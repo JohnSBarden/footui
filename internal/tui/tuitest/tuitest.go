@@ -24,7 +24,7 @@ const maxSteps = 20
 
 func init() {
 	// Golden output must not depend on whether the test runner's stdout
-	// happens to be a terminal, so color is pinned off for every test in
+	// happens to be a terminal, so colour is pinned off for every test in
 	// every package that imports this one.
 	lipgloss.SetColorProfile(termenv.Ascii)
 }

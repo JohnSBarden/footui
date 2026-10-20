@@ -89,8 +89,8 @@ func (p *Provider) AllRosterStats(ctx context.Context, comp provider.Competition
 	return b.lines, nil
 }
 
-// TeamColors returns the brand colors ESPN has for the competition's
-// clubs. They fill in for clubs nobody has curated colors for.
+// TeamColors returns the brand colours ESPN has for the competition's
+// clubs. They fill in for clubs nobody has curated colours for.
 func (p *Provider) TeamColors(ctx context.Context, comp provider.CompetitionRef, season provider.SeasonRef) ([]models.TeamColors, error) {
 	b, err := p.load(ctx, comp, season)
 	if err != nil {

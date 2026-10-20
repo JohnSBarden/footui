@@ -56,8 +56,8 @@ var (
 		key.WithKeys("ctrl+k"),
 		key.WithHelp("ctrl+k", "kickabout"),
 	)
-	// Theme switches club screens between the weak theme (club colors as
-	// highlights) and the strong one (painted in the club's colors).
+	// Theme switches club screens between the weak theme (club colours as
+	// highlights) and the strong one (painted in the club's colours).
 	Theme = key.NewBinding(
 		key.WithKeys("t", "ctrl+t"),
 		key.WithHelp("t", "theme"),

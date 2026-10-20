@@ -5,15 +5,15 @@ import (
 	"strings"
 )
 
-// Mode is how strongly a club's colors are applied to its screens.
+// Mode is how strongly a club's colours are applied to its screens.
 type Mode int
 
 const (
 	// Weak keeps the terminal's own background (transparent, if the
-	// terminal is) and uses club colors for highlights and UI elements
+	// terminal is) and uses club colours for highlights and UI elements
 	// only.
 	Weak Mode = iota
-	// Strong paints the whole screen in the club's primary color, with
+	// Strong paints the whole screen in the club's primary colour, with
 	// text and accents chosen for contrast against it.
 	Strong
 )

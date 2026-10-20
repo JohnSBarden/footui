@@ -15,7 +15,7 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 		return m, nil
 
 	case core.RefreshedMsg:
-		// Reload everything: the refresh re-seeds colors and honours too.
+		// Reload everything: the refresh re-seeds colours and honours too.
 		// The current selection is carried over as the "opened from"
 		// hint so the reload lands back on the same tab and row instead
 		// of the one the screen was first opened with.
@@ -73,9 +73,9 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 		return m, nil
 
 	case colorsLoadedMsg:
-		// A club's brand colors are chosen for shirts, not terminals, so
+		// A club's brand colours are chosen for shirts, not terminals, so
 		// they're passed through styles.TeamTheme rather than used raw.
-		// The plain theme is left alone: NO_COLOR means no color, and a
+		// The plain theme is left alone: NO_COLOR means no colour, and a
 		// club's branding is not an exception to that.
 		if !m.theme.NoColor {
 			m.colors = &msg.colors
@@ -89,7 +89,7 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 		if m.colors != nil {
 			m.theme = styles.TeamThemeFor(m.colors.PrimaryHex, m.colors.SecondaryHex, msg.Mode)
 		} else {
-			// A club with no colors shows in the base theme, which is
+			// A club with no colours shows in the base theme, which is
 			// now the new mode's.
 			m.theme = msg.Theme
 		}

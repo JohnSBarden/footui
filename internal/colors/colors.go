@@ -1,7 +1,7 @@
-// Package colors loads footui's hand-curated club brand colors and applies
+// Package colors loads footui's hand-curated club brand colours and applies
 // them to teams already in the cache.
 //
-// There is no scrapeable structured source for club colors, so this seed
+// There is no scrapeable structured source for club colours, so this seed
 // file is a manual dataset — a known chore from the original design, not an
 // oversight. It is applied rather than trusted: an entry only takes effect
 // when its ID (or one of its aliases) matches a team the provider actually
@@ -23,11 +23,11 @@ import (
 //go:embed seed/teamcolors.yaml
 var seedFile []byte
 
-// SeedSource is the provenance recorded on colors written from this file,
+// SeedSource is the provenance recorded on colours written from this file,
 // so a future automated source can be told apart from the hand-curated set.
 const SeedSource = "seed:v1"
 
-// Entry is one club's curated colors.
+// Entry is one club's curated colours.
 type Entry struct {
 	ID   string `yaml:"id"`
 	Name string `yaml:"name"`
@@ -63,7 +63,7 @@ func byTeamID(entries []Entry) map[string]Entry {
 
 // Report describes what a Seed call did.
 type Report struct {
-	// Applied is the number of cached teams that got colors.
+	// Applied is the number of cached teams that got colours.
 	Applied int
 	// Uncolored lists cached teams with no matching seed entry — the
 	// actionable output, since each is a club someone can add to the file.
@@ -74,7 +74,7 @@ type Report struct {
 	Unused int
 }
 
-// Seed applies the curated colors to every team currently in the cache.
+// Seed applies the curated colours to every team currently in the cache.
 // It is driven by what is cached rather than by the file so that
 // team_colors never references a team row that doesn't exist, and so
 // re-running it after refreshing a new competition picks that competition

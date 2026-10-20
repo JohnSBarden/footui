@@ -87,7 +87,7 @@ func (d Deps) ThemeMode() styles.Mode {
 }
 
 // ThemeChangedMsg is broadcast to every screen when the user switches
-// theme mode. Theme is the new theme for content with no club colors of
+// theme mode. Theme is the new theme for content with no club colours of
 // its own; every screen adopts it (it draws its own content, so a painted
 // background would otherwise sit under text styled for the terminal's),
 // and a screen showing a club rebuilds that club's theme in Mode.
@@ -97,7 +97,7 @@ type ThemeChangedMsg struct {
 }
 
 // ThemedScreen is implemented by screens that render in a theme of their
-// own (a club's colors). The root app draws its chrome — breadcrumb,
+// own (a club's colours). The root app draws its chrome — breadcrumb,
 // footer, status line — in that theme too, and paints the whole frame in
 // its background when it has one.
 type ThemedScreen interface {

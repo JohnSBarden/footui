@@ -430,10 +430,9 @@ func TestSyncEditionFetchesTheNextYearOnlyWithoutAFinal(t *testing.T) {
 	final := fixture("euro", 2024, at(2024, 7, 14, 19), "1", "2", 2, 1)
 	final.Round = "Final"
 	src.matches["euro/2024"] = []models.Match{fixture("euro", 2024, at(2024, 6, 14, 19), "1", "3", 1, 0), final}
-	p1, p2 := 1, 2
 	src.tables["euro:2024"] = []models.TeamSeasonStats{
-		{TeamID: "espn:1", CompetitionID: "euro", SeasonID: "euro:2024", GroupLabel: "Group A", Position: &p1, Points: 3, Source: "espn"},
-		{TeamID: "espn:3", CompetitionID: "euro", SeasonID: "euro:2024", GroupLabel: "Group A", Position: &p2, Source: "espn"},
+		{TeamID: "espn:1", CompetitionID: "euro", SeasonID: "euro:2024", GroupLabel: "Group A", Position: new(1), Points: 3, Source: "espn"},
+		{TeamID: "espn:3", CompetitionID: "euro", SeasonID: "euro:2024", GroupLabel: "Group A", Position: new(2), Source: "espn"},
 	}
 	src.matches["afcon/2025"] = []models.Match{fixture("afcon", 2025, at(2025, 12, 22, 19), "3", "4", 1, 1)}
 	src.matches["afcon/2026"] = []models.Match{fixture("afcon", 2025, at(2026, 1, 18, 19), "3", "4", 0, 0)}

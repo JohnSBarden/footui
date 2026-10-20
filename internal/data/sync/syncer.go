@@ -268,13 +268,13 @@ func (s *Syncer) syncCompetitionSeason(ctx context.Context, comp models.Competit
 	return res, nil
 }
 
-// colorSource is a provider that knows clubs' brand colors.
+// colorSource is a provider that knows clubs' brand colours.
 type colorSource interface {
 	TeamColors(ctx context.Context, comp provider.CompetitionRef, season provider.SeasonRef) ([]models.TeamColors, error)
 }
 
-// applyProviderColors stores a provider's brand colors for clubs that
-// have none yet. It never replaces existing colors: curated ones are
+// applyProviderColors stores a provider's brand colours for clubs that
+// have none yet. It never replaces existing colours: curated ones are
 // better, and the curated seed runs after every refresh anyway. Like the
 // seed it is decoration, so a failure here doesn't fail the refresh.
 func (s *Syncer) applyProviderColors(ctx context.Context, comp provider.CompetitionRef, season provider.SeasonRef, ids *resolver) {

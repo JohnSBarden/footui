@@ -425,7 +425,7 @@ func (m *Model) table() string {
 	})
 }
 
-// deltaStyle colors a signed value by direction. Under NO_COLOR the theme's
+// deltaStyle colours a signed value by direction. Under NO_COLOR the theme's
 // positive/negative styles are identical, and the explicit +/- sign
 // components.Signed already emits is what carries the meaning.
 func (m *Model) deltaStyle(v float64) lipgloss.Style {

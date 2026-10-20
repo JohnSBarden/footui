@@ -53,7 +53,7 @@ func (m *Model) loadHistory() tea.Cmd {
 	}
 }
 
-// loadColors fetches the club's curated brand colors. A club with none is
+// loadColors fetches the club's curated brand colours. A club with none is
 // the common case (the seed set is hand-curated), so a not-found result
 // yields no message at all rather than an error the user would have to
 // dismiss.

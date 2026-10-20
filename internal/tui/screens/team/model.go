@@ -93,13 +93,13 @@ type Model struct {
 	height int
 
 	// theme is this screen's own theme, which becomes the club's brand
-	// theme once its colors load. It is deliberately separate from
+	// theme once its colours load. It is deliberately separate from
 	// deps.Theme: deps is what gets handed to screens this one pushes, and
 	// a player who turned out for three clubs should not be rendered in
-	// one club's colors. Branding stays on the screen it belongs to.
+	// one club's colours. Branding stays on the screen it belongs to.
 	theme   styles.Theme
 	branded bool
-	// colors are the club's brand colors once loaded, kept so the theme
+	// colors are the club's brand colours once loaded, kept so the theme
 	// can be rebuilt when the user switches mode.
 	colors *models.TeamColors
 
@@ -109,11 +109,11 @@ type Model struct {
 }
 
 // Themed reports whether this screen is rendering in the club's own brand
-// colors rather than the neutral theme.
+// colours rather than the neutral theme.
 func (m *Model) Themed() bool { return m.branded }
 
 // ScreenTheme implements core.ThemedScreen, so the app's chrome matches
-// the club's colors.
+// the club's colours.
 func (m *Model) ScreenTheme() styles.Theme { return m.theme }
 
 // New constructs the Team screen. competitionID and seasonID say where the
@@ -206,7 +206,7 @@ type honoursLoadedMsg struct {
 	honours []models.Trophy
 }
 
-// colorsLoadedMsg carries a club's brand colors. Absent colors are a
+// colorsLoadedMsg carries a club's brand colours. Absent colours are a
 // normal state, not an error, so the message simply isn't sent.
 type colorsLoadedMsg struct {
 	colors models.TeamColors

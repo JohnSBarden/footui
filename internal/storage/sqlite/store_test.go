@@ -277,11 +277,10 @@ func TestPlayerAdvancedStatsRoundTrip(t *testing.T) {
 		t.Fatalf("UpsertPlayer: %v", err)
 	}
 	shots, keyPasses, npg := 84, 61, 7
-	npxg := 8.1
 	if err := s.UpsertPlayerSeasonStats(ctx, models.PlayerSeasonStats{
 		PlayerID: "p1", TeamID: "eng-arsenal", CompetitionID: "eng-premier-league", SeasonID: seasonID,
 		Appearances: 31, Minutes: 2239, Goals: 7, Assists: 5,
-		Shots: &shots, KeyPasses: &keyPasses, NonPenaltyGoals: &npg, NPxG: &npxg,
+		Shots: &shots, KeyPasses: &keyPasses, NonPenaltyGoals: &npg, NPxG: new(8.1),
 		Source: "test", UpdatedAt: time.Now(),
 	}); err != nil {
 		t.Fatalf("UpsertPlayerSeasonStats: %v", err)

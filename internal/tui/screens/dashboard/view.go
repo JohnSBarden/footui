@@ -61,8 +61,8 @@ func (m *Model) header() string {
 }
 
 // renderCard draws one card width columns wide. The selected card's
-// border is drawn in the accent color and, so it still stands out without
-// color, heavier.
+// border is drawn in the accent colour and, so it still stands out without
+// colour, heavier.
 func (m *Model) renderCard(c Card, selected bool, width int) string {
 	th := m.deps.Theme
 	inner := max(width-4, 8)

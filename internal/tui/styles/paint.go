@@ -24,7 +24,7 @@ const stripeWidth = 6
 // keycap, the selected row), which is left exactly as it was. Lines are
 // padded to the full width and blank lines fill out the height.
 //
-// A theme with no background, or a terminal with no color, gets the frame
+// A theme with no background, or a terminal with no colour, gets the frame
 // back untouched.
 func Paint(frame string, th Theme, width, height int) string {
 	if th.Background == nil {
@@ -140,7 +140,7 @@ func sgrParams(seq string) ([]string, bool) {
 
 // applySGR folds an SGR's parameters into whether a span's own background
 // is in force, and reports whether they included a full reset (which also
-// clears the text color the frame is painted with).
+// clears the text colour the frame is painted with).
 func applySGR(own bool, params []string) (bool, bool) {
 	if len(params) == 0 {
 		return false, true
@@ -153,7 +153,7 @@ func applySGR(own bool, params []string) (bool, bool) {
 		case p == "49":
 			own = false
 		case p == "7":
-			// Reverse video turns the text color into a background.
+			// Reverse video turns the text colour into a background.
 			own = true
 		case p == "27":
 			own = false
@@ -171,7 +171,7 @@ func applySGR(own bool, params []string) (bool, bool) {
 }
 
 // extendedColorArgs is how many parameters follow a 38/48/58: "5;n" for a
-// palette index, "2;r;g;b" for true color.
+// palette index, "2;r;g;b" for true colour.
 func extendedColorArgs(rest []string) int {
 	if len(rest) == 0 {
 		return 0
@@ -185,8 +185,8 @@ func extendedColorArgs(rest []string) int {
 	return 0
 }
 
-// colorHex extracts a concrete color string. Strong themes only ever use
-// concrete colors; an adaptive one yields "" and is skipped.
+// colorHex extracts a concrete colour string. Strong themes only ever use
+// concrete colours; an adaptive one yields "" and is skipped.
 func colorHex(c lipgloss.TerminalColor) string {
 	if v, ok := c.(lipgloss.Color); ok {
 		return string(v)

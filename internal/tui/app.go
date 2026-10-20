@@ -405,7 +405,7 @@ func (a *App) updateKick(msg tea.Msg) (bool, tea.Cmd) {
 }
 
 // theme is what the chrome is drawn in: the visible screen's own theme
-// when it has one (a club's colors), the app's otherwise.
+// when it has one (a club's colours), the app's otherwise.
 func (a *App) theme() styles.Theme {
 	if themed, ok := a.current().(core.ThemedScreen); ok {
 		return themed.ScreenTheme()

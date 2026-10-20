@@ -631,7 +631,7 @@ func (m *Model) squadGroups() []extraGroup[models.PlayerSeasonStats] {
 }
 
 // paneTitle marks which table the cursor is in. The arrow marker means the
-// focused pane is still identifiable without color.
+// focused pane is still identifiable without colour.
 func (m *Model) paneTitle(label string, focused bool) string {
 	th := m.theme
 	if focused {

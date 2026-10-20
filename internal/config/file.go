@@ -28,7 +28,7 @@ type File struct {
 	StaleAfter *Duration `yaml:"stale_after"`
 	// DB overrides the database path. A leading ~/ is expanded.
 	DB *string `yaml:"db"`
-	// NoColor disables color, as --no-color does.
+	// NoColor disables colour, as --no-color does.
 	NoColor *bool `yaml:"no_color"`
 }
 

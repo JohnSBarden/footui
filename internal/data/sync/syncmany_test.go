@@ -42,10 +42,9 @@ func (f *flakySource) Teams(ctx context.Context, comp provider.CompetitionRef, s
 }
 
 func (f *flakySource) Standings(ctx context.Context, comp provider.CompetitionRef, season provider.SeasonRef) ([]models.TeamSeasonStats, error) {
-	pos := 1
 	return []models.TeamSeasonStats{{
 		TeamID: "team-" + comp.CompetitionID, CompetitionID: comp.CompetitionID, SeasonID: season.SeasonID,
-		Position: &pos, MatchesPlayed: 38, Points: 90, Source: "fake", UpdatedAt: time.Now(),
+		Position: new(1), MatchesPlayed: 38, Points: 90, Source: "fake", UpdatedAt: time.Now(),
 	}}, nil
 }
 

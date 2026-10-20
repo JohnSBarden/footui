@@ -30,8 +30,7 @@ func (f *fakeDetail) AthleteSeason(_ context.Context, comp string, year int, ath
 	}
 	f.calls = append(f.calls, comp+"/"+itoa(year)+"/"+athlete)
 	f.keepers = append(f.keepers, keeper)
-	cs := 10
-	return models.PlayerSeasonDetail{CleanSheets: &cs}, nil
+	return models.PlayerSeasonDetail{CleanSheets: new(10)}, nil
 }
 
 func (f *fakeDetail) Squad(_ context.Context, _ string, _ int, team string) ([]provider.SquadMember, error) {

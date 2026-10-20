@@ -10,11 +10,11 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// Palette is the raw color set a Theme is derived from. Keeping colors
+// Palette is the raw colour set a Theme is derived from. Keeping colours
 // separate from styles is what lets TeamTheme rebuild a full Theme from
-// just a club's brand colors.
+// just a club's brand colours.
 type Palette struct {
-	Accent    lipgloss.TerminalColor // primary brand/highlight color
+	Accent    lipgloss.TerminalColor // primary brand/highlight colour
 	OnAccent  lipgloss.TerminalColor // text drawn on top of Accent
 	Text      lipgloss.TerminalColor
 	Muted     lipgloss.TerminalColor
@@ -28,8 +28,8 @@ type Palette struct {
 	Highlight lipgloss.TerminalColor // selected-row background
 }
 
-// DefaultPalette is the un-branded palette used before a team's colors are
-// known (Browse, League) and whenever a team has no seeded colors. Its
+// DefaultPalette is the un-branded palette used before a team's colours are
+// known (Browse, League) and whenever a team has no seeded colours. Its
 // accent is footui's own lime; every text role clears WCAG AA on both a
 // light and a dark terminal.
 func DefaultPalette() Palette {
@@ -88,7 +88,7 @@ type Theme struct {
 	Panel      lipgloss.Style
 	PanelTitle lipgloss.Style
 
-	// Background is the color the whole screen is painted in, or nil to
+	// Background is the colour the whole screen is painted in, or nil to
 	// leave the terminal's own background showing — every theme except a
 	// strong club theme.
 	Background lipgloss.TerminalColor
@@ -96,8 +96,8 @@ type Theme struct {
 	// few columns like a cut pitch; nil paints Background flat.
 	Stripe lipgloss.TerminalColor
 
-	// NoColor reports whether color was disabled; screens that would
-	// otherwise convey meaning through color alone add a text marker.
+	// NoColor reports whether colour was disabled; screens that would
+	// otherwise convey meaning through colour alone add a text marker.
 	NoColor bool
 }
 
@@ -135,7 +135,7 @@ func New(p Palette) Theme {
 // Default returns the un-branded theme.
 func Default() Theme { return New(applyAccent(DefaultPalette())) }
 
-// Plain returns a theme with every color stripped, for NO_COLOR and
+// Plain returns a theme with every colour stripped, for NO_COLOR and
 // --no-color. Layout, padding, and bold/italic are kept: they still convey
 // structure on a monochrome terminal, and Lip Gloss drops the attributes
 // the terminal can't render anyway.
@@ -155,8 +155,8 @@ func Plain() Theme {
 	t.Empty = lipgloss.NewStyle().Italic(true)
 	t.TableHeader = bold
 	t.TableCell = plain
-	// Without color, the selected row is marked by reverse video — the one
-	// highlight every terminal renders regardless of color support.
+	// Without colour, the selected row is marked by reverse video — the one
+	// highlight every terminal renders regardless of colour support.
 	t.TableSelected = reverse
 	t.Accent = bold
 	t.Muted = plain
@@ -195,9 +195,9 @@ const (
 	baseLime   = "#C8F25A"
 )
 
-// BaseFor is the theme for screens with no club colors of their own, in
+// BaseFor is the theme for screens with no club colours of their own, in
 // the given mode: the terminal's background in weak mode, the pitch in
-// strong mode. No color still means no color.
+// strong mode. No colour still means no colour.
 func BaseFor(mode Mode, noColorFlag bool) Theme {
 	t := Resolve(noColorFlag)
 	if t.NoColor || mode != Strong {

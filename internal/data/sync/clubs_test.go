@@ -239,11 +239,10 @@ func (understatLike) Teams(context.Context, provider.CompetitionRef, provider.Se
 }
 
 func (understatLike) SeasonMatches(_ context.Context, comp provider.CompetitionRef, season provider.SeasonRef) ([]models.Match, error) {
-	g1, g0, xg := 1, 0, 1.7
 	return []models.Match{{ID: "understat:77", CompetitionID: comp.CompetitionID, SeasonID: season.SeasonID,
 		Kickoff: at(2026, 9, 20, 14), Status: models.MatchFullTime, HomeTeamID: "understat:eng-chelsea",
-		AwayTeamID: "understat:eng-arsenal", HomeScore: &g0, AwayScore: &g1,
-		AwayStats: &models.MatchTeamStats{XG: &xg}, Source: "understat", UpdatedAt: oct2026}}, nil
+		AwayTeamID: "understat:eng-arsenal", HomeScore: new(0), AwayScore: new(1),
+		AwayStats: &models.MatchTeamStats{XG: new(1.7)}, Source: "understat", UpdatedAt: oct2026}}, nil
 }
 
 func TestALeagueRefreshStoresItsMatches(t *testing.T) {

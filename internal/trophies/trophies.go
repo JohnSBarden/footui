@@ -1,7 +1,7 @@
 // Package trophies loads footui's hand-curated club honours and applies
 // them to teams already in the cache.
 //
-// Like club colors, honours have no scrapeable structured source, so this
+// Like club colours, honours have no scrapeable structured source, so this
 // is a manual dataset and a deliberately partial one — see the header of
 // seed/trophies.yaml for exactly what it claims to cover. The Team screen
 // labels the panel with that scope so a partial list is never read as an
@@ -84,7 +84,7 @@ type Report struct {
 }
 
 // Seed applies the curated honours to every team currently in the cache.
-// Like the colors seed it is driven by what is cached, so trophy rows can
+// Like the colours seed it is driven by what is cached, so trophy rows can
 // never reference a team that doesn't exist and refreshing a new
 // competition picks up its clubs with no extra step.
 func Seed(ctx context.Context, repos storage.Repositories) (Report, error) {

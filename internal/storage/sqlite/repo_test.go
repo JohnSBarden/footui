@@ -291,7 +291,7 @@ func TestCacheSummaryCountsDontMultiplyAcrossJoins(t *testing.T) {
 	}
 }
 
-// --- trophies and colors ---
+// --- trophies and colours ---
 
 func TestTrophiesReplaceBySourceAndOrderNewestFirst(t *testing.T) {
 	s := newTestStore(t)

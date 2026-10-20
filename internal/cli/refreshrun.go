@@ -27,13 +27,13 @@ type refreshEvents struct {
 	unit func(sync.UnitResult)
 	// retry is called each time a failed request is about to be retried.
 	retry func(attempt, of int, err error)
-	// note carries the outcome of the colors and honours re-seeding.
+	// note carries the outcome of the colours and honours re-seeding.
 	note func(text string)
 }
 
 // runRefresh is the one refresh pipeline, shared by `footui refresh` and
 // the TUI's refresh key: fetch each competition-season from the provider
-// that covers it, then re-seed curated colors and honours so a newly
+// that covers it, then re-seed curated colours and honours so a newly
 // cached competition picks up its clubs' branding and trophies with no
 // extra step. Neither seeding step may fail the refresh: the stats are
 // the point, these are decoration.
@@ -221,7 +221,7 @@ func failAll(jobs []sync.Job, err error, ev refreshEvents) []sync.UnitResult {
 	return out
 }
 
-// reseed applies curated colors and honours to whatever is now cached.
+// reseed applies curated colours and honours to whatever is now cached.
 func reseed(ctx context.Context, store storage.Repositories, ev refreshEvents) {
 	note := func(text string) {
 		if ev.note != nil {

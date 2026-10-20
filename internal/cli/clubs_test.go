@@ -37,10 +37,9 @@ func seedArsenal(t *testing.T, repos storage.Repositories, now time.Time, synced
 		}
 	}
 	if withMatch {
-		one, nil0 := 1, 0
 		if err := repos.UpsertMatches(ctx, []models.Match{{ID: "understat-1", CompetitionID: pl.ID, SeasonID: season.ID,
 			Kickoff: now.Add(-72 * time.Hour), Status: models.MatchFullTime, HomeTeamID: arsenal.ID, AwayTeamID: "eng-chelsea",
-			HomeScore: &one, AwayScore: &nil0, Source: "understat", UpdatedAt: now}}); err != nil {
+			HomeScore: new(1), AwayScore: new(0), Source: "understat", UpdatedAt: now}}); err != nil {
 			t.Fatal(err)
 		}
 	}

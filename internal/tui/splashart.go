@@ -12,7 +12,7 @@ import (
 // The splash wordmark is "footui" in block letters, its two o's a pair of
 // footballs bouncing out of step and spinning opposite ways. Each ball is
 // a shaded sphere with the twelve pentagons of a truncated icosahedron
-// picked out in the faint color, lit from the top left.
+// picked out in the faint colour, lit from the top left.
 
 const (
 	ballRows, ballCols = 7, 12
@@ -193,7 +193,7 @@ func ballRow(th styles.Theme, ball *[ballRows][ballCols]ballCell, h float64, row
 		ch, st := " ", (*lipgloss.Style)(nil)
 		switch cell {
 		case cellPanel:
-			// Without color a pentagon can't be told from a white panel
+			// Without colour a pentagon can't be told from a white panel
 			// by shade, so it is left as a hole.
 			if !th.NoColor {
 				ch, st = "█", &th.Faint

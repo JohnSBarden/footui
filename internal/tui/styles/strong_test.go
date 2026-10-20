@@ -183,7 +183,7 @@ func TestPaintLeavesTransparentThemesAlone(t *testing.T) {
 // Styles that draw their own background (key caps, tab pills, the title
 // bar, the selected row) must read against it. The palette-level check
 // above can't see these: a keycap once drew text on a background of that
-// same text color, and every key in the footer vanished.
+// same text colour, and every key in the footer vanished.
 func TestStrongThemeFilledStylesAreReadable(t *testing.T) {
 	entries, err := colors.Load()
 	if err != nil {
