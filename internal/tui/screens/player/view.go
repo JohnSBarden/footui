@@ -2,6 +2,7 @@ package player
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 
@@ -14,43 +15,109 @@ import (
 	"github.com/JohnSBarden/footui/internal/tui/styles"
 )
 
+// Layout. As on the club screen, everything but the season table is
+// drawn and measured first, and the table gets what's left.
+const (
+	// minTableLines is the least room the season table keeps under the
+	// stat cards; the cards lose their boxes, then their later stats, first.
+	minTableLines = 8
+	// minTableRows is the fewest seasons the table shows before the lines
+	// beneath it give up their room.
+	minTableRows = 3
+	// paneGap is the space between the two columns of a wide terminal.
+	paneGap = 4
+	// minSideWidth is the narrowest the stat cards' column gets beside
+	// the table: room for three cards abreast.
+	minSideWidth = 48
+)
+
 // View implements core.Screen.
 func (m *Model) View() string {
 	th := m.deps.Theme
-	var b strings.Builder
-
-	b.WriteString(m.header())
-	b.WriteString("\n\n")
+	head := m.header()
 
 	switch {
 	case m.err != nil:
-		b.WriteString(th.Error.Render("Could not load this player: " + m.err.Error()))
+		return head + "\n\n" + th.Error.Render("Could not load this player: "+m.err.Error())
 	case m.loading:
-		b.WriteString(th.Muted.Render("Loading…"))
+		return head + "\n\n" + th.Muted.Render("Loading…")
 	case len(m.competitions) == 0:
-		b.WriteString(m.emptyState())
-	default:
-		if cards := m.statCards(); cards != "" {
-			b.WriteString(cards)
-			b.WriteString("\n")
-			if row, ok := m.SelectedRow(); ok {
-				if c := m.callout(row); c != "" {
-					b.WriteString(c)
-					b.WriteString("\n")
-				}
-			}
-			b.WriteString("\n")
-		}
-		b.WriteString(m.seasonsTable())
-		b.WriteString("\n\n")
-		b.WriteString(m.careerLine())
-		if st := m.detailStatus(); st != "" {
-			b.WriteString("\n")
-			b.WriteString(st)
-		}
+		return head + "\n\n" + m.emptyState()
 	}
 
+	rest := m.height - components.Lines(head) - 1
+	stats := m.stats()
+	callout := ""
+	if row, ok := m.SelectedRow(); ok && len(stats) > 0 {
+		callout = m.callout(row)
+	}
+
+	// Wide: the seasons on the left, the selected one's numbers beside
+	// them, where the eye goes after picking a row.
+	tableWidth := components.ColumnsWidth(m.tableColumns(m.width))
+	if side := m.width - tableWidth - paneGap; side >= minSideWidth && len(stats) > 0 {
+		right := components.StatCards(th, stats, side)
+		if callout != "" {
+			right += "\n" + callout
+		}
+		return head + "\n\n" + components.SideBySide(paneGap, []int{tableWidth, side},
+			m.seasonsColumn(rest, tableWidth), right)
+	}
+
+	var b strings.Builder
+	b.WriteString(head + "\n\n")
+	if len(stats) > 0 {
+		budget := min(rest/3, rest-minTableLines) - components.Lines(callout)
+		panel := components.StatPanel(th, stats, m.width, budget)
+		if callout != "" {
+			panel += "\n" + callout
+		}
+		b.WriteString(panel + "\n\n")
+		rest -= components.Lines(panel) + 1
+	}
+	b.WriteString(m.seasonsColumn(rest, m.width))
 	return b.String()
+}
+
+// seasonsColumn is the season table with its notes, the career totals
+// and the detail's freshness, in at most lines lines and width columns.
+// The table's rows come first: short of room for them, the career line
+// shrinks to one line, then goes, and then the table's notes go too.
+func (m *Model) seasonsColumn(lines, width int) string {
+	full := m.careerLines(width)
+	if st := m.detailStatus(); st != "" {
+		full = append(full, st)
+	}
+	var short []string
+	if career := m.careerLines(math.MaxInt); len(career) > 0 {
+		short = []string{ansi.Truncate(career[0], width, "…")}
+	}
+	layouts := []struct {
+		tail  []string
+		notes bool
+	}{{full, true}, {short, true}, {nil, true}, {nil, false}}
+
+	rows := m.CurrentRows()
+	_, _, notes := m.tableParts(rows, width)
+	for i, l := range layouts {
+		room := lines
+		if len(l.tail) > 0 {
+			room -= len(l.tail) + 1
+		}
+		need := 1 + components.TableLines(min(len(rows), minTableRows), len(rows))
+		if l.notes {
+			need += len(notes)
+		}
+		if room < need && i < len(layouts)-1 {
+			continue
+		}
+		out := m.seasonsTable(room, l.notes)
+		if len(l.tail) > 0 {
+			out += "\n\n" + strings.Join(l.tail, "\n")
+		}
+		return out
+	}
+	return ""
 }
 
 func (m *Model) header() string {
@@ -191,18 +258,18 @@ func (m *Model) chart() []string {
 	return out
 }
 
-// statCards summarize the selected season, with per-90 rates alongside the
+// stats summarize the selected season, with per-90 rates alongside the
 // raw totals: 12 goals means something different in 900 minutes than in
-// 3000, and the rate is what makes two seasons comparable.
-func (m *Model) statCards() string {
+// 3000, and the rate is what makes two seasons comparable. They're listed
+// most telling first, since a short terminal keeps only the first.
+func (m *Model) stats() []components.Stat {
 	row, ok := m.SelectedRow()
 	if !ok {
-		return ""
+		return nil
 	}
 	s := row.Stats
-	th := m.deps.Theme
 	if row.Detail != nil {
-		return components.StatCards(th, m.positionCards(row), m.width)
+		return m.positionCards(row)
 	}
 
 	stats := []components.Stat{
@@ -245,7 +312,7 @@ func (m *Model) statCards() string {
 		})
 	}
 
-	return components.StatCards(th, stats, m.width)
+	return stats
 }
 
 // per90Hint renders a count as a per-90-minutes rate, or empty when there
@@ -259,25 +326,44 @@ func per90Hint(count, minutes int) string {
 	return strconv.FormatFloat(rate, 'f', 2, 64) + "/90"
 }
 
-func (m *Model) seasonsTable() string {
+// seasonsTable is the season-by-season table under its label, with the
+// notes on its marks when withNotes, in at most lines lines.
+func (m *Model) seasonsTable(lines int, withNotes bool) string {
 	th := m.deps.Theme
 	rows := m.CurrentRows()
 	if len(rows) == 0 {
 		return th.Empty.Render("No seasons cached in this competition.")
 	}
+	cols, cells, notes := m.tableParts(rows, m.width)
+	if !withNotes {
+		notes = nil
+	}
+	out := components.Label(th, "Season by season") + "\n" + components.Table(components.TableOpts{
+		Columns: cols, Rows: cells, Cursor: m.cursor, Theme: th,
+		MaxRows: components.TableRows(lines-1-len(notes), len(cells)),
+	})
+	if len(notes) > 0 {
+		out += "\n" + strings.Join(notes, "\n")
+	}
+	return out
+}
 
+// tableColumns are the season table's columns at width.
+func (m *Model) tableColumns(width int) []components.Column {
+	cols, _, _ := m.tableParts(m.CurrentRows(), width)
+	return cols
+}
+
+// tableParts builds the season table at width: its columns, its rows cut
+// to them, and the notes explaining its marks.
+func (m *Model) tableParts(rows []SeasonRow, width int) ([]components.Column, [][]components.Cell, []string) {
+	th := m.deps.Theme
 	if base, extra, cells, ok := m.positionTable(rows); ok {
-		cols := components.FitColumns(m.width, base, 0, extra)
+		cols := components.FitColumns(width, base, 0, extra)
 		for i := range cells {
 			cells[i] = components.TrimRow(cells[i], len(cols))
 		}
-		table := components.Label(th, "Season by season") + "\n" + components.Table(components.TableOpts{
-			Columns: cols, Rows: cells, Cursor: m.cursor, MaxRows: m.tableHeight(), Theme: th,
-		})
-		if notes := m.footnotes(rows); len(notes) > 0 {
-			table += "\n" + strings.Join(notes, "\n")
-		}
-		return table
+		return cols, cells, m.footnotes(rows)
 	}
 
 	cells := make([][]components.Cell, 0, len(rows))
@@ -299,23 +385,16 @@ func (m *Model) seasonsTable() string {
 		})
 	}
 
-	cols := m.columns()
+	cols := m.columns(width)
 	for i := range cells {
 		cells[i] = components.TrimRow(cells[i], len(cols))
 	}
-
-	table := components.Label(th, "Season by season") + "\n" + components.Table(components.TableOpts{
-		Columns: cols,
-		Rows:    cells,
-		Cursor:  m.cursor,
-		MaxRows: m.tableHeight(),
-		Theme:   th,
-	})
+	var notes []string
 	if hasXG {
-		table += "\n" + th.Positive.Render("■") + th.Muted.Render(" beat the expected number  ") +
-			th.Below.Render("■") + th.Muted.Render(" fell short")
+		notes = append(notes, th.Positive.Render("■")+th.Muted.Render(" beat the expected number  ")+
+			th.Below.Render("■")+th.Muted.Render(" fell short"))
 	}
-	return table
+	return cols, cells, notes
 }
 
 // toneOr colours a count against its expected value when there is one,
@@ -332,7 +411,7 @@ func toneOr(th styles.Theme, actual int, expected *float64, style lipgloss.Style
 // shrinks; see components.FitColumns.
 const wantTeamCol = 22
 
-func (m *Model) columns() []components.Column {
+func (m *Model) columns(width int) []components.Column {
 	base := []components.Column{
 		{Title: "Season", Width: 8},
 		{Title: "Team", Width: wantTeamCol},
@@ -342,7 +421,7 @@ func (m *Model) columns() []components.Column {
 		{Title: "A", Width: 4, Right: true},
 	}
 
-	return components.FitColumns(m.width, base, 0, [][]components.Column{
+	return components.FitColumns(width, base, 0, [][]components.Column{
 		{
 			{Title: "xG", Width: 6, Right: true},
 			{Title: "xA", Width: 6, Right: true},
@@ -354,17 +433,18 @@ func (m *Model) columns() []components.Column {
 	})
 }
 
-// careerLine totals the selected competition. It is rendered below the
-// table rather than as a final row so it can't be mistaken for a season.
-func (m *Model) careerLine() string {
+// careerLines total the selected competition, wrapped to width. They are
+// rendered below the table rather than as a final row so they can't be
+// mistaken for a season.
+func (m *Model) careerLines(width int) []string {
 	th := m.deps.Theme
 	comp, ok := m.CurrentCompetition()
 	if !ok {
-		return ""
+		return nil
 	}
 	c := m.CareerInCurrentCompetition()
 	if c.Seasons == 0 {
-		return ""
+		return nil
 	}
 
 	parts := []string{
@@ -383,9 +463,25 @@ func (m *Model) careerLine() string {
 			strconv.FormatFloat(c.XA, 'f', 1, 64)+" xA")
 	}
 
-	// Cut to the terminal: a wrapped line would push the footer away.
-	return ansi.Truncate(th.PanelTitle.Render("Career in "+comp.Name+": ")+
-		th.Muted.Render(strings.Join(parts, " · ")), m.width, "…")
+	// Wrapped between figures, never inside one, and each line cut to
+	// the width in case a single figure is wider still.
+	lines := []string{th.PanelTitle.Render("Career in " + comp.Name + ": ")}
+	for i, p := range parts {
+		last := len(lines) - 1
+		sep := ""
+		if i > 0 {
+			sep = " · "
+		}
+		if i > 0 && lipgloss.Width(lines[last])+len(sep)+lipgloss.Width(p) > width {
+			lines = append(lines, "  ")
+			last, sep = last+1, ""
+		}
+		lines[last] += th.Muted.Render(sep + p)
+	}
+	for i, l := range lines {
+		lines[i] = ansi.Truncate(l, width, "…")
+	}
+	return lines
 }
 
 func plural(n int, noun string) string {
@@ -393,17 +489,6 @@ func plural(n int, noun string) string {
 		return "1 " + noun
 	}
 	return strconv.Itoa(n) + " " + noun + "s"
-}
-
-func (m *Model) tableHeight() int {
-	// The stat cards, the table's label and legend, the career line and
-	// the footer, plus the header band, which grows on a narrow terminal.
-	const chrome = 18
-	h := m.height - chrome - (lipgloss.Height(m.header()) - 2)
-	if h < 5 {
-		return 5
-	}
-	return h
 }
 
 func (m *Model) deltaStyle(v float64) lipgloss.Style {

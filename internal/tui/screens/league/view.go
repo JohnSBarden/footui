@@ -243,7 +243,7 @@ func (m *Model) View() string {
 
 	b.WriteString(m.header())
 	b.WriteString("\n\n")
-	if !m.strip.Empty() {
+	if m.showStrip() {
 		b.WriteString(m.strip.View(th, m.width) + "\n\n")
 	}
 
@@ -371,46 +371,7 @@ func (m *Model) seasonBar(maxWidth int) string {
 		i := n - 1 - d
 		tabs[d] = components.TabLabel(th, components.SeasonName(m.seasons[i]), i == m.seasonIdx)
 	}
-	sel := n - 1 - m.seasonIdx
-
-	// Grow a window outward from the selection while it fits, preferring
-	// newer seasons, and leaving room for the ‹ › markers.
-	const marker = 2
-	width := func(lo, hi int) int {
-		w := 0
-		for d := lo; d <= hi; d++ {
-			w += lipgloss.Width(tabs[d]) + 1
-		}
-		if lo > 0 {
-			w += marker
-		}
-		if hi < n-1 {
-			w += marker
-		}
-		return w - 1
-	}
-	lo, hi := sel, sel
-	for grew := true; grew; {
-		grew = false
-		if hi < n-1 && width(lo, hi+1) <= maxWidth {
-			hi++
-			grew = true
-		}
-		if lo > 0 && width(lo-1, hi) <= maxWidth {
-			lo--
-			grew = true
-		}
-	}
-
-	var b strings.Builder
-	if lo > 0 {
-		b.WriteString(th.Muted.Render("‹ "))
-	}
-	b.WriteString(strings.Join(tabs[lo:hi+1], " "))
-	if hi < n-1 {
-		b.WriteString(th.Muted.Render(" ›"))
-	}
-	return b.String()
+	return components.WindowTabs(th, tabs, n-1-m.seasonIdx, maxWidth)
 }
 
 func (m *Model) table() string {
@@ -450,7 +411,7 @@ func (m *Model) table() string {
 		Columns: cols,
 		Rows:    rows,
 		Cursor:  m.cursor,
-		MaxRows: m.tableHeight(),
+		MaxRows: components.TableRows(m.tableHeight(), len(rows)),
 		Theme:   th,
 	})
 }
@@ -469,28 +430,29 @@ func (m *Model) deltaStyle(v float64) lipgloss.Style {
 	}
 }
 
-// tableHeight is how many standings rows fit, leaving room for the header
-// block, column headers, footer, and the table's own "showing x-y of z"
-// line.
+// minStripBody is the room the screen keeps below the scores along the
+// top for them to be drawn: on a short terminal they would leave the
+// table a handful of rows.
+const minStripBody = 14
+
+// showStrip says whether the scores along the top fit above the table.
+func (m *Model) showStrip() bool {
+	return !m.strip.Empty() &&
+		m.height-components.Lines(m.header())-1-m.strip.Height()-1 >= minStripBody
+}
+
+// tableHeight is the lines left for the standings, or the fixtures, under
+// everything else the screen draws: measured, not guessed, so the table
+// meets the footer however tall the header has grown.
 func (m *Model) tableHeight() int {
-	chrome := 9
-	if !m.strip.Empty() {
-		chrome += m.strip.Height() + 1 // and the blank line under it
+	used := components.Lines(m.header()) + 1
+	if m.showStrip() {
+		used += m.strip.Height() + 1
 	}
-	if len(m.groups) > 1 {
-		chrome++ // the group bar
+	if m.insight() != "" && !m.matchesView {
+		used++
 	}
-	if m.zoneLegend() != "" {
-		chrome++
-	}
-	if m.insight() != "" {
-		chrome++
-	}
-	h := m.height - chrome
-	if h < 5 {
-		return 5
-	}
-	return h
+	return max(m.height-used, 3)
 }
 
 func (m *Model) emptyState(reason string) string {

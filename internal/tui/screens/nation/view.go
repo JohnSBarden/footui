@@ -15,17 +15,17 @@ func (m *Model) View() string {
 	th := m.deps.Theme
 	var b strings.Builder
 	b.WriteString(m.header())
-	b.WriteString("\n")
-	if !m.strip.Empty() {
-		b.WriteString("\n" + m.strip.View(th, m.width) + "\n\n")
+	b.WriteString("\n\n")
+	if m.showStrip() {
+		b.WriteString(m.strip.View(th, m.width) + "\n\n")
 	}
 	switch {
 	case m.err != nil:
-		b.WriteString("\n" + th.Error.Render("Could not load matches: "+m.err.Error()))
+		b.WriteString(th.Error.Render("Could not load matches: " + m.err.Error()))
 	case !m.loaded:
-		b.WriteString("\n" + th.Muted.Render("Loading matches…"))
+		b.WriteString(th.Muted.Render("Loading matches…"))
 	case len(m.years) == 0:
-		b.WriteString("\n" + m.emptyState())
+		b.WriteString(m.emptyState())
 	default:
 		b.WriteString(m.filterBar())
 		b.WriteString("\n\n")
@@ -59,7 +59,11 @@ func (m *Model) header() string {
 	case m.queued:
 		note = th.Status.Render("queued for refresh")
 	}
-	if bar := m.yearBar(); bar != "" {
+	budget := m.width - 2
+	if note != "" {
+		budget -= lipgloss.Width(note) + 3
+	}
+	if bar := m.yearBar(budget); bar != "" {
 		line += "\n  " + bar
 		if note != "" {
 			line += "   " + note
@@ -71,8 +75,9 @@ func (m *Model) header() string {
 }
 
 // yearBar is "‹ 2025  [2026]  All years ›": each year with matches,
-// oldest on the left, then all of them together.
-func (m *Model) yearBar() string {
+// oldest on the left, then all of them together, windowed to maxWidth
+// around the one selected.
+func (m *Model) yearBar(maxWidth int) string {
 	th := m.deps.Theme
 	if len(m.years) == 0 {
 		return ""
@@ -89,7 +94,7 @@ func (m *Model) yearBar() string {
 			parts = append(parts, th.Muted.Render(" "+label+" "))
 		}
 	}
-	return th.Muted.Render("‹ ") + strings.Join(parts, " ") + th.Muted.Render(" ›")
+	return components.WindowTabs(th, parts, m.yearIdx, maxWidth)
 }
 
 // filterBar is "Filter: [All] Competitive Tournaments │ ✓WC ✓WCQ ☐FRI".
@@ -180,7 +185,8 @@ func (m *Model) matchTable() string {
 		}
 	}
 	return components.Table(components.TableOpts{
-		Columns: cols, Rows: rows, Cursor: cursor, MaxRows: m.tableHeight(), Theme: th,
+		Columns: cols, Rows: rows, Cursor: cursor, Theme: th,
+		MaxRows: components.TableRows(m.tableHeight(), len(rows)),
 	})
 }
 
@@ -194,12 +200,27 @@ func (m *Model) boxScore(mt models.Match) [][]components.Cell {
 	return components.BoxScore(m.deps.Theme, mt, m.team.ID, 4)
 }
 
+// minStripBody is the room the screen keeps below the scores along the
+// top for them to be drawn: on a short terminal they would leave the
+// match list a handful of rows.
+const minStripBody = 14
+
+// showStrip says whether the scores along the top fit above the matches.
+func (m *Model) showStrip() bool {
+	return !m.strip.Empty() &&
+		m.height-components.Lines(m.header())-1-m.strip.Height()-1 >= minStripBody
+}
+
+// tableHeight is the lines left for the match list under everything else
+// the screen draws, measured rather than guessed.
 func (m *Model) tableHeight() int {
-	chrome := 12
-	if !m.strip.Empty() {
-		chrome += m.strip.Height() + 2 // and the blank lines either side
+	used := components.Lines(m.header()) + 1
+	if m.showStrip() {
+		used += m.strip.Height() + 1
 	}
-	return max(m.height-chrome, 5)
+	// The filter bar and the summary table, each followed by a gap.
+	used += 2 + components.Lines(m.summaryTable()) + 1
+	return max(m.height-used, 3)
 }
 
 func (m *Model) emptyState() string {

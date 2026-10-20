@@ -91,7 +91,8 @@ func (m *Model) fixturesView() string {
 			at = i
 		}
 	}
-	height := max(m.tableHeight(), 5)
+	// A line is kept for "fixture n of m" under them.
+	height := max(m.tableHeight()-1, 3)
 	start := min(max(at-height/2, 0), max(len(lines)-height, 0))
 	end := min(start+height, len(lines))
 	var out []string

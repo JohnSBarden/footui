@@ -240,7 +240,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// terminal size.
 		var cmds []tea.Cmd
 		for i, s := range a.stack {
-			updated, cmd := s.Update(a.screenSize())
+			updated, cmd := s.Update(a.screenSize(i))
 			a.stack[i] = updated
 			cmds = append(cmds, a.routeFrom(i, cmd))
 		}
@@ -259,7 +259,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.stack = append(a.stack, msg.Screen)
 		a.ids = append(a.ids, a.nextID)
 		a.nextID++
-		sized, sizeCmd := msg.Screen.Update(a.screenSize())
+		sized, sizeCmd := msg.Screen.Update(a.screenSize(len(a.stack) - 1))
 		// A screen pushed mid-refresh learns what's in flight now rather
 		// than at the next queue change.
 		sized, queueCmd := sized.Update(core.RefreshQueueMsg{Active: a.active, Pending: slices.Clone(a.queue)})
@@ -497,15 +497,25 @@ func (a *App) pop() (tea.Model, tea.Cmd) {
 	return a, nil
 }
 
-// screenSize is the window size handed to screens: the full terminal minus
-// the chrome the app draws itself.
-func (a *App) screenSize() tea.WindowSizeMsg {
-	return tea.WindowSizeMsg{Width: a.width, Height: a.height - chromeHeight}
+// screenSize is the window size handed to the screen at index i of the
+// stack: the full terminal minus the chrome the app draws around it. The
+// first screen is only ever seen alone, with no breadcrumb above it, so it
+// has those lines too.
+func (a *App) screenSize(i int) tea.WindowSizeMsg {
+	h := a.height - chromeHeight
+	if i > 0 {
+		h -= crumbHeight
+	}
+	return tea.WindowSizeMsg{Width: a.width, Height: h}
 }
 
-// chromeHeight is the number of lines App reserves for the breadcrumb,
-// footer, and status line.
-const chromeHeight = 5
+// chromeHeight is the number of lines App reserves beneath every screen:
+// a gap, the footer and the status line. crumbHeight is the breadcrumb
+// and the gap under it, above every screen but the first.
+const (
+	chromeHeight = 3
+	crumbHeight  = 2
+)
 
 // View implements tea.Model.
 func (a *App) View() string {
@@ -527,20 +537,28 @@ func (a *App) baseView() string {
 		top.WriteString("\n\n")
 	}
 
+	// The status line keeps its row when empty, so the footer doesn't jump
+	// up and down a line as messages come and go.
 	bottom.WriteString("\n\n")
 	bottom.WriteString(a.footer())
-	if line := a.statusLine(); line != "" {
-		bottom.WriteString("\n")
-		bottom.WriteString(line)
-	}
+	bottom.WriteString("\n")
+	bottom.WriteString(a.statusLine())
 
 	// A screen taller than what's left is cut from the bottom. Drawn
 	// whole, the terminal would scroll its top away instead — the header
-	// that says whose screen this is.
-	room := a.height - strings.Count(top.String(), "\n") - strings.Count(bottom.String(), "\n") - 1
+	// that says whose screen this is. A shorter one is padded, so the
+	// footer stays on the bottom rows wherever the screen ends.
+	room := a.height - strings.Count(top.String(), "\n") - strings.Count(bottom.String(), "\n")
 	body := a.current().View()
-	if lines := strings.Split(body, "\n"); room > 0 && len(lines) > room {
-		body = strings.Join(lines[:room], "\n")
+	if room > 0 {
+		lines := strings.Split(body, "\n")
+		if len(lines) > room {
+			lines = lines[:room]
+		}
+		for len(lines) < room {
+			lines = append(lines, "")
+		}
+		body = strings.Join(lines, "\n")
 	}
 
 	return styles.Paint(top.String()+body+bottom.String(), a.theme(), a.width, a.height)

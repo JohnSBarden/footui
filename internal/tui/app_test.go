@@ -615,3 +615,53 @@ func TestStatusLineIsTruncatedToTheTerminalWidth(t *testing.T) {
 		t.Error("a truncated status line should end in an ellipsis")
 	}
 }
+
+// heightScreen records the height it's handed and draws that many lines.
+type heightScreen struct {
+	fakeScreen
+	height *int
+}
+
+func (h heightScreen) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
+	if size, ok := msg.(tea.WindowSizeMsg); ok {
+		*h.height = size.Height
+	}
+	return h, nil
+}
+
+func (h heightScreen) View() string {
+	return strings.TrimSuffix(strings.Repeat("row\n", *h.height), "\n")
+}
+
+// A screen that fills the height it's told fills the terminal exactly,
+// with or without a breadcrumb above it, and the footer sits on the
+// bottom rows however short a screen is.
+func TestScreensFillTheTerminalAboveAPinnedFooter(t *testing.T) {
+	root := heightScreen{newFake("Root"), new(int)}
+	app := newApp(root)
+	app.Update(tea.WindowSizeMsg{Width: 60, Height: 20})
+
+	lines := strings.Split(app.View(), "\n")
+	if len(lines) != 20 {
+		t.Fatalf("the frame is %d lines, want 20", len(lines))
+	}
+	if lines[len(lines)-4] != "row" || lines[len(lines)-2] == "" {
+		t.Errorf("the root screen should run down to the footer:\n%s", strings.Join(lines, "\n"))
+	}
+
+	child := heightScreen{newFake("Child"), new(int)}
+	app.Update(core.PushMsg{Screen: child})
+	if got := *child.height; got != *root.height-2 {
+		t.Errorf("a pushed screen is %d lines, want %d: the breadcrumb takes two", got, *root.height-2)
+	}
+	lines = strings.Split(app.View(), "\n")
+	if len(lines) != 20 || lines[len(lines)-4] != "row" {
+		t.Errorf("the pushed screen should fill the frame:\n%s", strings.Join(lines, "\n"))
+	}
+
+	app.Update(core.PushMsg{Screen: newFake("Short")})
+	lines = strings.Split(app.View(), "\n")
+	if len(lines) != 20 || lines[len(lines)-2] == "" {
+		t.Errorf("the footer should stay on the bottom rows under a short screen:\n%s", strings.Join(lines, "\n"))
+	}
+}

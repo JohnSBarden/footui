@@ -31,10 +31,7 @@ func StatCards(theme styles.Theme, stats []Stat, maxWidth int) string {
 	// Each card costs its content plus the border and padding the theme's
 	// Panel style adds on both sides.
 	cardTotal := inner + 4
-	perRow := maxWidth / cardTotal
-	if perRow < 1 {
-		perRow = 1
-	}
+	perRow := Balanced(len(stats), maxWidth/cardTotal)
 
 	var lines []string
 	for start := 0; start < len(stats); start += perRow {
@@ -53,13 +50,8 @@ func StatCards(theme styles.Theme, stats []Stat, maxWidth int) string {
 }
 
 func renderCard(theme styles.Theme, s Stat, inner int) string {
-	valueStyle := theme.Accent.Bold(true)
-	if s.Style != nil {
-		valueStyle = s.Style.Bold(true)
-	}
-
 	body := theme.Label.Render(pad(strings.ToUpper(s.Label), inner, false)) + "\n" +
-		valueStyle.Render(pad(s.Value, inner, false))
+		valueStyle(theme, s).Render(pad(s.Value, inner, false))
 	if s.Hint != "" {
 		body += "\n" + theme.Muted.Render(pad(s.Hint, inner, false))
 	}

@@ -4,7 +4,6 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 
 	"github.com/JohnSBarden/footui/internal/data/models"
 	"github.com/JohnSBarden/footui/internal/tui/components"
@@ -95,21 +94,6 @@ func (m *Model) recentStrip() string {
 			th.Muted.Render("  to fetch them."))
 	}
 	return strings.Join(lines, "\n")
-}
-
-// recentHeight is how many lines the strip and the gap beneath it take,
-// which the tables below give up so the screen still fits.
-func (m *Model) recentHeight() int {
-	return lipgloss.Height(m.recentStrip()) + 1
-}
-
-// stripHeight is how many lines the scores along the top and the gap
-// beneath them take.
-func (m *Model) stripHeight() int {
-	if m.strip.Empty() {
-		return 0
-	}
-	return m.strip.Height() + 1
 }
 
 // teamArg is the club as `footui refresh --team` takes it.
