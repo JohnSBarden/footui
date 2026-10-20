@@ -3,6 +3,7 @@ package espn
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strconv"
 
 	"github.com/JohnSBarden/footui/internal/data/models"
@@ -86,6 +87,58 @@ func implausibleDefence(d models.PlayerSeasonDetail) bool {
 		}
 	}
 	return float64(n)*90/float64(*d.Minutes) < 0.5
+}
+
+// careerLog is the core API's statistics log for an athlete: one entry
+// per league-season they have stats in, each naming its league and
+// season only by URL.
+type careerLog struct {
+	Entries []struct {
+		Season struct {
+			Ref string `json:"$ref"`
+		} `json:"season"`
+	} `json:"entries"`
+}
+
+// leagueSeasonRef pulls the league slug and season year out of a core API
+// season URL (".../leagues/esp.1/seasons/2014?lang=en").
+var leagueSeasonRef = regexp.MustCompile(`/leagues/([^/?]+)/seasons/(\d{4})`)
+
+// AthleteCareer lists every league-season ESPN has a player's stats for
+// that footui has a competition for, in ESPN's order (oldest first). A
+// friendly, a super cup or a youth tournament has no competition and is
+// left out; so is a season listed twice (a mid-season move).
+func (p *Provider) AthleteCareer(ctx context.Context, athleteID string) ([]provider.CareerSeason, error) {
+	var log careerLog
+	if err := p.client.core(ctx, "/all/athletes/"+athleteID+"/statisticslog", &log); err != nil {
+		return nil, err
+	}
+	bySlug := make(map[string]string, len(leagueSlugs)+len(statSlugs))
+	for id, slug := range leagueSlugs {
+		bySlug[slug] = id
+	}
+	for id, slug := range statSlugs {
+		bySlug[slug] = id
+	}
+	var out []provider.CareerSeason
+	seen := map[provider.CareerSeason]bool{}
+	for _, e := range log.Entries {
+		m := leagueSeasonRef.FindStringSubmatch(e.Season.Ref)
+		if m == nil {
+			continue
+		}
+		id, ok := bySlug[m[1]]
+		if !ok {
+			continue
+		}
+		year, _ := strconv.Atoi(m[2])
+		cs := provider.CareerSeason{CompetitionID: id, Year: year}
+		if !seen[cs] {
+			seen[cs] = true
+			out = append(out, cs)
+		}
+	}
+	return out, nil
 }
 
 // Squad lists a club's roster for a season: each player's ESPN ID, name

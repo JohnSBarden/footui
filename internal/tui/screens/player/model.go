@@ -109,11 +109,10 @@ func (m *Model) FavoriteTarget() (core.FavoriteTarget, bool) {
 	return core.FavoriteTarget{Kind: models.FavoritePlayer, ID: m.player.ID, Name: m.player.Name}, true
 }
 
-// RefreshTarget implements core.Refreshable: the competition whose tab is
-// selected.
-func (m *Model) RefreshTarget() (string, bool) {
-	comp, ok := m.CurrentCompetition()
-	return comp.ID, ok
+// RefreshRequest implements core.RefreshRequester: everything the player
+// has stats in, not just the season on screen.
+func (m *Model) RefreshRequest() (core.RefreshRequest, bool) {
+	return core.RefreshRequest{PlayerID: m.player.ID, Name: m.player.Name, History: true}, true
 }
 
 type historyLoadedMsg struct {

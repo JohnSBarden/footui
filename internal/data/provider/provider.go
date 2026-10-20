@@ -81,6 +81,13 @@ type SquadMember struct {
 	Position string // "G", "D", "M", "F", or "" when the provider gave none
 }
 
+// CareerSeason is one competition-season a provider has a player's stats
+// for: what a player's whole history is fetched from.
+type CareerSeason struct {
+	CompetitionID string // canonical
+	Year          int    // the season's start year
+}
+
 // ErrRateLimited means the source refused footui for asking too often, and
 // kept refusing after the polite retries. Nothing more should be asked of
 // it for a while: a refresh that gets this stops rather than carrying on.

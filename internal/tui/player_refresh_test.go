@@ -58,6 +58,32 @@ func TestPlayerRequestJumpsTheQueueOnce(t *testing.T) {
 	}
 }
 
+// r on a player asks for their whole history. Opening them already
+// queued (or started) their detail, which doesn't answer that; and a
+// later automatic request doesn't water a waiting history request down.
+func TestHistoryRequestIsNotSwallowedByTheDetail(t *testing.T) {
+	app := newAppWithRefresh(newFake("Dashboard"), &fakeRefresher{summary: "ok"})
+	detail := core.RefreshRequest{PlayerID: "p1", Name: "Antoine Griezmann", Automatic: true}
+	history := core.RefreshRequest{PlayerID: "p1", Name: "Antoine Griezmann", History: true}
+
+	app.active = &detail
+	app.enqueue(history)
+	if len(app.queue) != 1 || !app.queue[0].History {
+		t.Fatalf("queue = %+v, want the history waiting", app.queue)
+	}
+	app.enqueue(detail)
+	if len(app.queue) != 1 || !app.queue[0].History || app.queue[0].Automatic {
+		t.Errorf("queue = %+v, want one manual history request", app.queue)
+	}
+
+	club := core.RefreshRequest{TeamID: "t1", Name: "Orlando City SC", Automatic: true, Why: "recent games"}
+	app.queue = []core.RefreshRequest{club}
+	app.enqueue(core.RefreshRequest{TeamID: "t1", Name: "Orlando City SC", History: true})
+	if len(app.queue) != 1 || !app.queue[0].History || app.queue[0].Automatic || app.queue[0].Why != "" {
+		t.Errorf("queue = %+v, want the club's recent games upgraded to its history", app.queue)
+	}
+}
+
 // Starred players are queued with the leagues on launch; the summary
 // mustn't call them competitions.
 func TestBatchSummaryCountsPlayersApart(t *testing.T) {

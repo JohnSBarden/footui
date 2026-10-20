@@ -53,6 +53,10 @@ type Syncer struct {
 	// sixty payloads nightly to confirm that is unkind to an undocumented
 	// third-party endpoint and slow for the user.
 	MaxAge time.Duration
+	// KeepFinished leaves alone a past season that was synced after it
+	// ended, whatever MaxAge says: a player's or club's whole history is
+	// fetched once, and asking again only fetches the season under way.
+	KeepFinished bool
 	// Now is the clock, injectable for tests.
 	Now func() time.Time
 }
@@ -460,7 +464,7 @@ func (s *Syncer) SyncJobs(ctx context.Context, jobs []Job, progress Progress) []
 // Only a successful run counts. A failure an hour ago is not a reason to
 // skip: the data it was meant to fetch is still missing.
 func (s *Syncer) isFresh(ctx context.Context, comp models.Competition, season models.Season) (time.Time, bool) {
-	if s.MaxAge <= 0 {
+	if s.MaxAge <= 0 && !s.KeepFinished {
 		return time.Time{}, false
 	}
 
@@ -468,7 +472,10 @@ func (s *Syncer) isFresh(ctx context.Context, comp models.Competition, season mo
 	if err != nil || !run.Succeeded() {
 		return time.Time{}, false
 	}
-	if s.now().Sub(run.FinishedAt) > s.MaxAge {
+	if s.KeepFinished && finishedBy(comp.ID, season.ID, run.FinishedAt) {
+		return run.FinishedAt, true
+	}
+	if s.MaxAge <= 0 || s.now().Sub(run.FinishedAt) > s.MaxAge {
 		return time.Time{}, false
 	}
 	return run.FinishedAt, true

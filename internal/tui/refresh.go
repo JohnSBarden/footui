@@ -126,10 +126,17 @@ func (a *App) enqueue(reqs ...core.RefreshRequest) tea.Cmd {
 			// running or waiting. One asked for on its own is a player
 			// being opened, looked at now, so it goes ahead of the
 			// background refreshes; the launch's batch keeps its order.
-			if a.active != nil && a.active.Key() == req.Key() {
+			// Asking for everything isn't answered by the detail alone.
+			if a.active != nil && a.active.Key() == req.Key() && (!req.History || a.active.History) {
 				continue
 			}
-			a.queue = slices.DeleteFunc(a.queue, func(q core.RefreshRequest) bool { return q.Key() == req.Key() })
+			a.queue = slices.DeleteFunc(a.queue, func(q core.RefreshRequest) bool {
+				if q.Key() != req.Key() {
+					return false
+				}
+				req = upgrade(req, q)
+				return true
+			})
 			if len(reqs) == 1 {
 				a.queue = append([]core.RefreshRequest{req}, a.queue...)
 			} else {
@@ -138,7 +145,7 @@ func (a *App) enqueue(reqs ...core.RefreshRequest) tea.Cmd {
 			continue
 		}
 		if a.active != nil && len(mergeRequest([]core.RefreshRequest{*a.active}, req)) == 1 && len(req.Seasons) == 0 &&
-			(req.TeamID != "" || req.Nations != "" || req.Directory) {
+			(req.TeamID != "" || req.Nations != "" || req.Directory) && (!req.History || a.active.History) {
 			// Already running: the same matches are being fetched now.
 			continue
 		}
@@ -162,6 +169,7 @@ func mergeRequest(queue []core.RefreshRequest, req core.RefreshRequest) []core.R
 		// year and last — which the stale check on open and the Team
 		// screen can both ask for.
 		if req.Directory || (req.TeamID != "" || req.Nations != "") && len(q.Seasons) == 0 && len(req.Seasons) == 0 {
+			queue[i] = upgrade(q, req)
 			return queue
 		}
 		// An empty season list means "the current season", which isn't
@@ -180,6 +188,19 @@ func mergeRequest(queue []core.RefreshRequest, req core.RefreshRequest) []core.R
 		return queue
 	}
 	return append(queue, req)
+}
+
+// upgrade is req merged with other, a request for the same thing: if
+// either asks for everything, or was asked for by the user, so does the
+// result.
+func upgrade(req, other core.RefreshRequest) core.RefreshRequest {
+	if other.History {
+		req.History = true
+	}
+	if !other.Automatic {
+		req.Automatic, req.Why = false, ""
+	}
+	return req
 }
 
 // startNext pops the next request off the queue and runs it.

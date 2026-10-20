@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/JohnSBarden/footui/internal/colors"
+	"github.com/JohnSBarden/footui/internal/data/models"
 	"github.com/JohnSBarden/footui/internal/data/provider"
 	"github.com/JohnSBarden/footui/internal/data/provider/espn"
 	"github.com/JohnSBarden/footui/internal/data/provider/understat"
@@ -60,17 +61,36 @@ func runRefresh(ctx context.Context, store storage.Repositories, jobs []sync.Job
 			results = append(results, ms.SyncEdition(ctx, j.Competition, season, ev.unitFunc())...)
 		}
 	}
-	for _, group := range groupByProvider(clubs) {
+	results = append(results, syncLeagues(ctx, store, clubs, ev, func(s *sync.Syncer) { s.MaxAge = maxAge })...)
+	reseed(ctx, store, ev)
+	return results
+}
+
+// runHistory fetches a player's or a club's history: league seasons only,
+// and a finished season already fetched is kept, so asking again costs
+// only the season under way.
+func runHistory(ctx context.Context, store storage.Repositories, jobs []sync.Job, ev refreshEvents) []sync.UnitResult {
+	results := syncLeagues(ctx, store, jobs, ev, func(s *sync.Syncer) { s.KeepFinished = true })
+	reseed(ctx, store, ev)
+	return results
+}
+
+// syncLeagues fetches club competitions' seasons, each provider's with
+// its own syncer, set up by configure.
+func syncLeagues(ctx context.Context, store storage.Repositories, jobs []sync.Job, ev refreshEvents,
+	configure func(*sync.Syncer)) []sync.UnitResult {
+
+	var results []sync.UnitResult
+	for _, group := range groupByProvider(jobs) {
 		source, err := newSource(group.provider, ev)
 		if err != nil {
 			results = append(results, failAll(group.jobs, err, ev)...)
 			continue
 		}
 		syncer := sync.New(source, store).WithProviderName(group.provider)
-		syncer.MaxAge = maxAge
+		configure(syncer)
 		results = append(results, syncer.SyncJobs(ctx, group.jobs, ev.unitFunc())...)
 	}
-	reseed(ctx, store, ev)
 	return results
 }
 
@@ -85,6 +105,10 @@ func (ev refreshEvents) unitFunc() sync.Progress {
 // newDetailSource builds the source of players' season detail. It is a
 // variable so tests can swap in a stub.
 var newDetailSource = func() sync.DetailSource { return espn.New() }
+
+// newCareerSource builds the source of the seasons a player has stats
+// in. It is a variable so tests can swap in a stub.
+var newCareerSource = func() sync.CareerSource { return espn.New() }
 
 // newMatchSource builds the source of international matches. It is a
 // variable so tests can point it at a fake server.
@@ -238,6 +262,8 @@ func tuiRefresher(store storage.Repositories, staleAfter time.Duration) core.Ref
 			stale = staleAfter
 		}
 		switch {
+		case req.PlayerID != "" && req.History:
+			return refreshPlayerHistory(ctx, store, req.PlayerID, ev, progress)
 		case req.PlayerID != "":
 			return refreshPlayer(ctx, store, req.PlayerID, stale)
 		case req.Directory:
@@ -254,6 +280,9 @@ func tuiRefresher(store storage.Repositories, staleAfter time.Duration) core.Ref
 					return "", err
 				}
 				if !team.National {
+					if req.History {
+						return refreshClubHistory(ctx, store, team, req.CompetitionID, ev, progress)
+					}
 					// A club: its recent games, from its league and the
 					// shared lists of its cups and Europe's competitions.
 					ev.unit = func(u sync.UnitResult) {
@@ -348,6 +377,114 @@ func refreshPlayer(ctx context.Context, store storage.Repositories, playerID str
 		return "1 season of stats refreshed", nil
 	}
 	return fmt.Sprintf("%d seasons of stats refreshed", res.Fetched), nil
+}
+
+// refreshPlayerHistory fetches every league season a player has stats in
+// that footui covers, then their detail for each. Their ESPN ID is what
+// the seasons are looked up by; a player first seen on understat gets it
+// from their detail refresh, which finds them on their club's roster. A
+// player ESPN doesn't know gets their cached seasons' detail only.
+func refreshPlayerHistory(ctx context.Context, store storage.Repositories, playerID string,
+	ev refreshEvents, progress func(string)) (string, error) {
+
+	if _, err := store.ProviderID(ctx, "player", playerID, sync.ProviderESPN); errors.Is(err, storage.ErrNotFound) {
+		if _, err := refreshPlayer(ctx, store, playerID, 0); err != nil {
+			return "", err
+		}
+	}
+	jobs, err := sync.PlayerCareerJobs(ctx, store, newCareerSource(), playerID, time.Now())
+	if errors.Is(err, provider.ErrRateLimited) {
+		return "", core.ErrRateLimited
+	}
+	if errors.Is(err, sync.ErrNoCareer) {
+		detail, err := refreshPlayer(ctx, store, playerID, 0)
+		if err != nil {
+			return "", err
+		}
+		return detail + "; their other seasons couldn't be looked up", nil
+	}
+	if err != nil {
+		return "", tuiError(err)
+	}
+	ev.unit = historyProgress(sync.Units(jobs), progress)
+	results := runHistory(ctx, store, jobs, ev)
+	if rateLimited(results) {
+		return "", core.ErrRateLimited
+	}
+	detail, err := refreshPlayer(ctx, store, playerID, 0)
+	if err != nil {
+		return "", err
+	}
+	return historySummary(results) + "; " + detail, nil
+}
+
+// refreshClubHistory fetches every season footui offers of each league a
+// club has a table in (and of the one it was opened from), then its
+// recent games.
+func refreshClubHistory(ctx context.Context, store storage.Repositories, club models.Team, fromCompetitionID string,
+	ev refreshEvents, progress func(string)) (string, error) {
+
+	var also []string
+	if fromCompetitionID != "" {
+		also = []string{fromCompetitionID}
+	}
+	jobs, err := sync.ClubHistoryJobs(ctx, store, club.ID, also, time.Now())
+	if err != nil {
+		return "", err
+	}
+	ev.unit = historyProgress(sync.Units(jobs), progress)
+	results := runHistory(ctx, store, jobs, ev)
+	if rateLimited(results) {
+		return "", core.ErrRateLimited
+	}
+	ev.unit = func(u sync.UnitResult) {
+		progress(fmt.Sprintf("%s %s %s", u.Competition.Abbrev(), components.SeasonName(u.Season), unitOutcome(u)))
+	}
+	games, err := runClub(ctx, store, club, 0, ev)
+	if err != nil {
+		return "", err
+	}
+	recent, err := summarizeMatches(games, "recent games up to date", false)
+	if err != nil {
+		return "", err
+	}
+	return historySummary(results) + "; " + recent, nil
+}
+
+// historyProgress reports each season of a history as it lands.
+func historyProgress(total int, progress func(string)) func(sync.UnitResult) {
+	done := 0
+	return func(u sync.UnitResult) {
+		done++
+		progress(fmt.Sprintf("%s %s %s (%d of %d)",
+			u.Competition.Abbrev(), components.SeasonName(u.Season), unitOutcome(u), done, total))
+	}
+}
+
+// historySummary says how much of a history was fetched: "12 seasons
+// fetched, 13 already cached".
+func historySummary(results []sync.UnitResult) string {
+	sum := sync.Summarize(results)
+	if sum.Units == 0 {
+		return "no league seasons to fetch"
+	}
+	seasons := func(n int) string {
+		if n == 1 {
+			return "1 season"
+		}
+		return fmt.Sprintf("%d seasons", n)
+	}
+	var parts []string
+	if sum.Succeeded > 0 || sum.Fresh == 0 {
+		parts = append(parts, seasons(sum.Succeeded)+" fetched")
+	}
+	if sum.Fresh > 0 {
+		parts = append(parts, fmt.Sprintf("%d already cached", sum.Fresh))
+	}
+	if sum.Failed > 0 {
+		parts = append(parts, fmt.Sprintf("%d failed", sum.Failed))
+	}
+	return strings.Join(parts, ", ")
 }
 
 // calendarYears parses requested years, defaulting to this year and last.

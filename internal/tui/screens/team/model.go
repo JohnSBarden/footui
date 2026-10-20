@@ -165,14 +165,12 @@ func (m *Model) load() tea.Cmd {
 	return tea.Batch(m.loadHistory(), m.loadColors(), m.loadHonours(), m.loadRecent())
 }
 
-// RefreshRequest implements core.RefreshRequester for a club with no
-// table cached — a cup opponent — whose refresh can only be its recent
-// games. A club with tables refreshes its selected competition instead.
+// RefreshRequest implements core.RefreshRequester: everything about the
+// club — every season of each league it has a table in, and its recent
+// games. The competition it was opened from comes along, so a club with
+// nothing cached yet still gets that league's table.
 func (m *Model) RefreshRequest() (core.RefreshRequest, bool) {
-	if m.loading || len(m.competitions) > 0 || m.fromCompetitionID != "" {
-		return core.RefreshRequest{}, false
-	}
-	return core.RefreshRequest{TeamID: m.team.ID, Name: m.team.Name}, true
+	return core.RefreshRequest{TeamID: m.team.ID, Name: m.team.Name, CompetitionID: m.fromCompetitionID, History: true}, true
 }
 
 // RecentGames returns the strip's games.

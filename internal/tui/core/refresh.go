@@ -29,6 +29,12 @@ type RefreshRequest struct {
 	// tackles): every season of theirs that needs it, the current one
 	// only once it's older than the stale threshold when Automatic.
 	PlayerID string
+	// History, with PlayerID or a club's TeamID, asks for everything:
+	// every season of every league the player has stats in (or the club
+	// has a table in), then their detail or recent games. A finished
+	// season already fetched is kept. It is what the refresh key asks
+	// for on a player's or a club's screen.
+	History bool
 	// Seasons are bare start years ("2025" for 2025-26), most recent
 	// first. Empty means the current season — what the refresh key
 	// fetches. For TeamID and Nations they are calendar years, and empty

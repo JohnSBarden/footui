@@ -4,10 +4,36 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"slices"
 	"testing"
 
 	"github.com/JohnSBarden/footui/internal/data/models"
+	"github.com/JohnSBarden/footui/internal/data/provider"
 )
+
+// Griezmann's log, trimmed: Liga 2 with Real Sociedad, La Liga twice in
+// 2021 (Barcelona, then Atlético), the Champions League and MLS, among a
+// Copa del Rey, a France friendly and the Leagues Cup. The Leagues Cup
+// has no competition here and is left out; the cup and the friendly do,
+// and the sync layer decides they aren't tables to fetch.
+func TestAthleteCareer(t *testing.T) {
+	got, err := athleteServer(t).AthleteCareer(ctxBkgnd, "140416")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []provider.CareerSeason{
+		{CompetitionID: "esp-la-liga-2", Year: 2009},
+		{CompetitionID: "eur-champions-league", Year: 2014},
+		{CompetitionID: "esp-la-liga", Year: 2014},
+		{CompetitionID: "int-friendly", Year: 2014},
+		{CompetitionID: "esp-copa-del-rey", Year: 2014},
+		{CompetitionID: "esp-la-liga", Year: 2021},
+		{CompetitionID: "usa-mls", Year: 2026},
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("career =\n%v\nwant\n%v", got, want)
+	}
+}
 
 // athleteServer serves the core API's per-athlete statistics and one
 // club roster from testdata.
@@ -18,6 +44,7 @@ func athleteServer(t *testing.T) *Provider {
 		"/core/eng.1/seasons/2025/types/1/athletes/236322/statistics": "athlete_eng.1_2025_defender.json",
 		"/core/eng.1/seasons/2023/types/1/athletes/236322/statistics": "athlete_eng.1_2023_defender.json",
 		"/site/site/v2/sports/soccer/usa.1/teams/182/roster":          "roster_usa.1_182_2025.json",
+		"/core/all/athletes/140416/statisticslog":                     "athlete_log_140416.json",
 	}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		file, ok := routes[r.URL.Path]

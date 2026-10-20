@@ -231,14 +231,12 @@ func TestNarrowTerminalsKeepClubNamesIntact(t *testing.T) {
 	}
 }
 
-func TestRefreshTargetIsTheSelectedCompetition(t *testing.T) {
-	s := settled(t, newDeps(seedTwoCompetitions(t)), "")
-	first, _ := s.(core.Refreshable).RefreshTarget()
-
-	s = tuitest.Key(t, s, "right")
-	second, ok := s.(core.Refreshable).RefreshTarget()
-	if !ok || second == first {
-		t.Errorf("refresh targets %q then %q; r should follow the selected tab", first, second)
+// r on a player fetches their whole history, whichever tab is selected.
+func TestRefreshAsksForThePlayersHistory(t *testing.T) {
+	s := tuitest.Key(t, settled(t, newDeps(seedTwoCompetitions(t)), ""), "right")
+	req, ok := s.(core.RefreshRequester).RefreshRequest()
+	if !ok || req.PlayerID != haaland.ID || !req.History || req.Automatic {
+		t.Errorf("refresh request = %+v, want Haaland's history", req)
 	}
 }
 

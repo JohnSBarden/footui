@@ -1,0 +1,49 @@
+{
+ "entries": [
+  {
+   "season": {
+    "$ref": "http://sports.core.api.espn.com/v2/sports/soccer/leagues/esp.2/seasons/2009?lang=en&region=us"
+   }
+  },
+  {
+   "season": {
+    "$ref": "http://sports.core.api.espn.com/v2/sports/soccer/leagues/uefa.champions/seasons/2014?lang=en&region=us"
+   }
+  },
+  {
+   "season": {
+    "$ref": "http://sports.core.api.espn.com/v2/sports/soccer/leagues/esp.1/seasons/2014?lang=en&region=us"
+   }
+  },
+  {
+   "season": {
+    "$ref": "http://sports.core.api.espn.com/v2/sports/soccer/leagues/fifa.friendly/seasons/2014?lang=en&region=us"
+   }
+  },
+  {
+   "season": {
+    "$ref": "http://sports.core.api.espn.com/v2/sports/soccer/leagues/esp.copa_del_rey/seasons/2014?lang=en&region=us"
+   }
+  },
+  {
+   "season": {
+    "$ref": "http://sports.core.api.espn.com/v2/sports/soccer/leagues/esp.1/seasons/2021?lang=en&region=us"
+   }
+  },
+  {
+   "season": {
+    "$ref": "http://sports.core.api.espn.com/v2/sports/soccer/leagues/esp.1/seasons/2021?lang=en&region=us"
+   }
+  },
+  {
+   "season": {
+    "$ref": "http://sports.core.api.espn.com/v2/sports/soccer/leagues/usa.1/seasons/2026?lang=en&region=us"
+   }
+  },
+  {
+   "season": {
+    "$ref": "http://sports.core.api.espn.com/v2/sports/soccer/leagues/concacaf.leagues.cup/seasons/2026?lang=en&region=us"
+   }
+  }
+ ]
+}
