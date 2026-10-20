@@ -8,19 +8,23 @@
 -- Their games came in with yearly match lists, which are only fetched
 -- again when due. Forgetting when each list holding one of them was
 -- fetched makes it due, so the next refresh files the games under the
--- right clubs.
+-- right clubs. The merged clubs are listed once and each match looked up
+-- in the list: joined instead, the list was rebuilt for every match, which
+-- held a launch on a blank screen for half a minute.
+WITH merged AS (
+  SELECT canonical_id FROM external_ref
+  WHERE entity_type = 'team'
+    AND canonical_id IN (SELECT id FROM team WHERE national = 0)
+  GROUP BY canonical_id, provider
+  HAVING COUNT(*) > 1
+)
 DELETE FROM sync_log
 WHERE year IS NOT NULL
   AND (competition_id, year) IN (
     SELECT m.competition_id, CAST(strftime('%Y', m.kickoff) AS INTEGER)
     FROM match m
-    JOIN (
-      SELECT canonical_id FROM external_ref
-      WHERE entity_type = 'team'
-        AND canonical_id IN (SELECT id FROM team WHERE national = 0)
-      GROUP BY canonical_id, provider
-      HAVING COUNT(*) > 1
-    ) merged ON merged.canonical_id IN (m.home_team_id, m.away_team_id)
+    WHERE m.home_team_id IN (SELECT canonical_id FROM merged)
+       OR m.away_team_id IN (SELECT canonical_id FROM merged)
   );
 
 -- Then each such club's second mapping from the same provider goes,
