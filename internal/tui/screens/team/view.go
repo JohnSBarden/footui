@@ -19,6 +19,9 @@ func (m *Model) View() string {
 
 	b.WriteString(m.header())
 	b.WriteString("\n\n")
+	if !m.strip.Empty() {
+		b.WriteString(m.strip.View(th, m.width) + "\n\n")
+	}
 
 	switch {
 	case m.err != nil:
@@ -445,7 +448,7 @@ func (m *Model) paneHeight() int {
 	// The stat cards, both pane titles and the footer, plus the header
 	// band, which grows on a narrow terminal.
 	const chrome = 16
-	h := (m.height - chrome - lipgloss.Height(m.header()) - m.recentHeight()) / 2
+	h := (m.height - chrome - lipgloss.Height(m.header()) - m.recentHeight() - m.stripHeight()) / 2
 	if h < 4 {
 		return 4
 	}

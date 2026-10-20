@@ -155,10 +155,10 @@ into the results, where `j`/`k` and the plain keys work again.
 |---|---|
 | Dashboard | arrows or `hjkl` move between cards, `<`/`>` scroll the scores along the top |
 | League | `←`/`→` change season, `<`/`>` scroll the scores along the top; for a tournament, `[`/`]` step through groups and `m` lists every fixture by round |
-| Team | `←`/`→` change competition, `tab` moves between seasons and squad, `m` opens the last 30 games |
+| Team | `←`/`→` change competition, `tab` moves between seasons and squad, `m` opens the last 30 games, `<`/`>` scroll the scores along the top |
 | Games | `enter` opens a box score, `o` opens the opponent |
 | Player | `←`/`→` change competition |
-| Nation | `←`/`→` change year, `tab` moves into the competition filter (`space` applies), `enter` opens a box score |
+| Nation | `←`/`→` change year, `tab` moves into the competition filter (`space` applies), `enter` opens a box score, `<`/`>` scroll the scores along the top |
 | Catalog | `space` ticks a season, `a` every missing season of a league, `c` its current season, `C` the current season of every club league, `u` clears, `enter` downloads, `s` stops downloads |
 
 ### Favourites and the dashboard
@@ -189,7 +189,8 @@ shows them: each starred club's and nation's last two games and its next
 tournament's latest round and the one coming. It opens on what's live and
 next, with the latest results to its left; `<`/`>` scroll it. A league,
 cup or tournament's own page has the same strip for the season on screen,
-with your starred clubs picked out.
+with your starred clubs picked out, and a club's or nation's page its
+schedule: its last ten games and next five, in every competition.
 
 Each card says at its top right how fresh its numbers are (`3h`), and when a
 refresh of them is running. Favourites are keyed by footui's own IDs, so a club starred from its

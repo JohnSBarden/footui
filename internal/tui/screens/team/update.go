@@ -41,6 +41,7 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 	case recentLoadedMsg:
 		m.recent, m.recentTeams, m.recentComps = msg.matches, msg.teams, msg.comps
 		m.recentLoaded = true
+		m.strip = msg.strip
 		return m, nil
 
 	case historyLoadedMsg:
@@ -109,6 +110,9 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 }
 
 func (m *Model) handleKey(msg tea.KeyMsg) (core.Screen, tea.Cmd) {
+	if m.strip.HandleKey(msg.String(), m.width) {
+		return m, nil
+	}
 	switch msg.String() {
 	case "tab":
 		m.togglePane()

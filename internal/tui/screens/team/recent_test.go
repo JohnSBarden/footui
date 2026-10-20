@@ -93,14 +93,41 @@ func TestTheRecentStripShowsFormAndTheLastFiveGames(t *testing.T) {
 			t.Errorf("strip lacks %q\n---\n%s", want, out)
 		}
 	}
+	// The Recent table, not the scores along the top, which carry the
+	// fixture to come as well.
+	recent := out[strings.Index(out, "RECENT"):]
 	for _, unwanted := range []string{"Dunmore", "Kelso"} {
-		if strings.Contains(out, unwanted) {
+		if strings.Contains(recent, unwanted) {
 			t.Errorf("the strip shows %s: only the last five finished games belong\n---\n%s", unwanted, out)
 		}
 	}
 	// The club's tables are still there beneath it.
 	if !strings.Contains(out, "Premier League") {
 		t.Errorf("the seasons are gone\n---\n%s", out)
+	}
+}
+
+// Along the top run the club's scores in every competition, its fixture
+// to come among them, scrolled with < and >.
+func TestScoresRunAlongTheTop(t *testing.T) {
+	repos := seedTwoCompetitions(t)
+	seedGames(t, repos)
+	deps := newDeps(repos)
+	deps.Catalog = []core.CatalogEntry{
+		{Competition: models.Competition{ID: "eng-premier-league", ShortName: "PL"}},
+		{Competition: models.Competition{ID: "uefa-champions-league", ShortName: "UCL"}},
+	}
+	s := settled(t, deps, "", "")
+	out := s.View()
+	scores := out[:strings.Index(out, "RECENT")]
+	for _, want := range []string{"Calder", "Wessex Rovers", "PENS 2–4", "Kelso", "UCL", "FAC"} {
+		if !strings.Contains(scores, want) {
+			t.Errorf("scores lack %q\n---\n%s", want, scores)
+		}
+	}
+	short := s.Keys().Short
+	if short[len(short)-1].Help().Key != "</>" {
+		t.Error("the scores' scroll key is in the footer")
 	}
 }
 

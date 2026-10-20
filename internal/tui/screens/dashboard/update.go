@@ -57,6 +57,9 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 }
 
 func (m *Model) handleKey(msg tea.KeyMsg) (core.Screen, tea.Cmd) {
+	if m.strip.HandleKey(msg.String(), m.width) {
+		return m, nil
+	}
 	switch msg.String() {
 	case "left", "h":
 		m.move(0, -1)
@@ -72,10 +75,6 @@ func (m *Model) handleKey(msg tea.KeyMsg) (core.Screen, tea.Cmd) {
 		if len(m.cards) > 0 {
 			m.cursor = len(m.cards) - 1
 		}
-	case "<", ",":
-		m.strip.Scroll(-1, m.width)
-	case ">", ".":
-		m.strip.Scroll(1, m.width)
 	case "enter":
 		return m, m.open()
 	}

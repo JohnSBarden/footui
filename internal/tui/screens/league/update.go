@@ -105,6 +105,9 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 }
 
 func (m *Model) handleKey(msg tea.KeyMsg) (core.Screen, tea.Cmd) {
+	if m.strip.HandleKey(msg.String(), m.width) {
+		return m, nil
+	}
 	if m.comp.International() {
 		switch msg.String() {
 		case "m":
@@ -148,10 +151,6 @@ func (m *Model) handleKey(msg tea.KeyMsg) (core.Screen, tea.Cmd) {
 		}
 	}
 	switch msg.String() {
-	case "<", ",":
-		m.strip.Scroll(-1, m.width)
-	case ">", ".":
-		m.strip.Scroll(1, m.width)
 	case "up", "k":
 		m.moveCursor(-1)
 	case "down", "j":

@@ -10,14 +10,21 @@
 package team
 
 import (
+	"time"
+
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/JohnSBarden/footui/internal/data/models"
 	"github.com/JohnSBarden/footui/internal/tui/core"
 	"github.com/JohnSBarden/footui/internal/tui/keys"
+	"github.com/JohnSBarden/footui/internal/tui/scorestrip"
 	"github.com/JohnSBarden/footui/internal/tui/styles"
 )
+
+// now is the clock the scores along the top are measured against; tests
+// pin it.
+var now = time.Now
 
 // pane is which of the screen's two tables has the cursor.
 type pane int
@@ -65,6 +72,9 @@ type Model struct {
 	recentTeams  map[string]models.Team
 	recentComps  map[string]models.Competition
 	recentLoaded bool
+	// strip is the scores along the top: the club's schedule either side
+	// of today, in every competition.
+	strip scorestrip.Strip
 	// fetching and queued say the club's recent games are being fetched
 	// or waiting to be.
 	fetching bool
@@ -131,7 +141,7 @@ func (m *Model) Title() string { return m.team.Name }
 
 // Keys implements core.Screen.
 func (m *Model) Keys() core.KeyMap {
-	return core.KeyMap{
+	km := core.KeyMap{
 		Short: []key.Binding{keys.Move, keys.Competition, keys.Pane, keys.Open, keys.Matches},
 		Full: [][]key.Binding{
 			{keys.Up, keys.Down, keys.PageUp, keys.PageDown},
@@ -139,6 +149,11 @@ func (m *Model) Keys() core.KeyMap {
 			{keys.Pane, keys.Open, keys.Matches},
 		},
 	}
+	if !m.strip.Empty() {
+		km.Short = append(km.Short, keys.Scores)
+		km.Full = append(km.Full, []key.Binding{keys.Scores})
+	}
+	return km
 }
 
 // Init implements core.Screen: everything cached, and — once, on open —

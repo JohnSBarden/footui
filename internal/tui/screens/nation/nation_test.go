@@ -190,3 +190,24 @@ func TestANationWithNoMatchesSaysHowToGetThem(t *testing.T) {
 		t.Errorf("empty state:\n%s", out)
 	}
 }
+
+// Along the top, under the year bar, run the nation's scores in every
+// competition whatever the filter, its next friendly among them.
+func TestScoresRunAlongTheTop(t *testing.T) {
+	m, _ := open(t)
+	short := m.Keys().Short
+	if short[len(short)-1].Help().Key != "</>" {
+		t.Error("the scores' scroll key is in the footer")
+	}
+	m = key(t, m, "tab", "right", "space") // competitive matches only
+	out := m.View()
+	if !strings.Contains(out, "[Competitive]") {
+		t.Fatalf("filter not applied:\n%s", out)
+	}
+	scores := out[strings.Index(out, "All years"):strings.Index(out, "Filter:")]
+	for _, want := range []string{"FRND", "WC ", "PENS 3–4", "Dravonia", "Borduria"} {
+		if !strings.Contains(scores, want) {
+			t.Errorf("scores lack %q\n---\n%s", want, scores)
+		}
+	}
+}

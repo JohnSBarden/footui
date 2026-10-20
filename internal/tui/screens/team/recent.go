@@ -10,6 +10,7 @@ import (
 	"github.com/JohnSBarden/footui/internal/tui/components"
 	"github.com/JohnSBarden/footui/internal/tui/core"
 	"github.com/JohnSBarden/footui/internal/tui/keys"
+	"github.com/JohnSBarden/footui/internal/tui/scorestrip"
 )
 
 // recentGames is how many games the strip at the top of the screen shows;
@@ -22,6 +23,7 @@ type recentLoadedMsg struct {
 	matches []models.Match
 	teams   map[string]models.Team
 	comps   map[string]models.Competition
+	strip   scorestrip.Strip
 }
 
 // loadRecent fetches the strip's games from the cache.
@@ -36,8 +38,24 @@ func (m *Model) loadRecent() tea.Cmd {
 		if err != nil {
 			return core.ErrMsg{Err: err}
 		}
-		return recentLoadedMsg{matches: matches, teams: teams, comps: comps}
+		return recentLoadedMsg{matches: matches, teams: teams, comps: comps, strip: loadStrip(deps, teamID)}
 	}
+}
+
+// loadStrip is the club's schedule either side of today. The strip is a
+// nicety, so a failure leaves it empty rather than failing the screen.
+func loadStrip(deps core.Deps, teamID string) scorestrip.Strip {
+	t := now()
+	ms, err := scorestrip.ForTeam(deps, teamID, t)
+	if err != nil {
+		return scorestrip.Strip{}
+	}
+	strip, err := scorestrip.Build(deps, ms, t)
+	if err != nil {
+		return scorestrip.Strip{}
+	}
+	strip.ShowComp = true
+	return strip
 }
 
 // checkRecent asks, once on open, whether the club's recent games need
@@ -93,6 +111,15 @@ func (m *Model) recentStrip() string {
 // which the tables below give up so the screen still fits.
 func (m *Model) recentHeight() int {
 	return lipgloss.Height(m.recentStrip()) + 1
+}
+
+// stripHeight is how many lines the scores along the top and the gap
+// beneath them take.
+func (m *Model) stripHeight() int {
+	if m.strip.Empty() {
+		return 0
+	}
+	return m.strip.Height() + 1
 }
 
 func (m *Model) recentTable() string {

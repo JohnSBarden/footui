@@ -16,6 +16,9 @@ func (m *Model) View() string {
 	var b strings.Builder
 	b.WriteString(m.header())
 	b.WriteString("\n")
+	if !m.strip.Empty() {
+		b.WriteString("\n" + m.strip.View(th, m.width) + "\n\n")
+	}
 	switch {
 	case m.err != nil:
 		b.WriteString("\n" + th.Error.Render("Could not load matches: "+m.err.Error()))
@@ -192,7 +195,10 @@ func (m *Model) boxScore(mt models.Match) [][]components.Cell {
 }
 
 func (m *Model) tableHeight() int {
-	const chrome = 12
+	chrome := 12
+	if !m.strip.Empty() {
+		chrome += m.strip.Height() + 2 // and the blank lines either side
+	}
 	return max(m.height-chrome, 5)
 }
 

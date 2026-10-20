@@ -20,10 +20,13 @@ const roundSpan = 84 * time.Hour
 // still be going on, so the strip opens with it in view.
 const liveFor = 3 * time.Hour
 
-// Per team, the strip carries its last few results and its next fixture.
+// Per team, the matchday strip carries its last few results and its next
+// fixture; the team's own page, its schedule further either way.
 const (
 	teamRecent   = 2
 	teamUpcoming = 1
+	pageRecent   = 10
+	pageUpcoming = 5
 )
 
 // Rounds is a season's latest round played by now and its next one: the
@@ -53,9 +56,21 @@ func Rounds(matches []models.Match, now time.Time) []models.Match {
 	return Ordered(out)
 }
 
-// TeamWindow is a team's last teamRecent games kicked off by now and its
-// next teamUpcoming, from its matches in any order.
+// TeamWindow is a team's last games kicked off by now and its next, from
+// its matches in any order: the few the matchday strip carries per team.
 func TeamWindow(matches []models.Match, now time.Time) []models.Match {
+	return window(matches, now, teamRecent, teamUpcoming)
+}
+
+// Schedule is the strip on a team's own page: more of its games either
+// side of now.
+func Schedule(matches []models.Match, now time.Time) []models.Match {
+	return window(matches, now, pageRecent, pageUpcoming)
+}
+
+// window is the last recent of matches kicked off by now and the next
+// upcoming, in kickoff order.
+func window(matches []models.Match, now time.Time, recent, upcoming int) []models.Match {
 	ms := Ordered(matches)
 	split, _ := slices.BinarySearchFunc(ms, now, func(m models.Match, t time.Time) int {
 		if m.Kickoff.After(t) {
@@ -63,7 +78,7 @@ func TeamWindow(matches []models.Match, now time.Time) []models.Match {
 		}
 		return -1
 	})
-	return slices.Clone(ms[max(split-teamRecent, 0):min(split+teamUpcoming, len(ms))])
+	return slices.Clone(ms[max(split-recent, 0):min(split+upcoming, len(ms))])
 }
 
 // Ordered is matches without repeats, in kickoff order.

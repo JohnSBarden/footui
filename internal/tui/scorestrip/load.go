@@ -23,6 +23,16 @@ func ForTeams(deps core.Deps, teamIDs []string, now time.Time) ([]models.Match, 
 	return out, nil
 }
 
+// ForTeam is the strip on a team's own page: its Schedule.
+func ForTeam(deps core.Deps, teamID string, now time.Time) ([]models.Match, error) {
+	y := now.Year()
+	ms, err := deps.Repos.MatchesForTeam(deps.Ctx, teamID, models.MatchFilter{}, []int{y - 1, y, y + 1})
+	if err != nil {
+		return nil, err
+	}
+	return Schedule(ms, now), nil
+}
+
 // ForSeason is one season's latest round and its next.
 func ForSeason(deps core.Deps, compID, seasonID string, now time.Time) ([]models.Match, error) {
 	ms, err := deps.Repos.MatchesForCompetitionSeason(deps.Ctx, compID, seasonID)

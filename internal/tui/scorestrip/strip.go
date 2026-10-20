@@ -94,6 +94,20 @@ func (s *Strip) Scroll(dir, width int) {
 	s.scrolled = true
 }
 
+// HandleKey scrolls the strip on < and > (or , and .), reporting whether
+// the key was one of those.
+func (s *Strip) HandleKey(key string, width int) bool {
+	switch key {
+	case "<", ",":
+		s.Scroll(-1, width)
+	case ">", ".":
+		s.Scroll(1, width)
+	default:
+		return false
+	}
+	return true
+}
+
 // View draws the strip width columns wide, or nothing when it's empty.
 func (s Strip) View(th styles.Theme, width int) string {
 	if s.Empty() {

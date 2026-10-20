@@ -45,6 +45,7 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 		m.years = msg.years
 		m.filter = msg.filter
 		m.allComps = msg.allComps
+		m.strip = msg.strip
 		for _, c := range msg.allComps {
 			m.compByID[c.ID] = c
 		}
@@ -99,6 +100,9 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 	case tea.KeyMsg:
 		if m.focus == paneFilter {
 			return m, m.filterKey(msg.String())
+		}
+		if m.strip.HandleKey(msg.String(), m.width) {
+			return m, nil
 		}
 		return m, m.matchesKey(msg.String())
 	}

@@ -13,6 +13,7 @@ package nation
 import (
 	"slices"
 	"strconv"
+	"time"
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
@@ -20,7 +21,12 @@ import (
 	"github.com/JohnSBarden/footui/internal/data/models"
 	"github.com/JohnSBarden/footui/internal/tui/core"
 	"github.com/JohnSBarden/footui/internal/tui/keys"
+	"github.com/JohnSBarden/footui/internal/tui/scorestrip"
 )
+
+// now is the clock the scores along the top are measured against; tests
+// pin it.
+var now = time.Now
 
 // pane is which part of the screen has the keyboard.
 type pane int
@@ -76,6 +82,10 @@ type Model struct {
 	// queued while they wait to be.
 	refreshing, queued bool
 
+	// strip is the scores along the top: the nation's games either side
+	// of today, whatever the filter.
+	strip scorestrip.Strip
+
 	width, height int
 	loading       bool
 	loaded        bool
@@ -96,13 +106,18 @@ func (m *Model) Keys() core.KeyMap {
 	if m.focus == paneFilter {
 		return core.KeyMap{Short: []key.Binding{keys.FilterChoose, keys.FilterToggle, keys.FilterDone}}
 	}
-	return core.KeyMap{
+	km := core.KeyMap{
 		Short: []key.Binding{keys.Move, keys.Year, keys.FilterBar, keys.BoxScore},
 		Full: [][]key.Binding{
 			{keys.Up, keys.Down, keys.PageUp, keys.PageDown, keys.Home, keys.End},
 			{keys.Year, keys.FilterBar, keys.BoxScore},
 		},
 	}
+	if !m.strip.Empty() {
+		km.Short = append(km.Short, keys.Scores)
+		km.Full = append(km.Full, []key.Binding{keys.Scores})
+	}
+	return km
 }
 
 // Init implements core.Screen.
@@ -194,6 +209,7 @@ type metaLoadedMsg struct {
 	filter   models.MatchFilter
 	allComps []models.Competition
 	team     models.Team
+	strip    scorestrip.Strip
 }
 
 type matchesLoadedMsg struct {
@@ -232,7 +248,14 @@ func (m *Model) loadMeta() tea.Cmd {
 		if err != nil {
 			return core.ErrMsg{Err: err}
 		}
-		return metaLoadedMsg{years: years, filter: filter, allComps: comps, team: team}
+		// The strip is a nicety: a failure leaves it empty.
+		t := now()
+		strip, err := scorestrip.Build(deps, scorestrip.Schedule(all, t), t)
+		if err != nil {
+			strip = scorestrip.Strip{}
+		}
+		strip.ShowComp = true
+		return metaLoadedMsg{years: years, filter: filter, allComps: comps, team: team, strip: strip}
 	}
 }
 
