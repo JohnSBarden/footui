@@ -13,20 +13,18 @@ import (
 	"github.com/JohnSBarden/footui/internal/tui/scorestrip"
 )
 
-// recentGames is how many games the strip at the top of the screen shows;
-// the Games screen (m) lists more.
+// recentGames is how many games the form line is read from; the Games
+// screen (m) lists more.
 const recentGames = 5
 
 // recentLoadedMsg carries the club's last few finished games in every
-// competition, with what names their opponents and competitions.
+// competition, and the scores along the top.
 type recentLoadedMsg struct {
 	matches []models.Match
-	teams   map[string]models.Team
-	comps   map[string]models.Competition
 	strip   scorestrip.Strip
 }
 
-// loadRecent fetches the strip's games from the cache.
+// loadRecent fetches the form line's games and the scores from the cache.
 func (m *Model) loadRecent() tea.Cmd {
 	deps, teamID := m.deps, m.team.ID
 	return func() tea.Msg {
@@ -34,11 +32,7 @@ func (m *Model) loadRecent() tea.Cmd {
 		if err != nil {
 			return core.ErrMsg{Err: err}
 		}
-		teams, comps, err := core.MatchNames(deps, matches)
-		if err != nil {
-			return core.ErrMsg{Err: err}
-		}
-		return recentLoadedMsg{matches: matches, teams: teams, comps: comps, strip: loadStrip(deps, teamID)}
+		return recentLoadedMsg{matches: matches, strip: loadStrip(deps, teamID)}
 	}
 }
 
@@ -77,7 +71,8 @@ func (m *Model) checkRecent() tea.Cmd {
 	}
 }
 
-// recentStrip is the club's form and last five games, under the header.
+// recentStrip is the club's form over its last five games, under the
+// scores along the top, which carry the games themselves.
 func (m *Model) recentStrip() string {
 	th := m.theme
 	title := components.Label(th, "Recent")
@@ -94,15 +89,10 @@ func (m *Model) recentStrip() string {
 		note = th.Status.Render("  recent games queued")
 	}
 	lines := []string{title + hint + note}
-	switch {
-	case !m.recentLoaded:
-		lines = append(lines, th.Muted.Render("Loading…"))
-	case len(m.recent) == 0 && !m.fetching && !m.queued:
+	if m.recentLoaded && len(m.recent) == 0 && !m.fetching && !m.queued {
 		lines = append(lines, th.Empty.Render("No recent games cached.")+
 			th.Muted.Render("  Run  ")+th.Accent.Render("footui refresh --team "+teamArg(m.team))+
 			th.Muted.Render("  to fetch them."))
-	case len(m.recent) > 0:
-		lines = append(lines, m.recentTable())
 	}
 	return strings.Join(lines, "\n")
 }
@@ -120,31 +110,6 @@ func (m *Model) stripHeight() int {
 		return 0
 	}
 	return m.strip.Height() + 1
-}
-
-func (m *Model) recentTable() string {
-	th := m.theme
-	cols := append(components.MatchColumns(22), components.Column{Title: "", Width: components.MatchXGWidth})
-	rows := make([][]components.Cell, 0, len(m.recent))
-	for _, mt := range m.recent {
-		rows = append(rows, components.MatchCells(th, mt, m.team.ID, m.recentComp(mt.CompetitionID),
-			m.recentTeam(mt.Opponent(m.team.ID)), components.MatchXGBar(th, mt, m.team.ID)))
-	}
-	return components.Table(components.TableOpts{Columns: cols, Rows: rows, Cursor: -1, Theme: th})
-}
-
-func (m *Model) recentComp(id string) models.Competition {
-	if c, ok := m.recentComps[id]; ok {
-		return c
-	}
-	return models.Competition{ID: id, Name: id}
-}
-
-func (m *Model) recentTeam(id string) string {
-	if t, ok := m.recentTeams[id]; ok {
-		return t.Name
-	}
-	return id
 }
 
 // teamArg is the club as `footui refresh --team` takes it.

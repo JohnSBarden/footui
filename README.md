@@ -16,13 +16,12 @@ competitions you care about.
  Arsenal   England · men
 [Premier League (3)]  Champions League (3)    updated 34 minutes ago
 
+  Sat 19 Sep          Sat 10 Oct          Tue 13 Oct          Today
+  PL             FT │ PL             FT │ UCL            FT │ PL          15:00
+‹ ● Brighton      3 │ ● Arsenal       2 │ ● Arsenal       3 │ ● Arsenal          ›
+  ● Arsenal       0 │ ● Leeds         1 │ ● Lille         0 │ ● Fulham
+
 Recent  W W L W W  m all games
-Date       Comp       Opponent               Score
-2026-10-13 UCL    H   Lille                  3–0
-2026-10-10 PL     H   Leeds                  2–1             xG 2.3–1.2
-2026-09-19 PL     A   Brighton               0–3             xG 1.2–2.1
-2026-09-15 EFL    A   Ipswich                4–2
-2026-09-12 PL     A   Sunderland             2–0             xG 2.0–2.1
 
 ╭───────────────╮╭───────────────╮╭───────────────╮╭───────────────╮╭───────────────╮
 │ Position      ││ Points        ││ Record        ││ Goals         ││ xG            │
@@ -226,11 +225,12 @@ current one again once it's stale. Seasons the source barely recorded show
 
 ### Recent games
 
-A club's screen opens with its form and its last five games in every
-competition — its league, its country's cups, and Europe — with the score
-from the club's side, extra time and shoot-outs marked, and xG where
-understat covers the league. `m` lists the last 30, each with a box score
-(possession, shots, corners and fouls from ESPN; xG from understat).
+A club's screen opens with its games in every competition — its league,
+its country's cups, and Europe — along the top, extra time and shoot-outs
+marked, and its form over the last five beneath them. `m` lists the last
+30 from the club's side, with xG where understat covers the league, each
+with a box score (possession, shots, corners and fouls from ESPN; xG from
+understat).
 
 They arrive on their own: opening a club fetches whatever its games need,
 and nothing if they're current. The first English club costs about ten

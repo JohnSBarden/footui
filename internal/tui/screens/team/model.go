@@ -67,10 +67,8 @@ type Model struct {
 	honours []models.Trophy
 
 	// recent are the club's last few finished games in every competition,
-	// for the strip under the header, with the names their rows need.
+	// which its form line is read from.
 	recent       []models.Match
-	recentTeams  map[string]models.Team
-	recentComps  map[string]models.Competition
 	recentLoaded bool
 	// strip is the scores along the top: the club's schedule either side
 	// of today, in every competition.

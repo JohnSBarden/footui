@@ -39,7 +39,7 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 		return m, nil
 
 	case recentLoadedMsg:
-		m.recent, m.recentTeams, m.recentComps = msg.matches, msg.teams, msg.comps
+		m.recent = msg.matches
 		m.recentLoaded = true
 		m.strip = msg.strip
 		return m, nil

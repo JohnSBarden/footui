@@ -67,7 +67,7 @@ func seedGames(t *testing.T, repos storage.Repositories) {
 	}
 }
 
-func TestTheRecentStripShowsFormAndTheLastFiveGames(t *testing.T) {
+func TestTheRecentLineShowsFormOverTheLastFiveGames(t *testing.T) {
 	repos := seedTwoCompetitions(t)
 	seedGames(t, repos)
 	deps := newDeps(repos)
@@ -88,17 +88,12 @@ func TestTheRecentStripShowsFormAndTheLastFiveGames(t *testing.T) {
 	if !strings.Contains(out, "RECENT  D W D L W") {
 		t.Errorf("form missing\n---\n%s", out)
 	}
-	for _, want := range []string{"Northbridge", "2–0", "xG 2.1–0.8", "Wessex Rovers", "1–1 (4–2 p)", "FAC", "UCL", " PL "} {
-		if !strings.Contains(out, want) {
-			t.Errorf("strip lacks %q\n---\n%s", want, out)
-		}
-	}
-	// The Recent table, not the scores along the top, which carry the
-	// fixture to come as well.
+	// Just the line: the games themselves are in the scores along the top,
+	// so none is listed again beneath it.
 	recent := out[strings.Index(out, "RECENT"):]
-	for _, unwanted := range []string{"Dunmore", "Kelso"} {
+	for _, unwanted := range []string{"Northbridge", "Wessex Rovers", "2–0", "xG 2.1–0.8"} {
 		if strings.Contains(recent, unwanted) {
-			t.Errorf("the strip shows %s: only the last five finished games belong\n---\n%s", unwanted, out)
+			t.Errorf("the recent games are listed again: %s\n---\n%s", unwanted, out)
 		}
 	}
 	// The club's tables are still there beneath it.
