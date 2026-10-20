@@ -45,11 +45,20 @@ func TestStrongThemeIsReadableForEveryCuratedClub(t *testing.T) {
 		}
 		for _, bg := range stripes(t, th) {
 			for name, c := range map[string]lipgloss.TerminalColor{
-				"text": th.Palette.Text, "muted": th.Palette.Muted, "accent": th.Palette.Accent,
+				"text": th.Palette.Text, "muted": th.Palette.Muted,
 			} {
 				if r := contrastRatio(concrete(t, c), bg); r < minContrast {
 					t.Errorf("%s: %s contrast %.2f on %s, want ≥ %.1f", e.ID, name, r, bg.Hex(), minContrast)
 				}
+			}
+			// The accent may fall back to bold text, which only needs
+			// large-text AA.
+			want := minContrast
+			if th.Accent.GetBold() {
+				want = minLargeContrast
+			}
+			if r := contrastRatio(concrete(t, th.Palette.Accent), bg); r < want {
+				t.Errorf("%s: accent contrast %.2f on %s, want ≥ %.1f", e.ID, r, bg.Hex(), want)
 			}
 		}
 		// Green/red keep their hue, so on a club whose primary is itself
@@ -63,6 +72,28 @@ func TestStrongThemeIsReadableForEveryCuratedClub(t *testing.T) {
 					t.Errorf("%s: %s contrast %.2f on %s, want ≥ %.1f", e.ID, name, r, bg.Hex(), minLargeContrast)
 				}
 			}
+		}
+	}
+}
+
+// On a bright red neither text colour nor a navy secondary reaches 4.5:1;
+// the accent must still stand apart from the body text.
+func TestStrongAccentDiffersFromTextOnBrightRed(t *testing.T) {
+	th, ok := StrongTeamTheme("#EF0107", "#023474") // Arsenal
+	if !ok {
+		t.Fatal("no strong theme")
+	}
+	accent, text := concrete(t, th.Palette.Accent), concrete(t, th.Palette.Text)
+	if accent == text {
+		t.Fatalf("accent %s is the body text colour", accent.Hex())
+	}
+	for _, bg := range stripes(t, th) {
+		r := contrastRatio(accent, bg)
+		if r < minLargeContrast {
+			t.Errorf("accent contrast %.2f on %s, want ≥ %.1f", r, bg.Hex(), minLargeContrast)
+		}
+		if r < minContrast && !th.Accent.GetBold() {
+			t.Errorf("accent contrast %.2f on %s is below %.1f but not bold", r, bg.Hex(), minContrast)
 		}
 	}
 }

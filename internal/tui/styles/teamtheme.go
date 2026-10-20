@@ -151,12 +151,7 @@ func strongTheme(primary, a, b colorful.Color, secondaryHex string) Theme {
 		text = mustHex("#000000")
 	}
 
-	accent := text
-	if secondary, ok := parseHex(secondaryHex); ok {
-		if c := solveOn(secondary, bgs, minContrast); worstContrast(c, bgs) >= minContrast {
-			accent = c
-		}
-	}
+	accent := strongAccent(text, bgs, secondaryHex)
 
 	hex := func(c colorful.Color) lipgloss.Color { return lipgloss.Color(c.Hex()) }
 	p := Palette{
@@ -183,7 +178,33 @@ func strongTheme(primary, a, b colorful.Color, secondaryHex string) Theme {
 	// drawn inverse like the title, idle tabs sit unfilled on the screen.
 	t.Keycap = t.Keycap.Foreground(hex(primary)).Background(hex(text))
 	t.TabIdle = lipgloss.NewStyle().Foreground(p.Muted)
+	if worstContrast(accent, bgs) < minContrast {
+		// The fallback accent only reads as bold text.
+		t.Accent = t.Accent.Bold(true)
+	}
 	return t
+}
+
+// strongAccent is the accent on stripes bgs: the club's secondary if it
+// can be made readable there; otherwise whichever of black and white the
+// body text isn't, if it reads as bold text (minLargeContrast); and
+// only failing both the body text itself. On a bright red neither text
+// colour nor a navy secondary reaches 4.5:1, and an accent the same as
+// the text would mark nothing.
+func strongAccent(text colorful.Color, bgs []colorful.Color, secondaryHex string) colorful.Color {
+	if secondary, ok := parseHex(secondaryHex); ok {
+		if c := solveOn(secondary, bgs, minContrast); worstContrast(c, bgs) >= minContrast {
+			return c
+		}
+	}
+	other := mustHex("#000000")
+	if text == other {
+		other = mustHex("#ffffff")
+	}
+	if worstContrast(other, bgs) >= minLargeContrast {
+		return other
+	}
+	return text
 }
 
 // worstContrast is c's contrast against whichever of bgs it reads least
