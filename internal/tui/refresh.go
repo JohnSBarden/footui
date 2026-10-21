@@ -214,6 +214,7 @@ func (a *App) startNext() tea.Cmd {
 		// no longer news.
 		a.err = nil
 		a.status = ""
+		a.snapshotNews()
 	}
 	req := a.queue[0]
 	a.queue = a.queue[1:]
@@ -333,10 +334,12 @@ func (a *App) handleRefreshEvent(msg refreshMsg) tea.Cmd {
 	// A failure doesn't abandon the rest of the queue: each request is a
 	// different competition, and one league's trouble says little about
 	// the next.
+	var news tea.Cmd
 	if len(a.queue) == 0 {
 		a.reportBatch()
+		news = a.newsSince()
 	}
-	return tea.Batch(reload, a.startNext())
+	return tea.Batch(reload, news, a.startNext())
 }
 
 // refreshedMsg is what screens are told once req has landed.

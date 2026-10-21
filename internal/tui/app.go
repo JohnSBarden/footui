@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
@@ -33,6 +34,7 @@ import (
 	"github.com/JohnSBarden/footui/internal/tui/screens/player"
 	"github.com/JohnSBarden/footui/internal/tui/screens/team"
 	"github.com/JohnSBarden/footui/internal/tui/styles"
+	"github.com/JohnSBarden/footui/internal/tui/ticker"
 )
 
 // App is the root Bubble Tea model.
@@ -75,6 +77,15 @@ type App struct {
 
 	// splash is the launch screen, nil once it's gone.
 	splash *splashState
+
+	// news is the ticker beneath the footer: what refreshes brought in
+	// for the followed teams. newsBefore is the snapshot taken as the
+	// current batch started; newsTurning is set while a tick is pending.
+	news        ticker.Feed
+	newsBefore  ticker.Snapshot
+	newsTurning bool
+	// clock stands in for time.Now in tests; nil is the real clock.
+	clock func() time.Time
 
 	// kick is the kickabout being played over the screen, nil when none
 	// is. While it runs it takes the keys; every other message still
@@ -297,6 +308,9 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// knows the context; the app keeps a copy only so a screen that
 		// ignores ErrMsg doesn't swallow the failure silently.
 		a.err = msg.Err
+
+	case tickerMsg:
+		return a, a.turnNews()
 
 	case refreshMsg:
 		return a, a.handleRefreshEvent(msg)
@@ -711,6 +725,8 @@ func (a *App) statusLine() string {
 		return a.theme().Status.Render(components.Truncate(a.status, a.width))
 	case a.err != nil:
 		return a.theme().Error.Render(components.Truncate("error: "+a.err.Error(), a.width))
+	case a.news.Len() > 0:
+		return a.theme().Status.Render(components.Truncate(a.news.Current(), a.width))
 	}
 	return ""
 }
