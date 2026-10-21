@@ -58,6 +58,47 @@ func Paint(frame string, th Theme, width, height int) string {
 	return b.String()
 }
 
+// Shade lays bg behind one rendered line, as Paint does for a frame:
+// put back after every reset, but not inside a span with a background of
+// its own. A terminal with no colour gets the line back untouched.
+func Shade(line string, bg lipgloss.TerminalColor) string {
+	if bg == nil {
+		return line
+	}
+	seq := backgroundSequence(bg)
+	if seq == "" {
+		return line
+	}
+	var b strings.Builder
+	b.WriteString(seq)
+	var state byte
+	for len(line) > 0 {
+		s, _, n, newState := ansi.DecodeSequence(line, state, nil)
+		state = newState
+		line = line[n:]
+		b.WriteString(s)
+		if params, ok := sgrParams(s); ok {
+			if own, _ := applySGR(true, params); !own {
+				b.WriteString(seq)
+			}
+		}
+	}
+	b.WriteString(reset)
+	return b.String()
+}
+
+// backgroundSequence is the escape sequence setting bg as the background
+// in the terminal's colour profile, adaptive colours included; empty when
+// the terminal has no colour.
+func backgroundSequence(bg lipgloss.TerminalColor) string {
+	out := lipgloss.NewStyle().Background(bg).Render("x")
+	seq, _, ok := strings.Cut(out, "x")
+	if !ok {
+		return ""
+	}
+	return seq
+}
+
 // stripeSequences are the escape sequences setting each stripe's
 // background; a flat theme has the same one twice.
 func stripeSequences(profile termenv.Profile, th Theme) ([2]string, bool) {

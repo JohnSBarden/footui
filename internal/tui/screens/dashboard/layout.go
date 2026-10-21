@@ -32,8 +32,8 @@ func (s slot) bottom() int { return s.top + s.height }
 
 // columns is how many columns fit side by side, and how wide each is.
 func (m *Model) columns() (cols, width int) {
-	cols = max((m.width+cardGap)/(minCardWidth+cardGap), 1)
-	width = (m.width - cardGap*(cols-1)) / cols
+	cols = max((m.cardsWidth()+cardGap)/(minCardWidth+cardGap), 1)
+	width = (m.cardsWidth() - cardGap*(cols-1)) / cols
 	return cols, max(width, 12)
 }
 

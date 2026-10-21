@@ -70,6 +70,9 @@ type Deps struct {
 	// Version is the build's version, for the launch splash; empty
 	// leaves it off.
 	Version string
+	// Log is what's been happening in the background (downloads and
+	// how they went), written by the root app. Nil records nothing.
+	Log *Log
 }
 
 // PlayerSearcher finds players at the data source, beyond the cache, and

@@ -41,28 +41,34 @@ func (m *Model) View() string {
 		if !m.strip.Empty() {
 			b.WriteString(m.strip.View(th, m.width) + "\n\n")
 		}
+		if m.showLog {
+			b.WriteString(m.withLog(m.cardsView(), max(m.height-headerLines-m.stripLines(), 8)))
+			break
+		}
 		b.WriteString(m.cardsView())
 	}
 	return b.String()
 }
 
-// header is the wordmark, what the screen is, and today's date on the
-// right — the day is what "updated 3 hours ago" is measured from.
+// header is the wordmark, what the screen is, and on the right the log
+// button and today's date — the day is what "updated 3 hours ago" is
+// measured from.
 func (m *Model) header() string {
 	th := m.deps.Theme
 	left := components.Wordmark(th) + " " + th.Accent.Bold(true).Render("matchday") +
 		th.Subtitle.Render("  your favourites")
-	date := th.Muted.Render(now().Format("Mon 2 Jan"))
-	gap := m.width - lipgloss.Width(left) - lipgloss.Width(date)
-	if gap < 2 {
-		return left
+	// Short of room, the date goes before the button does.
+	for _, right := range []string{m.logButton() + "  " + th.Muted.Render(now().Format("Mon 2 Jan")), m.logButton()} {
+		if gap := m.width - lipgloss.Width(left) - lipgloss.Width(right); gap >= 2 {
+			return left + strings.Repeat(" ", gap) + right
+		}
 	}
-	return left + strings.Repeat(" ", gap) + date
+	return left
 }
 
 // renderCard draws one card width columns wide. The selected card's
-// border is drawn in the accent colour and, so it still stands out without
-// colour, heavier.
+// border is heavier, so it still stands out without colour, and in
+// colour it glints and the card is shaded (selectedCard).
 func (m *Model) renderCard(c Card, selected bool, width int) string {
 	th := m.deps.Theme
 	inner := max(width-4, 8)
@@ -85,11 +91,7 @@ func (m *Model) renderCard(c Card, selected bool, width int) string {
 	style := th.Panel.Width(inner + 2)
 	body := strings.Join(lines, "\n")
 	if selected {
-		style = style.Border(lipgloss.ThickBorder()).BorderForeground(th.Palette.Accent)
-		if th.NoColor {
-			style = style.UnsetBorderForeground()
-		}
-		return style.Render(body)
+		return m.selectedCard(body, inner)
 	}
 	// An unselected club card wears its club's scarf along the top edge;
 	// the selected one keeps the plain heavy border, so selection stays

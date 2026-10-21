@@ -91,6 +91,10 @@ type App struct {
 	// is. While it runs it takes the keys; every other message still
 	// reaches the stack, so the screen is current when the game ends.
 	kick *kickabout.Model
+
+	// framing is set while an animation frame is pending for the screen
+	// on top.
+	framing bool
 }
 
 var _ tea.Model = (*App)(nil)
@@ -114,7 +118,7 @@ func NewApp(deps core.Deps, initial core.Screen) *App {
 // NewDeps builds the dependency bundle every screen is constructed with,
 // including the Navigator that wires screen-to-screen drill-down.
 func NewDeps(ctx context.Context, repos storage.Repositories, theme styles.Theme) core.Deps {
-	deps := core.Deps{Ctx: ctx, Repos: repos, Theme: theme, Favorites: core.NewFavorites(nil)}
+	deps := core.Deps{Ctx: ctx, Repos: repos, Theme: theme, Favorites: core.NewFavorites(nil), Log: core.NewLog(nil)}
 	deps.Nav = navigator()
 	return deps
 }
@@ -213,8 +217,33 @@ func (a *App) current() core.Screen {
 	return a.stack[len(a.stack)-1]
 }
 
+// frameEvery paces the animation of a screen that asks for it.
+const frameEvery = 100 * time.Millisecond
+
 // Update implements tea.Model.
 func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if _, ok := msg.(core.FrameMsg); ok {
+		a.framing = false
+	}
+	model, cmd := a.update(msg)
+	return model, tea.Batch(cmd, a.nextFrame())
+}
+
+// nextFrame asks for an animation frame when the screen on top is
+// animating and none is pending. The splash and the kickabout draw over
+// the screen, so it isn't animated beneath them.
+func (a *App) nextFrame() tea.Cmd {
+	if a.framing || a.splash != nil || a.kick != nil {
+		return nil
+	}
+	if s, ok := a.current().(core.Animated); !ok || !s.Animating() {
+		return nil
+	}
+	a.framing = true
+	return tea.Tick(frameEvery, func(time.Time) tea.Msg { return core.FrameMsg{} })
+}
+
+func (a *App) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if a.splash != nil {
 		if mouse, ok := msg.(tea.MouseMsg); ok {
 			// A click skips the splash as a key does.

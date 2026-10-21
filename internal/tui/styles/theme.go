@@ -95,6 +95,10 @@ type Theme struct {
 	// Stripe is the second mowing shade, alternating with Background every
 	// few columns like a cut pitch; nil paints Background flat.
 	Stripe lipgloss.TerminalColor
+	// Shade is the background a selected panel is filled with: the
+	// highlight, except on a strong theme, whose highlight is its text
+	// colour (selection there is drawn inverse).
+	Shade lipgloss.TerminalColor
 
 	// NoColor reports whether colour was disabled; screens that would
 	// otherwise convey meaning through colour alone add a text marker.
@@ -129,6 +133,7 @@ func New(p Palette) Theme {
 		TabIdle:       lipgloss.NewStyle().Foreground(p.Muted).Background(p.Highlight),
 		Panel:         lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(p.Border).Padding(0, 1),
 		PanelTitle:    lipgloss.NewStyle().Bold(true).Foreground(p.Accent),
+		Shade:         p.Highlight,
 	}
 }
 

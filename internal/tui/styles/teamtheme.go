@@ -171,6 +171,7 @@ func strongTheme(primary, a, b colorful.Color, secondaryHex string) Theme {
 
 	t := New(p)
 	t.Background, t.Stripe = hex(a), hex(b)
+	t.Shade = hex(panelShade(a, text))
 	t.Title = t.Title.Foreground(hex(primary)).Background(hex(text))
 	t.TableSelected = lipgloss.NewStyle().Foreground(hex(primary)).Background(hex(text)).Bold(true)
 	// Highlight is the text colour here, so New's keycap (text on
@@ -183,6 +184,17 @@ func strongTheme(primary, a, b colorful.Color, secondaryHex string) Theme {
 		t.Accent = t.Accent.Bold(true)
 	}
 	return t
+}
+
+// panelShade is a selected panel's fill on stripe a: two cuts' worth of
+// lightness away from the text — darker under white, lighter under black
+// — so the fill only ever adds contrast.
+func panelShade(a, text colorful.Color) colorful.Color {
+	h, s, l := a.Hsl()
+	if text.Hex() == "#ffffff" {
+		return quantize(colorful.Hsl(h, s, max(l-2*stripeSpread, 0)))
+	}
+	return quantize(colorful.Hsl(h, s, min(l+2*stripeSpread, 1)))
 }
 
 // strongAccent is the accent on stripes bgs: the club's secondary if it

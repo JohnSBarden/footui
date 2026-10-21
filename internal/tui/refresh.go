@@ -151,10 +151,29 @@ func (a *App) enqueue(reqs ...core.RefreshRequest) tea.Cmd {
 		}
 		a.queue = mergeRequest(a.queue, req)
 	}
+	for _, req := range reqs {
+		a.deps.Log.Add(core.LogInfo, "queue "+describeRequest(req))
+	}
 	if a.active != nil {
 		return a.broadcastQueue()
 	}
 	return a.startNext()
+}
+
+// describeRequest is a request as the log records it: what, which
+// seasons, and why when nobody asked for it.
+func describeRequest(req core.RefreshRequest) string {
+	text := req.Label()
+	switch {
+	case req.History:
+		text += " (whole history)"
+	case len(req.Seasons) > 0:
+		text += " (" + strings.Join(req.Seasons, ", ") + ")"
+	}
+	if req.Why != "" {
+		text += " — " + req.Why
+	}
+	return text
 }
 
 // mergeRequest appends req to queue, or merges its seasons into a waiting
@@ -220,6 +239,7 @@ func (a *App) startNext() tea.Cmd {
 	a.queue = a.queue[1:]
 	a.active = &req
 	a.refreshing = a.describe(req, "")
+	a.deps.Log.Add(core.LogInfo, "start "+describeRequest(req))
 	parent := a.deps.Ctx
 	if parent == nil {
 		parent = context.Background()
@@ -240,6 +260,7 @@ func (a *App) cancelRefresh() tea.Cmd {
 	a.queue = nil
 	a.stopping = true
 	a.stopActive()
+	a.deps.Log.Add(core.LogInfo, "stop asked: "+a.active.Label()+" and everything queued")
 	a.refreshing = "Stopping " + a.active.Label() + "…"
 	return a.broadcastQueue()
 }
@@ -290,6 +311,7 @@ func (a *App) handleRefreshEvent(msg refreshMsg) tea.Cmd {
 	}
 	req := *a.active
 	if !ev.done {
+		a.deps.Log.Add(core.LogProgress, ev.progress)
 		if !a.stopping {
 			a.refreshing = a.describe(req, ev.progress)
 		}
@@ -299,6 +321,14 @@ func (a *App) handleRefreshEvent(msg refreshMsg) tea.Cmd {
 	a.refreshing = ""
 	a.stopActive()
 	a.noteRefreshed(req, ev.err)
+	switch {
+	case a.stopping:
+		a.deps.Log.Add(core.LogInfo, "stopped "+req.Label())
+	case ev.err != nil:
+		a.deps.Log.Add(core.LogError, req.Label()+": "+ev.err.Error())
+	default:
+		a.deps.Log.Add(core.LogDone, req.Label()+": "+ev.summary)
+	}
 	if a.stopping {
 		// What finished before the stop is cached and worth showing; the
 		// error the cancellation caused is not news.

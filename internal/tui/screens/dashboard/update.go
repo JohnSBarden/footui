@@ -22,7 +22,12 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 		// New numbers, or a card added or removed.
 		return m, m.load()
 
+	case core.FrameMsg:
+		m.frame++
+		return m, nil
+
 	case core.RefreshQueueMsg:
+		m.queue = msg
 		m.active, m.pending = map[string]bool{}, map[string]bool{}
 		if msg.Active != nil {
 			m.active[msg.Active.Key()] = true
@@ -54,6 +59,10 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 		return m.handleKey(msg)
 
 	case core.ClickMsg:
+		if msg.ID == "log" {
+			m.showLog = !m.showLog
+			return m, nil
+		}
 		// A click selects a card; clicking the selected one opens it.
 		i, ok := msg.ClickedIndex("card")
 		if !ok || i >= len(m.cards) {
@@ -62,7 +71,7 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 		if i == m.cursor {
 			return m, m.open()
 		}
-		m.cursor = i
+		m.cursor, m.frame = i, 0
 		return m, nil
 	}
 	return m, nil
@@ -72,7 +81,16 @@ func (m *Model) handleKey(msg tea.KeyMsg) (core.Screen, tea.Cmd) {
 	if m.strip.HandleKey(msg.String(), m.width) {
 		return m, nil
 	}
+	// A newly selected card's glint starts from its top-left corner.
+	before := m.cursor
+	defer func() {
+		if m.cursor != before {
+			m.frame = 0
+		}
+	}()
 	switch msg.String() {
+	case "L":
+		m.showLog = !m.showLog
 	case "left", "h":
 		m.move(0, -1)
 	case "right", "l":

@@ -89,6 +89,12 @@ var (
 	)
 )
 
+// Log opens and closes the dashboard's log of downloads.
+var Log = key.NewBinding(
+	key.WithKeys("L"),
+	key.WithHelp("L", "log"),
+)
+
 // MoveCard moves between dashboard cards, in two dimensions.
 var MoveCard = key.NewBinding(
 	key.WithKeys("up", "down", "left", "right", "h", "j", "k", "l"),

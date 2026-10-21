@@ -164,6 +164,14 @@ type Model struct {
 	// are on their way.
 	active  map[string]bool
 	pending map[string]bool
+	// queue is the same, as the requests themselves, for the log panel.
+	queue core.RefreshQueueMsg
+
+	// showLog is set while the log panel is open beside the cards.
+	showLog bool
+	// frame counts animation frames since the cursor last moved, for the
+	// selected card's glint.
+	frame int
 
 	width  int
 	height int
@@ -183,8 +191,14 @@ func (m *Model) Title() string { return Title }
 // Keys implements core.Screen.
 func (m *Model) Keys() core.KeyMap {
 	return core.KeyMap{
-		Short: []key.Binding{keys.MoveCard, keys.Open, keys.Scores},
+		Short: []key.Binding{keys.MoveCard, keys.Open, keys.Scores, keys.Log},
 	}
+}
+
+// Animating implements core.Animated: the selected card's outline moves
+// while there is one, in a terminal with colour.
+func (m *Model) Animating() bool {
+	return !m.deps.Theme.NoColor && !m.loading && m.err == nil && len(m.cards) > 0
 }
 
 // Init implements core.Screen.
