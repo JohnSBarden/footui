@@ -3,6 +3,7 @@ package kickabout
 import (
 	"fmt"
 	"math"
+	"math/rand/v2"
 	"strings"
 	"time"
 
@@ -32,14 +33,17 @@ type TickMsg struct{ gen int }
 // Model is one kickabout over a snapshot of a screen.
 type Model struct {
 	plain  bool
-	paint  [2][kinds]lipgloss.Style
+	paint  [3][kinds]lipgloss.Style
+	rng    *rand.Rand
 	f      Field
 	player Vec
 	facing Vec
 	ball   Ball
 	// dribbling is set while the ball is at the player's feet.
 	dribbling bool
+	defs      []Defender
 	goal      Goal
+	party     party
 	goals     int
 	shots     int
 	best      int
@@ -60,38 +64,40 @@ func New(frame string, width, height int, th styles.Theme) Model {
 		m.tooSmall = true
 		return m
 	}
+	seed := uint64(time.Now().UnixNano())
+	m.rng = rand.New(rand.NewPCG(seed, seed>>1))
 	m.f = NewField(frame, width, height)
 	m.paint = palette()
+	m.defs = pickDefenders(m.f, m.kickOffSpot(), m.rng)
 	m.reset()
 	return m
 }
 
 func (m *Model) reset() {
-	m.player = m.freeCell(Vec{2, float64(m.f.H / 2)})
+	m.kickOff()
+	m.goal = Goal{Top: m.f.H/2 - goalSize/2, Size: goalSize, Dir: 1}
+	m.goals, m.shots, m.left, m.over = 0, 0, roundTicks, false
+	m.toast, m.toastLeft = "", 0
+}
+
+func (m Model) kickOffSpot() Vec { return Vec{2, float64(m.f.H / 2)} }
+
+// kickOff lines everyone up again: the player on the spot with the ball,
+// the defenders back home.
+func (m *Model) kickOff() {
+	m.player = m.kickOffSpot()
 	m.facing = Vec{1, 0}
 	m.ball = Ball{Pos: m.feet()}
 	m.dribbling = true
-	m.goal = Goal{Top: m.f.H/2 - goalSize/2, Size: goalSize, Dir: 1}
-	m.goals, m.shots, m.left, m.over = 0, 0, roundTicks, false
-	m.trail, m.toast, m.toastLeft = nil, "", 0
+	m.trail = nil
+	m.party = party{}
+	for i := range m.defs {
+		m.defs[i].Pos, m.defs[i].rest = m.defs[i].Home, 0
+	}
 }
 
 // feet is where the ball sits while the player dribbles it.
 func (m Model) feet() Vec { return Vec{m.player.X + m.facing.X, m.player.Y + m.facing.Y} }
-
-// freeCell searches from p for an empty cell with an empty one to its
-// right, so the player never starts inside a word or without the ball.
-func (m Model) freeCell(p Vec) Vec {
-	for x := int(p.X); x < m.f.W-2; x++ {
-		for dy := 0; dy < m.f.H-2; dy++ {
-			y := 1 + (int(p.Y)-1+dy)%(m.f.H-2)
-			if !m.f.Solid(x, y) && !m.f.Solid(x+1, y) {
-				return Vec{float64(x), float64(y)}
-			}
-		}
-	}
-	return Vec{1, 1}
-}
 
 // Done reports that the player pressed esc.
 func (m Model) Done() bool { return m.done }
@@ -145,7 +151,10 @@ func (m Model) key(msg tea.KeyMsg) (Model, tea.Cmd) {
 		}
 		return m, nil
 	case " ":
-		if m.dribbling && !m.over && !m.tooSmall {
+		switch {
+		case m.party.on():
+			m.kickOff()
+		case m.dribbling && !m.over && !m.tooSmall:
 			m.dribbling = false
 			m.shots++
 			m.ball.Vel = Vec{m.facing.X * shotSpeed * 2, m.facing.Y * shotSpeed}
@@ -153,13 +162,13 @@ func (m Model) key(msg tea.KeyMsg) (Model, tea.Cmd) {
 		return m, nil
 	}
 	d, ok := moves[msg.String()]
-	if !ok || m.over || m.tooSmall {
+	if !ok || m.over || m.tooSmall || m.party.on() {
 		return m, nil
 	}
 	m.facing = Vec{sign(d.X), sign(d.Y)}
-	m.player = MovePlayer(m.player, d, m.f)
+	m.player = MovePlayer(m.player, d, m.f, m.blocksPlayer)
 	if m.dribbling {
-		if feet := m.feet(); !m.f.Solid(cell(feet.X), cell(feet.Y)) {
+		if feet := m.feet(); m.f.inside(cell(feet.X), cell(feet.Y)) {
 			m.ball.Pos = feet
 		}
 	} else {
@@ -178,6 +187,31 @@ func sign(v float64) float64 {
 	return 0
 }
 
+// blocksPlayer reports a defender on (x, y): the player has to go round.
+// One already on top of the player doesn't hold them in place.
+func (m Model) blocksPlayer(x, y int) bool {
+	px, py := cell(m.player.X), cell(m.player.Y)
+	for _, d := range m.defs {
+		if d.Covers(x, y) && !d.Covers(px, py) {
+			return true
+		}
+	}
+	return false
+}
+
+// blocksBall reports a defender on (x, y) the ball bounces off: not one
+// still resting after a tackle, nor one the ball is inside already, so a
+// cleared ball can roll free.
+func (m Model) blocksBall(x, y int) bool {
+	bx, by := cell(m.ball.Pos.X), cell(m.ball.Pos.Y)
+	for _, d := range m.defs {
+		if d.rest == 0 && d.Covers(x, y) && !d.Covers(bx, by) {
+			return true
+		}
+	}
+	return false
+}
+
 // pickUp takes a stopped ball back to the player's feet once they reach
 // it.
 func (m *Model) pickUp() {
@@ -190,6 +224,13 @@ func (m *Model) pickUp() {
 }
 
 func (m *Model) step() {
+	if m.party.on() {
+		m.party.advance(m.f, m.rng)
+		if !m.party.on() {
+			m.kickOff()
+		}
+		return
+	}
 	m.left--
 	if m.left <= 0 {
 		m.over = true
@@ -199,6 +240,8 @@ func (m *Model) step() {
 	if m.toastLeft > 0 {
 		m.toastLeft--
 	}
+	moveDefenders(m.defs, m.ball.Pos, m.f)
+	m.challenge()
 	if m.dribbling {
 		return
 	}
@@ -206,22 +249,58 @@ func (m *Model) step() {
 	if len(m.trail) > trailLen {
 		m.trail = m.trail[1:]
 	}
-	next, hit, scored := Step(m.ball, m.f, m.goal.Open)
+	next, hit, scored := Step(m.ball, m.f, m.blocksBall, m.goal.Open)
 	if scored {
 		m.goals++
-		m.say("GOAL!")
-		m.dribbling = true
-		m.ball = Ball{Pos: m.feet()}
-		m.trail = nil
+		m.party = party{left: partyTicks, row: cell(next.Pos.Y), goals: m.goals}
+		m.toastLeft, m.trail = 0, nil
 		return
 	}
 	if hit != nil {
-		if w := m.f.WordAt(hit[0], hit[1]); w != "" {
-			m.say(fmt.Sprintf("bounced off %q", w))
+		if d := m.defenderAt(hit[0], hit[1]); d != nil {
+			m.say(fmt.Sprintf("blocked by %q", d.Name))
 		}
 	}
 	m.ball = next
 	m.pickUp()
+}
+
+func (m *Model) defenderAt(x, y int) *Defender {
+	for i := range m.defs {
+		if m.defs[i].Covers(x, y) {
+			return &m.defs[i]
+		}
+	}
+	return nil
+}
+
+// challenge lets a defender that has reached the ball win it: off the
+// player's feet it's a tackle, loose it's a clearance, and either way the
+// ball goes back up the pitch while the defender gets its breath.
+func (m *Model) challenge() {
+	bx, by := cell(m.ball.Pos.X), cell(m.ball.Pos.Y)
+	px, py := cell(m.player.X), cell(m.player.Y)
+	for i := range m.defs {
+		d := &m.defs[i]
+		if d.rest > 0 {
+			continue
+		}
+		onBall := d.Covers(bx, by)
+		onPlayer := m.dribbling && d.Covers(px, py)
+		if !onBall && !onPlayer {
+			continue
+		}
+		if m.dribbling {
+			m.say(fmt.Sprintf("tackled by %q!", d.Name))
+		} else {
+			m.say(fmt.Sprintf("cleared by %q", d.Name))
+		}
+		m.dribbling = false
+		m.trail = nil
+		m.ball.Vel = Vec{-(3 + m.rng.Float64()*3), (m.rng.Float64()*2 - 1) * 2}
+		d.rest = restTicks
+		return
+	}
 }
 
 func (m *Model) say(s string) { m.toast, m.toastLeft = s, toastTicks }
@@ -234,20 +313,33 @@ const (
 	kindChalk
 	kindPlayer
 	kindBall
-	kinds
+	kindDefender
+	// kindSpark is the first of hues firework colours.
+	kindSpark
+	kinds = kindSpark + hues
 )
 
-// palette is every cell style, per stripe of grass.
-func palette() [2][kinds]lipgloss.Style {
-	grass := [2]lipgloss.Color{"#2F6B3A", "#367A41"}
-	var p [2][kinds]lipgloss.Style
+// glyph is a rune and the kind it's drawn as.
+type glyph struct {
+	r rune
+	k kind
+}
+
+// palette is every cell style, per stripe of grass and for the flash the
+// pitch gives on a goal.
+func palette() [3][kinds]lipgloss.Style {
+	grass := [3]lipgloss.Color{"#2F6B3A", "#367A41", "#5BA866"}
+	sparks := [hues]lipgloss.Color{"#FFD23F", "#FF5DA2", "#5AD7FF", "#C8F25A"}
+	var p [3][kinds]lipgloss.Style
 	for i, g := range grass {
 		base := lipgloss.NewStyle().Background(g)
-		p[i] = [kinds]lipgloss.Style{
-			kindText:   base.Foreground(lipgloss.Color("#9DBE9F")),
-			kindChalk:  base.Foreground(lipgloss.Color("#F4F1E6")).Bold(true),
-			kindPlayer: base.Foreground(lipgloss.Color("#C8F25A")).Bold(true),
-			kindBall:   base.Foreground(lipgloss.Color("#FFFFFF")),
+		p[i][kindText] = base.Foreground(lipgloss.Color("#9DBE9F"))
+		p[i][kindChalk] = base.Foreground(lipgloss.Color("#F4F1E6")).Bold(true)
+		p[i][kindPlayer] = base.Foreground(lipgloss.Color("#C8F25A")).Bold(true)
+		p[i][kindBall] = base.Foreground(lipgloss.Color("#FFFFFF"))
+		p[i][kindDefender] = base.Foreground(lipgloss.Color("#FF6B5A")).Bold(true)
+		for h, c := range sparks {
+			p[i][kindSpark+kind(h)] = base.Foreground(c).Bold(true)
 		}
 	}
 	return p
@@ -263,11 +355,23 @@ func (m Model) View() string {
 		return lipgloss.Place(m.f.W, m.f.H, lipgloss.Center, lipgloss.Center, fmt.Sprintf(
 			"FULL TIME · %d goals from %d shots · best %d\n\nenter play again · esc back", m.goals, m.shots, best))
 	}
-	bar := []rune(fmt.Sprintf(" ● kickabout   goals %d   shots %d   %d s   ←↑↓→ run · space shoot · esc back ", m.goals, m.shots, m.left/fps))
+	help := "←↑↓→ run · space shoot · esc back"
+	if m.party.on() {
+		help = "space kick off · esc back"
+	}
+	bar := []rune(fmt.Sprintf(" ● kickabout   goals %d   shots %d   %d s   %s ", m.goals, m.shots, m.left/fps, help))
 	var toast []rune
-	if m.toastLeft > 0 {
+	switch {
+	case m.party.on():
+		toast = []rune(fmt.Sprintf(" %s  that's %d", m.party.chant(), m.party.goals))
+	case m.toastLeft > 0:
 		toast = []rune(" " + m.toast)
 	}
+	var over map[int]glyph
+	if m.party.on() {
+		over = m.party.overlay(m.f.W, m.f.H, m.plain)
+	}
+	defs := m.defenderCells()
 	rows := make([]string, m.f.H)
 	for y := range rows {
 		var b strings.Builder
@@ -285,13 +389,16 @@ func (m Model) View() string {
 			run.Reset()
 		}
 		for x := 0; x < m.f.W; x++ {
-			r, k := m.cell(x, y, bar, toast)
+			g := m.cell(x, y, bar, toast, over, defs)
 			s := (x / stripe) % 2
-			if s != runStripe || k != runKind {
-				flush()
-				runStripe, runKind = s, k
+			if m.party.on() && m.party.flash() {
+				s = 2
 			}
-			run.WriteRune(r)
+			if s != runStripe || g.k != runKind {
+				flush()
+				runStripe, runKind = s, g.k
+			}
+			run.WriteRune(g.r)
 		}
 		flush()
 		rows[y] = b.String()
@@ -299,34 +406,75 @@ func (m Model) View() string {
 	return strings.Join(rows, "\n")
 }
 
+// defenderCells is every defender's runes, by y*W+x. During a
+// celebration they hang their heads, faded like the scenery.
+func (m Model) defenderCells() map[int]glyph {
+	k := kindDefender
+	if m.party.on() {
+		k = kindText
+	}
+	out := map[int]glyph{}
+	for _, d := range m.defs {
+		x, y := cell(d.Pos.X), cell(d.Pos.Y)
+		for i, r := range []rune(d.Name) {
+			if m.f.inside(x+i, y) {
+				out[y*m.f.W+x+i] = glyph{r, k}
+			}
+		}
+	}
+	return out
+}
+
 // cell is what (x, y) shows: the score bar and toast over the top rows,
-// then the player, the ball, the goal and the ball's trail, and otherwise
-// the screen's own text, faded.
-func (m Model) cell(x, y int, bar, toast []rune) (rune, kind) {
+// then any celebration, the player, the ball, the defenders, the goal and
+// the ball's trail, and otherwise the screen's own text, faded.
+func (m Model) cell(x, y int, bar, toast []rune, over, defs map[int]glyph) glyph {
 	switch {
 	case y == 0 && x < len(bar):
-		return bar[x], kindChalk
+		return glyph{bar[x], kindChalk}
 	case y == 1 && x < len(toast):
-		return toast[x], kindChalk
+		return glyph{toast[x], kindChalk}
+	}
+	if g, ok := over[y*m.f.W+x]; ok {
+		return g
+	}
+	inNet := m.party.on() && x == m.f.W-1 && m.goal.Open(y)
+	switch {
+	case inNet:
+		if y == m.party.row {
+			return glyph{m.ballRune(), kindBall}
+		}
+		return glyph{m.party.net(y), kindChalk}
+	case m.party.on() && x == m.f.W-2 && m.goal.Open(y):
+		return glyph{'╱', kindChalk}
 	case x == cell(m.player.X) && y == cell(m.player.Y):
 		if m.plain {
-			return '@', kindPlayer
+			return glyph{'@', kindPlayer}
 		}
-		return '◉', kindPlayer
-	case x == cell(m.ball.Pos.X) && y == cell(m.ball.Pos.Y):
-		if m.plain {
-			return 'o', kindBall
-		}
-		return '●', kindBall
+		return glyph{'◉', kindPlayer}
+	case !m.party.on() && x == cell(m.ball.Pos.X) && y == cell(m.ball.Pos.Y):
+		return glyph{m.ballRune(), kindBall}
+	}
+	if g, ok := defs[y*m.f.W+x]; ok {
+		return g
+	}
+	switch {
 	case x == m.f.W-1 && m.goal.Open(y):
-		return '┃', kindChalk
+		return glyph{'┃', kindChalk}
 	case x == m.f.W-2 && m.goal.Open(y):
-		return '╱', kindChalk
+		return glyph{'╱', kindChalk}
 	}
 	for _, t := range m.trail {
 		if cell(t.X) == x && cell(t.Y) == y {
-			return '·', kindChalk
+			return glyph{'·', kindChalk}
 		}
 	}
-	return m.f.Rune(x, y), kindText
+	return glyph{m.f.Rune(x, y), kindText}
+}
+
+func (m Model) ballRune() rune {
+	if m.plain {
+		return 'o'
+	}
+	return '●'
 }

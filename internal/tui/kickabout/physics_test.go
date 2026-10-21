@@ -17,34 +17,40 @@ func blank(w, h int) Field {
 	return field(rows...)
 }
 
-func TestBallBouncesOffAWord(t *testing.T) {
+func TestBallRollsOverTextButBouncesOffABlock(t *testing.T) {
 	f := field(
 		"          ",
 		"      ab  ",
 		"          ",
 	)
 	b := Ball{Pos: Vec{3, 1}, Vel: Vec{2, 0}}
-	var hit *[2]int
+	b, hit, _ := Step(b, f, nil, nil)
+	if b.Vel.X <= 0 || hit != nil {
+		t.Errorf("text is scenery: vel %+v hit %v", b.Vel, hit)
+	}
+
+	block := func(x, y int) bool { return x == 6 && y == 1 }
+	b = Ball{Pos: Vec{3, 1}, Vel: Vec{2, 0}}
 	for i := 0; i < 3 && hit == nil; i++ {
-		b, hit, _ = Step(b, f, nil)
+		b, hit, _ = Step(b, f, block, nil)
 	}
 	if b.Vel.X >= 0 {
-		t.Errorf("ball should bounce back off 'ab', vel %+v", b.Vel)
+		t.Errorf("ball should bounce back off the block, vel %+v", b.Vel)
 	}
-	if hit == nil || f.WordAt(hit[0], hit[1]) != "ab" {
-		t.Errorf("hit %v should name the word", hit)
+	if hit == nil || *hit != [2]int{6, 1} {
+		t.Errorf("hit %v should be the blocked cell", hit)
 	}
 }
 
 func TestBallBouncesOffTheEdgesWithoutNamingAWord(t *testing.T) {
 	f := blank(10, 5)
 	b := Ball{Pos: Vec{1, 2}, Vel: Vec{-2, 0}}
-	b, hit, _ := Step(b, f, nil)
+	b, hit, _ := Step(b, f, nil, nil)
 	if b.Vel.X <= 0 || hit != nil {
 		t.Errorf("left edge: vel %+v hit %v", b.Vel, hit)
 	}
 	b = Ball{Pos: Vec{5, 1}, Vel: Vec{0, -2}}
-	b, _, _ = Step(b, f, nil)
+	b, _, _ = Step(b, f, nil, nil)
 	if b.Vel.Y <= 0 {
 		t.Errorf("top edge: vel %+v", b.Vel)
 	}
@@ -54,7 +60,7 @@ func TestFrictionStopsTheBall(t *testing.T) {
 	f := blank(40, 10)
 	b := Ball{Pos: Vec{2, 5}, Vel: Vec{3, 1}}
 	for i := 0; i < 300; i++ {
-		b, _, _ = Step(b, f, nil)
+		b, _, _ = Step(b, f, nil, nil)
 	}
 	if b.Vel != (Vec{}) {
 		t.Errorf("ball still moving: %+v", b.Vel)
@@ -68,11 +74,11 @@ func TestTheBallScoresOnlyThroughTheMouth(t *testing.T) {
 	f := blank(20, 10)
 	g := Goal{Top: 4, Size: 3}
 	in := Ball{Pos: Vec{17, 5}, Vel: Vec{4, 0}}
-	if _, _, scored := Step(in, f, g.Open); !scored {
+	if _, _, scored := Step(in, f, nil, g.Open); !scored {
 		t.Error("a ball through the mouth scores")
 	}
 	wide := Ball{Pos: Vec{17, 1}, Vel: Vec{4, 0}}
-	b, _, scored := Step(wide, f, g.Open)
+	b, _, scored := Step(wide, f, nil, g.Open)
 	if scored || b.Vel.X >= 0 {
 		t.Errorf("a ball wide of the mouth bounces back: scored %v vel %+v", scored, b.Vel)
 	}
@@ -93,22 +99,31 @@ func TestGoalDriftsAndTurnsAtTheEdges(t *testing.T) {
 	}
 }
 
-func TestPlayerCannotWalkThroughText(t *testing.T) {
-	f := field("  x  ")
-	if p := MovePlayer(Vec{1, 0}, Vec{2, 0}, f); p != (Vec{1, 0}) {
-		t.Errorf("walked into 'x': %+v", p)
+func TestPlayerRunsOverTextButNotThroughABlock(t *testing.T) {
+	f := field("  x   ")
+	if p := MovePlayer(Vec{1, 0}, Vec{2, 0}, f, nil); p != (Vec{3, 0}) {
+		t.Errorf("text is scenery: %+v", p)
 	}
-	if p := MovePlayer(Vec{3, 0}, Vec{1, 0}, f); p != (Vec{4, 0}) {
-		t.Errorf("free cell: %+v", p)
+	block := func(x, y int) bool { return x == 2 }
+	if p := MovePlayer(Vec{1, 0}, Vec{2, 0}, f, block); p != (Vec{1, 0}) {
+		t.Errorf("walked into the block: %+v", p)
+	}
+	if p := MovePlayer(Vec{4, 0}, Vec{2, 0}, f, nil); p != (Vec{5, 0}) {
+		t.Errorf("should stop at the edge: %+v", p)
 	}
 }
 
-func TestWordAtNamesTheWholeRun(t *testing.T) {
-	f := field("  Chelsea  ")
-	if w := f.WordAt(4, 0); w != "Chelsea" {
-		t.Errorf("WordAt = %q", w)
+func TestWordsSkipsRulesAndNumbers(t *testing.T) {
+	f := field("  Chelsea 90 ──── Man Utd x A1  ")
+	var got []string
+	for _, w := range f.Words() {
+		got = append(got, w.Text)
 	}
-	if w := f.WordAt(0, 0); w != "" {
-		t.Errorf("space = %q", w)
+	if strings.Join(got, ",") != "Chelsea,Man,Utd,A1" {
+		t.Errorf("Words = %q", got)
+	}
+	f.Lift(f.Words()[0])
+	if f.Rune(2, 0) != ' ' || f.Rune(8, 0) != ' ' {
+		t.Error("Lift should blank the word")
 	}
 }

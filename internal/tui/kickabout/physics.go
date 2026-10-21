@@ -17,11 +17,13 @@ const (
 	substeps = 4
 )
 
-// Step advances the ball one tick. It bounces off text and the field's
-// edges, flipping whichever axis it crossed, except where mouth says the
-// right edge is open: a ball crossing it there has scored. hit is the cell
-// of text it bounced off, nil for an edge or no bounce.
-func Step(b Ball, f Field, mouth func(y int) bool) (next Ball, hit *[2]int, scored bool) {
+// Step advances the ball one tick. It bounces off the field's edges and
+// any cell block reports (a defender), flipping whichever axis it crossed,
+// except where mouth says the right edge is open: a ball crossing it there
+// has scored. hit is the blocked cell it bounced off, nil for an edge or
+// no bounce.
+func Step(b Ball, f Field, block func(x, y int) bool, mouth func(y int) bool) (next Ball, hit *[2]int, scored bool) {
+	solid := func(x, y int) bool { return f.blocked(x, y, block) }
 	for i := 0; i < substeps; i++ {
 		nx := b.Pos.X + b.Vel.X/substeps
 		cx, cy := cell(nx), cell(b.Pos.Y)
@@ -29,7 +31,7 @@ func Step(b Ball, f Field, mouth func(y int) bool) (next Ball, hit *[2]int, scor
 		case cx >= f.W && mouth != nil && mouth(cy):
 			b.Pos.X = nx
 			return b, hit, true
-		case f.Solid(cx, cy):
+		case solid(cx, cy):
 			if f.inside(cx, cy) {
 				hit = &[2]int{cx, cy}
 			}
@@ -40,7 +42,7 @@ func Step(b Ball, f Field, mouth func(y int) bool) (next Ball, hit *[2]int, scor
 
 		ny := b.Pos.Y + b.Vel.Y/substeps
 		cx, cy = cell(b.Pos.X), cell(ny)
-		if f.Solid(cx, cy) {
+		if solid(cx, cy) {
 			if f.inside(cx, cy) {
 				hit = &[2]int{cx, cy}
 			}
@@ -59,9 +61,9 @@ func Step(b Ball, f Field, mouth func(y int) bool) (next Ball, hit *[2]int, scor
 
 func cell(v float64) int { return int(math.Floor(v)) }
 
-// MovePlayer moves p by d one cell at a time, stopping short of text or
-// the field's edge.
-func MovePlayer(p, d Vec, f Field) Vec {
+// MovePlayer moves p by d one cell at a time, stopping short of the
+// field's edge or any cell block reports.
+func MovePlayer(p, d Vec, f Field, block func(x, y int) bool) Vec {
 	steps := int(math.Max(math.Abs(d.X), math.Abs(d.Y)))
 	if steps == 0 {
 		return p
@@ -69,7 +71,7 @@ func MovePlayer(p, d Vec, f Field) Vec {
 	step := Vec{d.X / float64(steps), d.Y / float64(steps)}
 	for i := 0; i < steps; i++ {
 		n := Vec{p.X + step.X, p.Y + step.Y}
-		if f.Solid(cell(n.X), cell(n.Y)) {
+		if f.blocked(cell(n.X), cell(n.Y), block) {
 			break
 		}
 		p = n
