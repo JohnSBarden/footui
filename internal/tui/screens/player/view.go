@@ -341,6 +341,7 @@ func (m *Model) seasonsTable(lines int, withNotes bool) string {
 	out := components.Label(th, "Season by season") + "\n" + components.Table(components.TableOpts{
 		Columns: cols, Rows: cells, Cursor: m.cursor, Theme: th,
 		MaxRows: components.TableRows(lines-1-len(notes), len(cells)),
+		Zone:    "row",
 	})
 	if len(notes) > 0 {
 		out += "\n" + strings.Join(notes, "\n")

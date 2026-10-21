@@ -1,9 +1,12 @@
 package dashboard
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+
+	"github.com/JohnSBarden/footui/internal/tui/components"
 )
 
 // Card geometry. Cards share the screen's width in equal columns at least
@@ -52,7 +55,9 @@ func (m *Model) layout() []slot {
 	for i, c := range m.cards {
 		span := m.span(c, cols)
 		w := width*span + cardGap*(span-1)
-		lines := strings.Split(m.renderCard(c, i == m.cursor, w), "\n")
+		// The whole card is one clickable region: its markers land on
+		// its top-left and bottom-right corners, wherever it is placed.
+		lines := strings.Split(components.Zone("card:"+strconv.Itoa(i), m.renderCard(c, i == m.cursor, w)), "\n")
 		best, top := 0, -1
 		for col := 0; col+span <= cols; col++ {
 			y := 0

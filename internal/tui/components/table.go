@@ -47,6 +47,8 @@ type TableOpts struct {
 	// means render every row.
 	MaxRows int
 	Theme   styles.Theme
+	// Zone, when set, makes each row clickable as Zone+":"+its index.
+	Zone string
 }
 
 // Table renders a fixed-width column table with an optional selected row.
@@ -66,7 +68,11 @@ func Table(opts TableOpts) string {
 
 	start, end := visibleWindow(len(opts.Rows), opts.Cursor, opts.MaxRows)
 	for i := start; i < end; i++ {
-		b.WriteString(renderRow(opts, opts.Rows[i], i == opts.Cursor))
+		row := renderRow(opts, opts.Rows[i], i == opts.Cursor)
+		if opts.Zone != "" {
+			row = Zone(opts.Zone+":"+itoa(i), row)
+		}
+		b.WriteString(row)
 		if i < end-1 {
 			b.WriteString("\n")
 		}

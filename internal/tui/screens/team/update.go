@@ -104,9 +104,32 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 
 	case tea.KeyMsg:
 		return m.handleKey(msg)
+
+	case core.ClickMsg:
+		return m, m.click(msg)
 	}
 
 	return m, nil
+}
+
+// click selects a competition, or a season or player in either table,
+// moving focus there; clicking the selected row opens it.
+func (m *Model) click(msg core.ClickMsg) tea.Cmd {
+	if i, ok := msg.ClickedIndex("tab"); ok {
+		return m.selectCompetition(i)
+	}
+	pane, i, ok := paneSeasons, 0, false
+	if i, ok = msg.ClickedIndex("season"); !ok {
+		pane = paneSquad
+		if i, ok = msg.ClickedIndex("squad"); !ok {
+			return nil
+		}
+	}
+	if m.focus == pane && i == m.cursor() {
+		return m.drillDown()
+	}
+	m.focus = pane
+	return m.setCursor(i)
 }
 
 func (m *Model) handleKey(msg tea.KeyMsg) (core.Screen, tea.Cmd) {

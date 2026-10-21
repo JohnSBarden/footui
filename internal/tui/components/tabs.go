@@ -16,6 +16,7 @@ type Tab struct {
 }
 
 // Tabs renders a horizontal tab bar with the active index highlighted.
+// Each tab is clickable as "tab:"+its index.
 func Tabs(theme styles.Theme, tabs []Tab, active int) string {
 	if len(tabs) == 0 {
 		return ""
@@ -27,7 +28,7 @@ func Tabs(theme styles.Theme, tabs []Tab, active int) string {
 		if t.Badge != "" {
 			label += " " + t.Badge
 		}
-		parts = append(parts, TabLabel(theme, label, i == active))
+		parts = append(parts, Zone("tab:"+itoa(i), TabLabel(theme, label, i == active)))
 	}
 	return strings.Join(parts, " ")
 }

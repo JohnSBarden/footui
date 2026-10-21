@@ -88,11 +88,11 @@ func (m *Model) yearBar(maxWidth int) string {
 		if i < len(m.years) {
 			label = strconv.Itoa(m.years[i])
 		}
+		tab := th.Muted.Render(" " + label + " ")
 		if i == m.yearIdx {
-			parts = append(parts, th.Accent.Bold(true).Render("["+label+"]"))
-		} else {
-			parts = append(parts, th.Muted.Render(" "+label+" "))
+			tab = th.Accent.Bold(true).Render("[" + label + "]")
 		}
+		parts = append(parts, components.Zone("year:"+strconv.Itoa(i), tab))
 	}
 	return components.WindowTabs(th, parts, m.yearIdx, maxWidth)
 }
@@ -187,6 +187,7 @@ func (m *Model) matchTable() string {
 	return components.Table(components.TableOpts{
 		Columns: cols, Rows: rows, Cursor: cursor, Theme: th,
 		MaxRows: components.TableRows(m.tableHeight(), len(rows)),
+		Zone:    "row",
 	})
 }
 

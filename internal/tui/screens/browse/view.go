@@ -65,7 +65,7 @@ func (m *Model) resultsList() string {
 			}
 			lines = append(lines, line{text: components.Label(th, g.String()) + " " + th.Faint.Render(strconv.Itoa(counts[g])), result: -1})
 		}
-		lines = append(lines, line{text: m.resultLine(r, i == m.cursor), result: i})
+		lines = append(lines, line{text: components.Zone("result:"+strconv.Itoa(i), m.resultLine(r, i == m.cursor)), result: i})
 	}
 
 	height := m.listHeight()

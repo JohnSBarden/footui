@@ -110,6 +110,7 @@ func (m *Model) leagueTable() string {
 		Cursor:  cursor,
 		MaxRows: m.leagueRows(),
 		Theme:   th,
+		Zone:    "league",
 	})
 }
 
@@ -173,6 +174,7 @@ func (m *Model) seasonTable() string {
 		Cursor:  cursor,
 		MaxRows: m.seasonRows(),
 		Theme:   th,
+		Zone:    "season",
 	})
 }
 

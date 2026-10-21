@@ -125,8 +125,37 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 		m.loaded = true
 	case tea.KeyMsg:
 		return m, m.handleKey(msg)
+	case core.ClickMsg:
+		// A click selects a game; clicking the selected one opens or
+		// closes its box score, as enter does.
+		row, ok := msg.ClickedIndex("row")
+		if !ok {
+			return m, nil
+		}
+		if i, ok := m.gameAt(row); ok {
+			if i == m.cursor {
+				return m, m.handleKey(tea.KeyMsg{Type: tea.KeyEnter})
+			}
+			m.cursor = i
+		}
 	}
 	return m, nil
+}
+
+// gameAt is the game on a row of the table, which has an open game's box
+// score rows under it; false for a box score row.
+func (m *Model) gameAt(row int) (int, bool) {
+	r := 0
+	for i, g := range m.games {
+		if r == row {
+			return i, true
+		}
+		r++
+		if g.ID == m.expanded {
+			r += len(components.BoxScore(m.deps.Theme, g, m.team.ID, 4))
+		}
+	}
+	return 0, false
 }
 
 func (m *Model) handleKey(msg tea.KeyMsg) tea.Cmd {
@@ -221,6 +250,7 @@ func (m *Model) table() string {
 	}
 	return components.Table(components.TableOpts{
 		Columns: cols, Rows: rows, Cursor: cursor, MaxRows: max(m.height-8, 5), Theme: th,
+		Zone: "row",
 	})
 }
 

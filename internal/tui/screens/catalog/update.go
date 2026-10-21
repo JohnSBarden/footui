@@ -2,6 +2,7 @@ package catalog
 
 import (
 	"fmt"
+	"slices"
 
 	tea "github.com/charmbracelet/bubbletea"
 
@@ -41,6 +42,12 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 		// Re-read rather than patch: the refresh may have cached seasons
 		// this screen didn't ask for (the r key, the stale check).
 		return m, m.load()
+
+	case core.ClickMsg:
+		if m.loading {
+			return m, nil
+		}
+		return m, m.click(msg)
 
 	case tea.KeyMsg:
 		if m.loading {
@@ -265,4 +272,39 @@ func (m *Model) download() tea.Cmd {
 		core.Status(fmt.Sprintf("queued %d season(s) across %d league(s) — keep browsing, progress shows below",
 			seasons, len(reqs))),
 	)
+}
+
+// click selects a league or a season; clicking the selected season
+// ticks it, as space does.
+func (m *Model) click(msg core.ClickMsg) tea.Cmd {
+	if i, ok := msg.ClickedIndex("league"); ok {
+		// The International heading is a row of the table but not a
+		// league.
+		if h := slices.IndexFunc(m.leagues, League.international); h >= 0 && i >= h {
+			if i == h {
+				return nil
+			}
+			i--
+		}
+		if i < len(m.leagues) {
+			if i != m.league {
+				m.season = 0
+			}
+			m.league, m.focus = i, paneLeagues
+		}
+		return nil
+	}
+	if i, ok := msg.ClickedIndex("season"); ok {
+		l, ok := m.currentLeague()
+		if !ok || i >= len(l.Seasons) {
+			return nil
+		}
+		if m.focus == paneSeasons && i == m.season {
+			year := l.Seasons[i].Year
+			m.setSelected(l.Competition.ID, year, !m.isSelected(l.Competition.ID, year))
+			return nil
+		}
+		m.season, m.focus = i, paneSeasons
+	}
+	return nil
 }

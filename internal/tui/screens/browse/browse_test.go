@@ -38,6 +38,26 @@ func open(t *testing.T, deps core.Deps, query string) core.Screen {
 	return tuitest.Resize(t, tuitest.Settle(t, browse.New(deps, query)), 100, 30)
 }
 
+// A click selects a result; a click on the selected one opens it.
+func TestClickingAResultSelectsThenOpens(t *testing.T) {
+	deps := newDeps(seeded(t))
+	opened := ""
+	deps.Nav.Team = func(_ core.Deps, team models.Team, _, _ string) core.Screen {
+		opened = team.Name
+		return tuitest.Stub{}
+	}
+	m := open(t, deps, "manchester").(*browse.Model)
+	m.Update(core.ClickMsg{ID: "result:1"})
+	if r, _ := m.SelectedResult(); r.Name() != "Manchester United" {
+		t.Fatalf("click selected %q", r.Name())
+	}
+	_, cmd := m.Update(core.ClickMsg{ID: "result:1"})
+	tuitest.CapturedCmd(cmd)
+	if opened != "Manchester United" {
+		t.Errorf("second click opened %q", opened)
+	}
+}
+
 func TestEmptyQueryListsCachedCompetitions(t *testing.T) {
 	out := open(t, newDeps(seeded(t)), "").View()
 

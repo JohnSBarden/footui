@@ -101,9 +101,31 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 
 	case tea.KeyMsg:
 		return m.handleKey(msg)
+
+	case core.ClickMsg:
+		return m, m.click(msg)
 	}
 
 	return m, nil
+}
+
+// click selects a club (opening it if it was already selected), a season
+// or a group.
+func (m *Model) click(msg core.ClickMsg) tea.Cmd {
+	if i, ok := msg.ClickedIndex("row"); ok && i < len(m.visibleRows()) {
+		if i == m.cursor {
+			return m.drillDown()
+		}
+		m.cursor = i
+	}
+	if i, ok := msg.ClickedIndex("season"); ok {
+		return m.selectSeason(i)
+	}
+	if i, ok := msg.ClickedIndex("group"); ok && i < len(m.groups) {
+		m.groupIdx = i
+		m.cursor = headerRow
+	}
+	return nil
 }
 
 func (m *Model) handleKey(msg tea.KeyMsg) (core.Screen, tea.Cmd) {

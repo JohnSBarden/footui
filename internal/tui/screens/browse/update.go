@@ -102,6 +102,18 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 		m.loading = false
 		return m, nil
 
+	case core.ClickMsg:
+		// A click selects a result; clicking the selected one opens it.
+		i, ok := msg.ClickedIndex("result")
+		if !ok || i >= len(m.results) {
+			return m, nil
+		}
+		if i == m.cursor {
+			return m, m.open()
+		}
+		m.cursor = i
+		return m, nil
+
 	case tea.KeyMsg:
 		return m.handleKey(msg)
 	}

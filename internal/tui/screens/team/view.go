@@ -396,6 +396,7 @@ func (m *Model) seasonsBody(maxRows, width int) string {
 		Cursor:  cursor,
 		MaxRows: maxRows,
 		Theme:   th,
+		Zone:    "season",
 	})
 }
 
@@ -542,6 +543,7 @@ func (m *Model) squadBody(maxRows, width int) string {
 		Cursor:  cursor,
 		MaxRows: maxRows,
 		Theme:   th,
+		Zone:    "squad",
 	})
 }
 

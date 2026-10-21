@@ -52,6 +52,18 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 
 	case tea.KeyMsg:
 		return m.handleKey(msg)
+
+	case core.ClickMsg:
+		// A click selects a card; clicking the selected one opens it.
+		i, ok := msg.ClickedIndex("card")
+		if !ok || i >= len(m.cards) {
+			return m, nil
+		}
+		if i == m.cursor {
+			return m, m.open()
+		}
+		m.cursor = i
+		return m, nil
 	}
 	return m, nil
 }

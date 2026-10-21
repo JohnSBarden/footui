@@ -12,6 +12,8 @@ package core
 
 import (
 	"context"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/key"
@@ -174,6 +176,22 @@ type PopMsg struct{}
 // ErrMsg reports a failure that should be surfaced to the user rather than
 // crashing the program — typically a repository query that failed.
 type ErrMsg struct{ Err error }
+
+// ClickMsg is a click on a region the screen marked as clickable
+// (components.Zone), named by the ID it was marked with. Wheel scrolling
+// reaches screens as the up and down keys instead.
+type ClickMsg struct{ ID string }
+
+// ClickedIndex reads a click on a region marked prefix+":"+index, such as
+// a table row (components.TableOpts.Zone).
+func (c ClickMsg) ClickedIndex(prefix string) (int, bool) {
+	rest, ok := strings.CutPrefix(c.ID, prefix+":")
+	if !ok {
+		return 0, false
+	}
+	i, err := strconv.Atoi(rest)
+	return i, err == nil
+}
 
 // StatusMsg sets a transient one-line message in the footer, for feedback
 // that doesn't warrant a whole screen (e.g. "no roster cached for 2019").

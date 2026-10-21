@@ -39,6 +39,8 @@ import (
 type App struct {
 	deps  core.Deps
 	stack []core.Screen
+	// zoneIDs are the clickable regions of the last frame drawn.
+	zoneIDs []string
 	// ids parallels stack with a unique id per entry, so a message
 	// produced by a screen beneath the top can be routed back to it.
 	ids    []int
@@ -203,6 +205,13 @@ func (a *App) current() core.Screen {
 // Update implements tea.Model.
 func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if a.splash != nil {
+		if mouse, ok := msg.(tea.MouseMsg); ok {
+			// A click skips the splash as a key does.
+			if mouse.Action == tea.MouseActionPress {
+				a.splash = nil
+			}
+			return a, nil
+		}
 		if key, ok := msg.(tea.KeyMsg); ok {
 			// Any key skips the splash; it isn't passed on, since the
 			// user pressed it at the splash, not at the screen.
@@ -212,6 +221,10 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return a, nil
 		}
+	}
+	if _, ok := msg.(tea.MouseMsg); ok && a.kick != nil {
+		// The kickabout is played on the keys.
+		return a, nil
 	}
 	if a.kick != nil {
 		if handled, cmd := a.updateKick(msg); handled {
@@ -268,6 +281,9 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case core.PopMsg:
 		return a.pop()
+
+	case tea.MouseMsg:
+		return a.handleMouse(msg)
 
 	case routedMsg:
 		return a, a.deliver(msg)
@@ -519,13 +535,39 @@ const (
 
 // View implements tea.Model.
 func (a *App) View() string {
-	if a.splash != nil {
-		return a.splashView()
+	var v string
+	switch {
+	case a.splash != nil:
+		v = a.splashView()
+	case a.kick != nil:
+		v = a.kick.View()
+	default:
+		v = a.baseView()
 	}
-	if a.kick != nil {
-		return a.kick.View()
+	a.zoneIDs = components.MarkedZones()
+	return components.ScanZones(v)
+}
+
+// handleMouse makes the mouse a second way to do what the keys do: the
+// wheel scrolls (as the arrow keys), and a click goes to the screen as
+// the region it landed in, for the screen to select or open.
+func (a *App) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
+	switch {
+	case msg.Button == tea.MouseButtonWheelUp && msg.Action == tea.MouseActionPress:
+		return a.Update(tea.KeyMsg{Type: tea.KeyUp})
+	case msg.Button == tea.MouseButtonWheelDown && msg.Action == tea.MouseActionPress:
+		return a.Update(tea.KeyMsg{Type: tea.KeyDown})
+	case msg.Button == tea.MouseButtonLeft && msg.Action == tea.MouseActionPress:
+		id, ok := components.ZoneAt(msg, a.zoneIDs)
+		if !ok {
+			return a, nil
+		}
+		a.status = ""
+		updated, cmd := a.current().Update(core.ClickMsg{ID: id})
+		a.stack[len(a.stack)-1] = updated
+		return a, cmd
 	}
-	return a.baseView()
+	return a, nil
 }
 
 // baseView is the screen with the app's chrome around it.
@@ -681,7 +723,8 @@ func Run(deps core.Deps, initial core.Screen, waitForData bool, startup ...core.
 	app := NewApp(deps, initial)
 	app.ShowSplash(waitForData)
 	app.QueueOnStart(startup...)
-	p := tea.NewProgram(app, tea.WithAltScreen())
+	components.EnableZones()
+	p := tea.NewProgram(app, tea.WithAltScreen(), tea.WithMouseCellMotion())
 	if _, err := p.Run(); err != nil {
 		return fmt.Errorf("tui: %w", err)
 	}

@@ -369,7 +369,7 @@ func (m *Model) seasonBar(maxWidth int) string {
 	tabs := make([]string, n)
 	for d := 0; d < n; d++ {
 		i := n - 1 - d
-		tabs[d] = components.TabLabel(th, components.SeasonName(m.seasons[i]), i == m.seasonIdx)
+		tabs[d] = components.Zone("season:"+strconv.Itoa(i), components.TabLabel(th, components.SeasonName(m.seasons[i]), i == m.seasonIdx))
 	}
 	return components.WindowTabs(th, tabs, n-1-m.seasonIdx, maxWidth)
 }
@@ -422,6 +422,7 @@ func (m *Model) table() string {
 		Cursor:  m.cursor,
 		MaxRows: components.TableRows(m.tableHeight(), len(rows)),
 		Theme:   th,
+		Zone:    "row",
 	})
 }
 

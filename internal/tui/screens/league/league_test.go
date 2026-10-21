@@ -326,6 +326,32 @@ func TestEnterWithoutATeamRouteDoesNothing(t *testing.T) {
 	}
 }
 
+// Clicking a club selects it; clicking it again opens it, as enter does.
+func TestClickingAClubSelectsThenOpensIt(t *testing.T) {
+	repos := storagetest.New(t)
+	storagetest.SeedCompetition(t, repos, storagetest.PremierLeague(), "2025", storagetest.SampleStandings())
+	var gotTeam models.Team
+	deps := newDeps(repos)
+	deps.Nav.Team = func(_ core.Deps, team models.Team, _, _ string) core.Screen {
+		gotTeam = team
+		return tuitest.Stub{}
+	}
+	s := tuitest.Resize(t, tuitest.Settle(t, league.New(deps, "eng-premier-league")), 100, 30)
+
+	s, cmd := s.Update(core.ClickMsg{ID: "row:1"})
+	if cmd != nil || gotTeam.Name != "" {
+		t.Fatal("the first click only selects")
+	}
+	if row, _ := s.(*league.Model).SelectedRow(); row.Team.Name != "Manchester City" {
+		t.Fatalf("selected %q", row.Team.Name)
+	}
+	_, cmd = s.Update(core.ClickMsg{ID: "row:1"})
+	tuitest.CapturedCmd(cmd)
+	if gotTeam.Name != "Manchester City" {
+		t.Errorf("second click opened %q", gotTeam.Name)
+	}
+}
+
 func TestEnterPushesTheTeamScreenForTheSelectedRow(t *testing.T) {
 	repos := storagetest.New(t)
 	storagetest.SeedCompetition(t, repos, storagetest.PremierLeague(), "2025", storagetest.SampleStandings())

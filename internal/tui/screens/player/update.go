@@ -68,6 +68,19 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 
 	case tea.KeyMsg:
 		return m.handleKey(msg)
+
+	case core.ClickMsg:
+		if i, ok := msg.ClickedIndex("tab"); ok {
+			m.selectCompetition(i)
+		}
+		// A season is selected, and opens its club once selected.
+		if i, ok := msg.ClickedIndex("row"); ok && i < len(m.CurrentRows()) {
+			if i == m.cursor {
+				return m, m.openTeam()
+			}
+			m.cursor = i
+		}
+		return m, nil
 	}
 
 	return m, nil

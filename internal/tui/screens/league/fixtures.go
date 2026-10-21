@@ -130,11 +130,11 @@ func (m *Model) groupBar() string {
 		if g == "" {
 			label = "Overall"
 		}
+		tab := th.Muted.Render(" " + label + " ")
 		if i == m.groupIdx {
-			parts = append(parts, th.Accent.Bold(true).Render("["+label+"]"))
-		} else {
-			parts = append(parts, th.Muted.Render(" "+label+" "))
+			tab = th.Accent.Bold(true).Render("[" + label + "]")
 		}
+		parts = append(parts, components.Zone("group:"+strconv.Itoa(i), tab))
 	}
 	return components.Truncate(strings.Join(parts, " "), max(m.width-2, 10))
 }

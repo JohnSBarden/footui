@@ -105,8 +105,40 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 			return m, nil
 		}
 		return m, m.matchesKey(msg.String())
+
+	case core.ClickMsg:
+		if i, ok := msg.ClickedIndex("year"); ok {
+			return m, m.selectYear(i)
+		}
+		// A click selects a match; clicking the selected one opens or
+		// closes its box score, as enter does.
+		if row, ok := msg.ClickedIndex("row"); ok {
+			if i, ok := m.matchAt(row); ok {
+				m.focus = paneMatches
+				if i == m.cursor {
+					return m, m.matchesKey("enter")
+				}
+				m.cursor = i
+			}
+		}
 	}
 	return m, nil
+}
+
+// matchAt is the match on a row of the table, which has an open match's
+// box score rows under it; false for a box score row.
+func (m *Model) matchAt(row int) (int, bool) {
+	r := 0
+	for i, mt := range m.matches {
+		if r == row {
+			return i, true
+		}
+		r++
+		if mt.ID == m.expanded {
+			r += len(m.boxScore(mt))
+		}
+	}
+	return 0, false
 }
 
 func (m *Model) isOurCompetition(id string) bool {
