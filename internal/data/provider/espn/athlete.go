@@ -155,7 +155,19 @@ func (p *Provider) Squad(ctx context.Context, competitionID string, year int, es
 	}
 	out := make([]provider.SquadMember, 0, len(ro.Athletes))
 	for _, a := range ro.Athletes {
-		out = append(out, provider.SquadMember{ID: a.ID, Name: a.DisplayName, Position: a.Position.Abbreviation})
+		out = append(out, provider.SquadMember{ID: a.ID, Name: a.DisplayName, Position: squadPosition(a.Position.Abbreviation)})
 	}
 	return out, nil
+}
+
+// squadPosition maps a roster abbreviation to the contract's position
+// letters (provider.SquadMember), "" for one it doesn't know.
+func squadPosition(abbr string) string {
+	switch abbr {
+	case "G", "GK":
+		return "G"
+	case "D", "M", "F":
+		return abbr
+	}
+	return ""
 }

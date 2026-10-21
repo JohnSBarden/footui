@@ -29,9 +29,9 @@ type DetailResult struct {
 	Failed    int
 }
 
-// detailProvider is the provider name player detail IDs are recorded
+// DetailProvider is the provider name player detail IDs are recorded
 // under in external_ref.
-const detailProvider = ProviderESPN
+const DetailProvider = ProviderESPN
 
 // RefreshPlayerDetail brings one player's season detail up to date, a
 // request per season line that needs it. A past season is fetched once
@@ -62,7 +62,7 @@ func RefreshPlayerDetail(ctx context.Context, repos storage.Repositories, src De
 		have[detailKey(d.TeamID, d.CompetitionID, d.SeasonID)] = d
 	}
 
-	athleteID, err := repos.ProviderID(ctx, "player", playerID, detailProvider)
+	athleteID, err := repos.ProviderID(ctx, "player", playerID, DetailProvider)
 	if err != nil && !errors.Is(err, storage.ErrNotFound) {
 		return res, err
 	}
@@ -97,7 +97,7 @@ func RefreshPlayerDetail(ctx context.Context, repos storage.Repositories, src De
 				continue
 			}
 			athleteID, position = member.ID, member.Position
-			if err := repos.PutExternalRef(ctx, "player", playerID, detailProvider, athleteID); err != nil {
+			if err := repos.PutExternalRef(ctx, "player", playerID, DetailProvider, athleteID); err != nil {
 				return res, err
 			}
 		}
@@ -127,7 +127,7 @@ func RefreshPlayerDetail(ctx context.Context, repos storage.Repositories, src De
 
 // findOnSquad looks the player up on their club's roster for the season.
 func findOnSquad(ctx context.Context, repos storage.Repositories, src DetailSource, player models.Player, line models.PlayerSeasonStats, year int) (provider.SquadMember, bool, error) {
-	team, err := repos.ProviderID(ctx, "team", line.TeamID, detailProvider)
+	team, err := repos.ProviderID(ctx, "team", line.TeamID, DetailProvider)
 	if errors.Is(err, storage.ErrNotFound) {
 		return provider.SquadMember{}, false, nil
 	}

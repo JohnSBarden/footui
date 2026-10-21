@@ -22,13 +22,13 @@ func playerDetail(deps core.Deps, c *Card, history []models.PlayerSeasonStats) {
 	if err != nil {
 		return
 	}
-	espnPos := ""
+	detailPos := ""
 	var sameComp []*models.PlayerSeasonDetail
 	for i := range details {
 		d := &details[i]
 		playerstats.ScrubUnrecorded(d)
-		if espnPos == "" {
-			espnPos = d.Position
+		if detailPos == "" {
+			detailPos = d.Position
 		}
 		if d.CompetitionID == s.CompetitionID {
 			sameComp = append(sameComp, d)
@@ -40,7 +40,7 @@ func playerDetail(deps core.Deps, c *Card, history []models.PlayerSeasonStats) {
 	// A season barely recorded next to the player's best reads as
 	// unrecorded, as on the player page.
 	playerstats.ClearSparseDefence(sameComp)
-	c.Position = playerstats.GroupOf(espnPos, c.Player.Position, history)
+	c.Position = playerstats.GroupOf(detailPos, c.Player.Position, history)
 	if c.Detail == nil {
 		return
 	}

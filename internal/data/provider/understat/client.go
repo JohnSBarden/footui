@@ -284,6 +284,12 @@ func (e *ExhaustedError) Error() string {
 
 func (e *ExhaustedError) Unwrap() error { return e.Last }
 
+// AttemptsMade implements provider.Exhausted.
+func (e *ExhaustedError) AttemptsMade() int { return e.Attempts }
+
+// TimedOutAfter implements provider.Timeout.
+func (e *TimeoutError) TimedOutAfter() time.Duration { return e.After }
+
 // TimeoutError is a request that got no response within the client's
 // timeout. It is exported so a caller can recognise it and phrase the
 // failure for its own medium. net/http's own wording for this is "context deadline exceeded

@@ -12,7 +12,7 @@ import (
 
 	"github.com/JohnSBarden/footui/internal/config"
 	"github.com/JohnSBarden/footui/internal/data/models"
-	"github.com/JohnSBarden/footui/internal/data/provider/espn"
+	"github.com/JohnSBarden/footui/internal/data/sources"
 	"github.com/JohnSBarden/footui/internal/storage"
 	"github.com/JohnSBarden/footui/internal/storage/sqlite"
 	"github.com/JohnSBarden/footui/internal/textfold"
@@ -85,8 +85,8 @@ func (g *globalFlags) launchTUI(ctx context.Context, build func(core.Deps) (core
 	}
 	deps.Favorites = core.NewFavorites(favs)
 
-	deps.ProviderPause = espn.PausedUntil
-	deps.Players = espn.New()
+	deps.ProviderPause = sources.PausedUntil
+	deps.Players = sources.Players()
 	deps.Version = Version
 
 	screen, err := build(deps)

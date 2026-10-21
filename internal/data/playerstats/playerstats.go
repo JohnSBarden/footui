@@ -36,13 +36,14 @@ func (g Group) Singular() string {
 // Plural names the group's players: "top 9% of defenders".
 func (g Group) Plural() string { return g.Singular() + "s" }
 
-// GroupOf picks a player's group. ESPN's single position ("G", "D", "M",
-// "F") wins when there is one. understat lists every position played,
-// alphabetically ("D M S"), so with more than one the numbers decide: a
+// GroupOf picks a player's group. detailPos, the single position letter
+// of their season detail ("G", "D", "M", "F"), wins when there is one.
+// understatCode lists every position played, alphabetically ("D M S"),
+// so with more than one the numbers decide: a
 // player who scores more than they assist and has played up front is a
 // forward; otherwise midfield wins if listed, else the first listed.
-func GroupOf(espnPos, understatCode string, lines []models.PlayerSeasonStats) Group {
-	switch espnPos {
+func GroupOf(detailPos, understatCode string, lines []models.PlayerSeasonStats) Group {
+	switch detailPos {
 	case "G":
 		return GK
 	case "D":

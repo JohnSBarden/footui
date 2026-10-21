@@ -156,3 +156,12 @@ func TestSquadPositions(t *testing.T) {
 		t.Errorf("member = %+v", squad[2])
 	}
 }
+
+// Roster abbreviations reach sync as the contract's position letters.
+func TestSquadPosition(t *testing.T) {
+	for abbr, want := range map[string]string{"G": "G", "GK": "G", "D": "D", "M": "M", "F": "F", "SUB": "", "": ""} {
+		if got := squadPosition(abbr); got != want {
+			t.Errorf("squadPosition(%q) = %q, want %q", abbr, got, want)
+		}
+	}
+}

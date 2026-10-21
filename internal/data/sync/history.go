@@ -28,7 +28,7 @@ var ErrNoCareer = errors.New("player not found at the source")
 // matches aren't tables, and a season before a competition's coverage
 // starts isn't offered.
 func PlayerCareerJobs(ctx context.Context, repos storage.Repositories, src CareerSource, playerID string, now time.Time) ([]Job, error) {
-	athleteID, err := repos.ProviderID(ctx, "player", playerID, detailProvider)
+	athleteID, err := repos.ProviderID(ctx, "player", playerID, DetailProvider)
 	if errors.Is(err, storage.ErrNotFound) || err == nil && athleteID == "" {
 		return nil, ErrNoCareer
 	}

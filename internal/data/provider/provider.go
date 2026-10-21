@@ -14,6 +14,7 @@ package provider
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/JohnSBarden/footui/internal/data/models"
 )
@@ -111,3 +112,18 @@ var ErrNoTable = errors.New("no table for that season")
 // (the source truncated it). The data returned alongside it is still
 // worth storing, but must not be recorded as complete.
 var ErrIncomplete = errors.New("incomplete")
+
+// Timeout is a request that got no response within After. Each source's
+// own timeout error implements it, so a caller can phrase the failure
+// without knowing which source it came from (errors.As with a Timeout).
+type Timeout interface {
+	error
+	TimedOutAfter() time.Duration
+}
+
+// Exhausted is a fetch that failed on every attempt it was allowed. Each
+// source's own give-up error implements it.
+type Exhausted interface {
+	error
+	AttemptsMade() int
+}

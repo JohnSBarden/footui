@@ -210,8 +210,8 @@ type PlayerSeasonDetail struct {
 	TeamID        string
 	CompetitionID string
 	SeasonID      string
-	// Position is the provider's single position code — "G", "D", "M"
-	// or "F" — or "" when it gave none.
+	// Position is the single position letter — "G", "D", "M" or "F" —
+	// sources map theirs to (provider.SquadMember), or "" for none.
 	Position      string
 	Appearances   *int
 	Minutes       *int

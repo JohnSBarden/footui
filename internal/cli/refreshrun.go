@@ -11,8 +11,7 @@ import (
 	"github.com/JohnSBarden/footui/internal/colors"
 	"github.com/JohnSBarden/footui/internal/data/models"
 	"github.com/JohnSBarden/footui/internal/data/provider"
-	"github.com/JohnSBarden/footui/internal/data/provider/espn"
-	"github.com/JohnSBarden/footui/internal/data/provider/understat"
+	"github.com/JohnSBarden/footui/internal/data/sources"
 	"github.com/JohnSBarden/footui/internal/data/sync"
 	"github.com/JohnSBarden/footui/internal/storage"
 	"github.com/JohnSBarden/footui/internal/trophies"
@@ -104,24 +103,20 @@ func (ev refreshEvents) unitFunc() sync.Progress {
 
 // newDetailSource builds the source of players' season detail. It is a
 // variable so tests can swap in a stub.
-var newDetailSource = func() sync.DetailSource { return espn.New() }
+var newDetailSource = sources.Details
 
 // newCareerSource builds the source of the seasons a player has stats
 // in. It is a variable so tests can swap in a stub.
-var newCareerSource = func() sync.CareerSource { return espn.New() }
+var newCareerSource = sources.Careers
 
 // newMatchSource builds the source of international matches. It is a
 // variable so tests can point it at a fake server.
 var newMatchSource = func(ev refreshEvents) sync.MatchSource {
-	source := espn.New()
-	if ev.retry != nil {
-		source = source.OnRetry(ev.retry)
-	}
-	return source
+	return sources.Matches(ev.retry)
 }
 
 func newMatchSyncer(store storage.Repositories, ev refreshEvents) *sync.MatchSyncer {
-	return sync.NewMatchSyncer(newMatchSource(ev), store).WithProviderName(sync.ProviderESPN)
+	return sync.NewMatchSyncer(newMatchSource(ev), store).WithProviderName(sync.DetailProvider)
 }
 
 // runNations fetches the yearly match lists a gender's nations play in.
@@ -188,21 +183,7 @@ func groupByProvider(jobs []sync.Job) []providerJobs {
 
 // newSource constructs the client for a provider.
 func newSource(provider string, ev refreshEvents) (sync.Source, error) {
-	switch provider {
-	case sync.ProviderUnderstat:
-		source := understat.New()
-		if ev.retry != nil {
-			source = source.OnRetry(ev.retry)
-		}
-		return source, nil
-	case sync.ProviderESPN:
-		source := espn.New()
-		if ev.retry != nil {
-			source = source.OnRetry(ev.retry)
-		}
-		return source, nil
-	}
-	return nil, fmt.Errorf("no client for provider %q in this build", provider)
+	return sources.For(provider, ev.retry)
 }
 
 // failAll records every unit of jobs as failed with err, for a provider
@@ -387,7 +368,7 @@ func refreshPlayer(ctx context.Context, store storage.Repositories, playerID str
 func refreshPlayerHistory(ctx context.Context, store storage.Repositories, playerID string,
 	ev refreshEvents, progress func(string)) (string, error) {
 
-	if _, err := store.ProviderID(ctx, "player", playerID, sync.ProviderESPN); errors.Is(err, storage.ErrNotFound) {
+	if _, err := store.ProviderID(ctx, "player", playerID, sync.DetailProvider); errors.Is(err, storage.ErrNotFound) {
 		if _, err := refreshPlayer(ctx, store, playerID, 0); err != nil {
 			return "", err
 		}
@@ -571,24 +552,17 @@ func summarizeMatches(results []sync.UnitResult, upToDate string, nameFailures b
 func tuiError(err error) error {
 	var msg string
 	var attempts int
-	var ut *understat.TimeoutError
-	var et *espn.TimeoutError
+	var timeout provider.Timeout
 	switch {
-	case errors.As(err, &ut):
-		msg = fmt.Sprintf("no response within %s", ut.After)
-		var ex *understat.ExhaustedError
+	case errors.As(err, &timeout):
+		msg = fmt.Sprintf("no response within %s", timeout.TimedOutAfter())
+		var ex provider.Exhausted
 		if errors.As(err, &ex) {
-			attempts = ex.Attempts
-		}
-	case errors.As(err, &et):
-		msg = fmt.Sprintf("no response within %s", et.After)
-		var ex *espn.ExhaustedError
-		if errors.As(err, &ex) {
-			attempts = ex.Attempts
+			attempts = ex.AttemptsMade()
 		}
 	case errors.Is(err, provider.ErrRateLimited):
 		return core.ErrRateLimited
-	case errors.Is(err, espn.ErrNoTable):
+	case errors.Is(err, provider.ErrNoTable):
 		return errors.New("no table for that season yet")
 	default:
 		return err

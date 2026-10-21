@@ -171,6 +171,12 @@ func (e *ExhaustedError) Error() string {
 
 func (e *ExhaustedError) Unwrap() error { return e.Last }
 
+// AttemptsMade implements provider.Exhausted.
+func (e *ExhaustedError) AttemptsMade() int { return e.Attempts }
+
+// TimedOutAfter implements provider.Timeout.
+func (e *TimeoutError) TimedOutAfter() time.Duration { return e.After }
+
 type statusError struct {
 	URL    string
 	Status int
