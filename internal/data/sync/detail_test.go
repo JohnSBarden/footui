@@ -3,6 +3,7 @@ package sync
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strconv"
 	"testing"
 	"time"
@@ -167,6 +168,18 @@ func TestDetailSkipsUncoveredCompetitions(t *testing.T) {
 	res, err := RefreshPlayerDetail(context.Background(), repos, src, "understat-1", detailNow, time.Hour)
 	if err != nil || len(src.calls) != 0 || res.Fetched != 0 {
 		t.Errorf("res %+v calls %v err %v", res, src.calls, err)
+	}
+}
+
+// A season the source has no stats for (ESPN 404s Messi's Champions League
+// seasons) is missing, not a failure: the player's other seasons are fine.
+func TestDetailSeasonTheSourceDoesNotHaveIsNotAnError(t *testing.T) {
+	repos := seedDetailPlayer(t, "David Raya", "GK")
+	_ = repos.PutExternalRef(context.Background(), "player", "understat-1", "espn", "196176")
+	src := &fakeDetail{err: fmt.Errorf("espn: %w", provider.ErrNotFound)}
+	res, err := RefreshPlayerDetail(context.Background(), repos, src, "understat-1", detailNow, time.Hour)
+	if err != nil || res.Missing != 2 || res.Failed != 0 {
+		t.Errorf("res %+v err %v", res, err)
 	}
 }
 

@@ -108,6 +108,11 @@ var ErrRateLimited = errors.New("rate limited")
 // competition existed, or an edition that was knockout-only.
 var ErrNoTable = errors.New("no table for that season")
 
+// ErrNotFound means the source has no such thing: a competition, season
+// or team it doesn't hold, or a player-season it kept no stats for.
+// Asking again won't change that.
+var ErrNotFound = errors.New("not found")
+
 // ErrIncomplete means a fetch returned data that is known to be partial
 // (the source truncated it). The data returned alongside it is still
 // worth storing, but must not be recorded as complete.

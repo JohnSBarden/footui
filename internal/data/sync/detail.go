@@ -26,6 +26,7 @@ type DetailResult struct {
 	Fetched   int // fetched and stored
 	Fresh     int // already current, left alone
 	Unmatched int // the source has no such player for that club
+	Missing   int // the source kept no stats for that season
 	Failed    int
 }
 
@@ -104,6 +105,13 @@ func RefreshPlayerDetail(ctx context.Context, repos storage.Repositories, src De
 
 		keeper := position == "G" || isKeeperCode(player.Position)
 		d, err := src.AthleteSeason(ctx, line.CompetitionID, year, athleteID, keeper)
+		if errors.Is(err, provider.ErrNotFound) {
+			// Not every season is kept (ESPN has no Champions League
+			// stats for Messi): the page goes without that season's
+			// detail, as for a player the source doesn't know.
+			res.Missing++
+			continue
+		}
 		if err != nil {
 			if stop(err) {
 				return res, err

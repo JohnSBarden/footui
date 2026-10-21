@@ -147,7 +147,7 @@ func (c *Client) getJSON(ctx context.Context, url string, gap time.Duration, out
 
 // ErrNotFound is a 404: the competition, season, or team doesn't exist
 // at ESPN. It is not retried.
-var ErrNotFound = errors.New("espn: not found")
+var ErrNotFound = fmt.Errorf("espn: %w", provider.ErrNotFound)
 
 // TimeoutError is a request that got no response in time.
 type TimeoutError struct {
