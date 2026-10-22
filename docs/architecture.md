@@ -102,16 +102,23 @@ it complete), and `provider.ErrNoTable` (no table for that season).
 - `internal/data/provider/espn` serves everything else: MLS and USL, the
   second divisions, the women's leagues, the European competitions, and
   international football. It has possession, shots, corners, fouls and
-  cards, but no expected goals. It implements `MatchesProvider` from the
-  scoreboard endpoint — for internationals, and for clubs' games in its
-  leagues, the European competitions and seven domestic cups — `NationalTeamsProvider`
-  from the friendlies' (and women's tournaments') team lists, and
-  `StandingsProvider` with group labels kept — one request, no rosters.
+  cards, but no expected goals. It implements `StandingsProvider` (group
+  labels kept), `TeamsProvider` and `LeaguePlayersProvider` — a club
+  league's table, then its clubs' colours, then a roster per club; a
+  tournament's table alone, since national squads carry no stats —
+  `MatchesProvider` from the scoreboard endpoint — for internationals, and
+  for clubs' games in its leagues, the European competitions and seven
+  domestic cups — and `NationalTeamsProvider` from the friendlies' (and
+  women's tournaments') team lists. It is also the people source: the
+  player search (`provider.PlayerSearcher`), and players' per-season
+  detail and careers (`sync.DetailSource`, `sync.CareerSource`), for its
+  own leagues and understat's.
 
 FBref would cover more, but it sits behind a Cloudflare JS challenge that
 plain HTTP requests can't clear. Adding a source means writing a package
 that implements these interfaces and adding its competitions to
-`sync.Coverages`; nothing in `internal/data/sync` or above changes. Because
+`sync.Coverages`, plus a case in `internal/data/sources`, the one package
+that constructs sources; the sync pipeline itself doesn't change. Because
 the interfaces are small, a provider that supplies only some stats for
 teams another already covers is additive: its rows are merged in, not
 substituted.
@@ -133,6 +140,7 @@ type Repositories interface {
     ExternalRefRepo
     FavoritesRepo
     MatchesRepo
+    PlayerDetailRepo
 }
 
 type CompetitionsRepo interface {
@@ -154,7 +162,7 @@ type MatchesRepo interface {
     TeamMatchSummary(ctx context.Context, teamID string, filter models.MatchFilter, years []int) (models.MatchSummary, error)
     GetTeamMatchFilter(ctx context.Context, teamID string) (models.MatchFilter, error)
     SetTeamMatchFilter(ctx context.Context, teamID string, f models.MatchFilter) error
-    // ...plus TeamMatchYears and MatchesKickedOff
+    // ...plus RecentMatches, CountSeasonMatches, TeamMatchYears and MatchesKickedOff
 }
 
 // ...SeasonsRepo, TeamsRepo, PlayersRepo, PlayerStatsRepo follow the same
@@ -173,7 +181,7 @@ a real in-memory SQLite store).
 ## Boundary 3 — Rendering (`internal/cli`, `internal/tui`)
 
 `internal/cli` commands construct a `sqlite.Store` and, for `refresh`, a
-provider and a `sync.Syncer`. The TUI is constructed the same way: it
+`sync.Syncer` over the sources `internal/data/sources` builds. The TUI is constructed the same way: it
 receives a `storage.Repositories` and issues only its query methods
 (`Standings`, `TeamHistory`, `RosterForTeamSeason`, `TeamTrophies`, …). No
 screen imports `internal/data/provider` or `internal/storage/sqlite`.
@@ -239,10 +247,15 @@ internal/tui/
 ├── components/       # table, stat cards, tabs, freshness, formatting; the
 │                     #   Floodlit pieces: hero band, chips, bars, dots,
 │                     #   scarf, block digits, tone, labels
+├── refresh.go        # the one refresh queue (news.go: the ticker's snapshots;
+│                     #   route.go: replies to buried screens; favorite.go: f)
 ├── kickabout/        # the ctrl+k game: a snapshot of the screen as a pitch,
 │                     #   pure ball physics, and its Bubble Tea model, held by
 │                     #   the app as an overlay above the screen stack
-└── screens/{dashboard,browse,catalog,league,team,nation,player}/
+├── scorestrip/       # the strip of score tiles across the top of a page
+├── ticker/           # the news line beneath the footer
+├── tuitest/          # shared helpers for driving screens in tests
+└── screens/{dashboard,browse,catalog,league,team,games,nation,player}/
 ```
 
 Three rules make this hold together:

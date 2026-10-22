@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/JohnSBarden/footui/internal/data/provider"
-	footysync "github.com/JohnSBarden/footui/internal/data/sync"
+	datasync "github.com/JohnSBarden/footui/internal/data/sync"
 )
 
 // TestLiveCanary fetches the current Premier League season from the real
@@ -24,8 +24,8 @@ func TestLiveCanary(t *testing.T) {
 	t.Setenv(CacheDirEnv, "")
 
 	const compID = "eng-premier-league"
-	cov, ok := footysync.FindCoverage(compID)
-	if !ok || cov.Provider != footysync.ProviderUnderstat {
+	cov, ok := datasync.FindCoverage(compID)
+	if !ok || cov.Provider != datasync.ProviderUnderstat {
 		t.Fatalf("%s is no longer routed to understat; pick another league for the canary", compID)
 	}
 	year := cov.CurrentSeason(time.Now())

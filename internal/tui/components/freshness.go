@@ -23,17 +23,18 @@ func Freshness(then, now time.Time) string {
 	case d < time.Minute:
 		return "just now"
 	case d < time.Hour:
-		return plural(int(d.Minutes()), "minute") + " ago"
+		return Plural(int(d.Minutes()), "minute") + " ago"
 	case d < 24*time.Hour:
-		return plural(int(d.Hours()), "hour") + " ago"
+		return Plural(int(d.Hours()), "hour") + " ago"
 	case d < 30*24*time.Hour:
-		return plural(int(d.Hours()/24), "day") + " ago"
+		return Plural(int(d.Hours()/24), "day") + " ago"
 	default:
-		return plural(int(d.Hours()/24/30), "month") + " ago"
+		return Plural(int(d.Hours()/24/30), "month") + " ago"
 	}
 }
 
-func plural(n int, unit string) string {
+// Plural is "1 goal" or "3 goals".
+func Plural(n int, unit string) string {
 	if n == 1 {
 		return "1 " + unit
 	}

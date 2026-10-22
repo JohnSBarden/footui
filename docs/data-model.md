@@ -168,14 +168,36 @@ migration adds an index on `(team_id, competition_id, season_id)`, which
 the roster query needs and the table's `player_id`-first primary key can't
 serve.
 
+## PlayerSeasonDetail
+
+The rest of a player's season for one club in one competition — what a
+position is judged on beyond goals and assists. Same
+`(player, team, competition, season)` key as `PlayerSeasonStats`
+(schema 0010, shots on target in 0011), but fetched from ESPN per player,
+on demand: when someone opens the player, and on launch for starred ones.
+It exists only for those players, so it never feeds squad or league tables.
+
+| Field | Type | Notes |
+|---|---|---|
+| `Position` | string | `"G"`, `"D"`, `"M"`, `"F"`, or `""`. Picks the Player screen's tiles. |
+| `Appearances`, `Minutes` | `*int` | ESPN's detail minutes, where the season stats have none. |
+| `CleanSheets`, `GoalsConceded`, `Saves` | `*int` | Keepers and defenders. |
+| `Tackles`, `Interceptions`, `Clearances` | `*int` | |
+| `ShotsOnTarget` | `*int` | |
+| `PassPct` | `*float64` | Share of passes completed, 0 to 1. |
+| `FetchedAt` | time | A past season is fetched once; the current one again once stale. |
+
+Every stat is nullable: nil is "not recorded", rendered `—`, because a
+source's zero for a season it barely covered is not a real zero.
+
 ## Player
 
 | Field | Type | Notes |
 |---|---|---|
 | `ID` | string | `"{provider}-{provider's id}"`, e.g. `"understat-8260"`, from whichever provider first reported the player. A player later reached through the other provider is matched within their club's squad and keeps this ID. |
 | `Name` | string | |
-| `DateOfBirth` | `*time.Time` | Not populated. |
-| `Nationality` | string | Not populated. |
+| `DateOfBirth` | `*time.Time` | ESPN only. A player is never matched to one born on another day. |
+| `Nationality` | string | ESPN only; shown on the Player screen. |
 | `Position` | string | The provider's position string, e.g. `"F M"`. |
 | `Gender` | string | The competition's gender. |
 

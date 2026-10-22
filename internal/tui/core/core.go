@@ -36,7 +36,8 @@ type Deps struct {
 	// keeps navigation acyclic: League can open Team and Team can open
 	// League without the two packages importing each other.
 	Nav Navigator
-	// Refresh runs a data refresh for one competition. Nil means the
+	// Refresh runs one RefreshRequest (a competition, or a club's or a
+	// nation's games). Nil means the
 	// host didn't wire one up (tests, mostly); the root app then tells
 	// the user to use the CLI instead of failing silently.
 	Refresh Refresher

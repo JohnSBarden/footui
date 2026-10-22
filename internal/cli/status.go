@@ -78,10 +78,10 @@ func printStatus(out io.Writer, summary []models.CompetitionCache, dbPath string
 		}
 	}
 
-	fmt.Fprintf(out, "\n%s, %d player-season rows\n", plural(len(summary), "competition"), totalPlayers)
+	fmt.Fprintf(out, "\n%s, %d player-season rows\n", components.Plural(len(summary), "competition"), totalPlayers)
 	if stale > 0 {
 		fmt.Fprintf(out, "%s last failed to refresh — see the note above.\n",
-			plural(stale, "competition"))
+			components.Plural(stale, "competition"))
 	}
 }
 
@@ -97,13 +97,6 @@ func refreshNote(run *models.SyncRun, now time.Time) string {
 		return "FAILED " + ago
 	}
 	return ago
-}
-
-func plural(n int, noun string) string {
-	if n == 1 {
-		return "1 " + noun
-	}
-	return strconv.Itoa(n) + " " + noun + "s"
 }
 
 func fileSize(path string) (int64, bool) {

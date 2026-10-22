@@ -108,20 +108,20 @@ func (m *Model) positionLines(c Card, inner int) []string {
 	var rest []string
 	switch c.Position {
 	case playerstats.GK:
-		headline = count(deref(d.CleanSheets), "clean sheet") + " · " + strconv.Itoa(deref(d.GoalsConceded)) + " conceded"
+		headline = components.Plural(deref(d.CleanSheets), "clean sheet") + " · " + strconv.Itoa(deref(d.GoalsConceded)) + " conceded"
 		if d.Saves != nil && d.GoalsConceded != nil {
-			rest = append(rest, count(*d.Saves, "save")+" · "+share(*d.Saves, *d.Saves+*d.GoalsConceded)+" saved")
+			rest = append(rest, components.Plural(*d.Saves, "save")+" · "+share(*d.Saves, *d.Saves+*d.GoalsConceded)+" saved")
 		}
 		if c.XGA != nil && d.GoalsConceded != nil {
 			rest = append(rest, components.SignedFloat(*c.XGA-float64(*d.GoalsConceded), 1)+" vs expected (est.)")
 		}
 	case playerstats.DEF:
-		headline = count(deref(d.CleanSheets), "clean sheet") + " · " + count(detailApps(c), "app")
+		headline = components.Plural(deref(d.CleanSheets), "clean sheet") + " · " + components.Plural(detailApps(c), "app")
 		if d.Tackles != nil {
 			rest = append(rest, rate(d.Tackles, mins)+" tkl · "+rate(d.Interceptions, mins)+" int per 90")
 		}
 	case playerstats.MID:
-		headline = count(s.Goals, "goal") + " · " + count(s.Assists, "assist")
+		headline = components.Plural(s.Goals, "goal") + " · " + components.Plural(s.Assists, "assist")
 		kp := ""
 		if s.KeyPasses != nil {
 			kp = rate(s.KeyPasses, lineMins) + " KP/90"
@@ -138,7 +138,7 @@ func (m *Model) positionLines(c Card, inner int) []string {
 			rest = append(rest, line)
 		}
 	default:
-		headline = count(s.Goals, "goal") + " · " + count(s.Assists, "assist")
+		headline = components.Plural(s.Goals, "goal") + " · " + components.Plural(s.Assists, "assist")
 		from := ""
 		if s.XG != nil {
 			from = "from " + components.Float(s.XG, 1) + " xG"
@@ -150,7 +150,7 @@ func (m *Model) positionLines(c Card, inner int) []string {
 		case s.Shots != nil && lineMins >= 90:
 			shots = rate(s.Shots, lineMins) + " shots/90"
 		case s.Shots != nil:
-			shots = count(*s.Shots, "shot") + " · " + count(detailApps(c), "app")
+			shots = components.Plural(*s.Shots, "shot") + " · " + components.Plural(detailApps(c), "app")
 		}
 		if line := joinNonEmpty(from, shots); line != "" {
 			rest = append(rest, line)
@@ -163,7 +163,7 @@ func (m *Model) positionLines(c Card, inner int) []string {
 		case d.ShotsOnTarget != nil && s.Shots != nil && *s.Shots > 0:
 			rest = append(rest, joinNonEmpty(share(*d.ShotsOnTarget, *s.Shots)+" on target", played))
 		case played != "":
-			rest = append(rest, played+" · "+count(detailApps(c), "app"))
+			rest = append(rest, played+" · "+components.Plural(detailApps(c), "app"))
 		}
 	}
 

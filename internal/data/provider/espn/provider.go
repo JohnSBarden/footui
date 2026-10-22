@@ -8,7 +8,7 @@ import (
 
 	"github.com/JohnSBarden/footui/internal/data/models"
 	"github.com/JohnSBarden/footui/internal/data/provider"
-	footysync "github.com/JohnSBarden/footui/internal/data/sync"
+	datasync "github.com/JohnSBarden/footui/internal/data/sync"
 )
 
 // Provider implements the sync layer's Source for ESPN competitions.
@@ -121,7 +121,7 @@ func (p *Provider) load(ctx context.Context, comp provider.CompetitionRef, seaso
 // (its country and gender) from the coverage registry: the sync layer
 // passes only an ID and a name.
 func competitionFor(ref provider.CompetitionRef) models.Competition {
-	if c, ok := footysync.FindCompetition(ref.CompetitionID); ok {
+	if c, ok := datasync.FindCompetition(ref.CompetitionID); ok {
 		return c
 	}
 	return models.Competition{ID: ref.CompetitionID, Name: ref.Name, Gender: "men"}

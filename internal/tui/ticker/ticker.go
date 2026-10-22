@@ -13,11 +13,11 @@ import (
 	"context"
 	"fmt"
 	"slices"
-	"strconv"
 	"time"
 
 	"github.com/JohnSBarden/footui/internal/data/models"
 	"github.com/JohnSBarden/footui/internal/storage"
+	"github.com/JohnSBarden/footui/internal/tui/components"
 )
 
 // recent is how old a result can be and still be news: a whole-history
@@ -170,23 +170,7 @@ func Move(team, comp string, from, to int) string {
 	if to > from {
 		arrow, dir = "↓", "down"
 	}
-	return fmt.Sprintf("%s %s %s to %s in %s (from %s)", arrow, team, dir, Ordinal(to), comp, Ordinal(from))
-}
-
-// Ordinal is "1st", "2nd", "3rd", "11th", "22nd".
-func Ordinal(n int) string {
-	suffix := "th"
-	if n%100 < 11 || n%100 > 13 {
-		switch n % 10 {
-		case 1:
-			suffix = "st"
-		case 2:
-			suffix = "nd"
-		case 3:
-			suffix = "rd"
-		}
-	}
-	return strconv.Itoa(n) + suffix
+	return fmt.Sprintf("%s %s %s to %s in %s (from %s)", arrow, team, dir, components.Ordinal(to), comp, components.Ordinal(from))
 }
 
 // Feed is the ticker's queue: items cycle one at a time, each for Every,

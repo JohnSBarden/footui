@@ -61,11 +61,13 @@ func (c Competition) Abbrev() string {
 	return c.Name
 }
 
-// Season is one edition of a Competition (e.g. 2024-25).
+// Season is one edition of a Competition, keyed by its start year: the
+// 2025-26 Premier League is "2025". Showing it as "2025-26" is the TUI's
+// job, not stored here.
 type Season struct {
-	ID            string // "eng-premier-league:2024-25"
+	ID            string // "eng-premier-league:2025"
 	CompetitionID string
-	Label         string // "2024-25" or "2024" for calendar-year competitions
+	Label         string // the start year, "2025"
 	StartDate     *time.Time
 	EndDate       *time.Time
 	// CalendarYear is copied from the season's competition when read, so

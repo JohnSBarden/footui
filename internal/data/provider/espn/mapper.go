@@ -230,7 +230,7 @@ func mapStandings(resp standingsResponse, comp models.Competition, seasonID stri
 }
 
 // rankOverall replaces per-group ranks with one table across every group,
-// by points, then goal difference, then goals scored. Footy shows one
+// by points, then goal difference, then goals scored. footui shows one
 // table per competition-season; two conferences each numbered from 1
 // would interleave in it ("1, 1, 2, 2 …") and read as nonsense. For MLS
 // this is the Supporters' Shield table.

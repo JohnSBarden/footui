@@ -23,16 +23,16 @@ func TestSeasonLabelFormatsEuropeanSpan(t *testing.T) {
 		"2009": "2009-10",
 	}
 	for in, want := range cases {
-		if got := SeasonLabel(in); got != want {
-			t.Errorf("SeasonLabel(%q) = %q, want %q", in, got, want)
+		if got := SeasonLabelFor(false, in); got != want {
+			t.Errorf("SeasonLabelFor(false, %q) = %q, want %q", in, got, want)
 		}
 	}
 }
 
 func TestSeasonLabelPassesThroughNonYears(t *testing.T) {
 	for _, in := range []string{"2025-26", "", "apertura", "12"} {
-		if got := SeasonLabel(in); got != in {
-			t.Errorf("SeasonLabel(%q) = %q, want it unchanged", in, got)
+		if got := SeasonLabelFor(false, in); got != in {
+			t.Errorf("SeasonLabelFor(false, %q) = %q, want it unchanged", in, got)
 		}
 	}
 }
@@ -77,5 +77,13 @@ func TestPadAlignsToExactWidth(t *testing.T) {
 	}
 	if got := pad("Team", 8, false); got != "Team    " {
 		t.Errorf("pad left = %q", got)
+	}
+}
+
+func TestOrdinal(t *testing.T) {
+	for n, want := range map[int]string{1: "1st", 2: "2nd", 3: "3rd", 4: "4th", 11: "11th", 12: "12th", 13: "13th", 21: "21st", 22: "22nd", 101: "101st", 111: "111th"} {
+		if got := Ordinal(n); got != want {
+			t.Errorf("Ordinal(%d) = %q, want %q", n, got, want)
+		}
 	}
 }

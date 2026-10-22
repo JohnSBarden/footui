@@ -370,11 +370,11 @@ func (m *Model) positionTable(rows []SeasonRow) (base []components.Column, extra
 				components.Styled(countOr(d.CleanSheets), th.Accent.Bold(true)), components.Text(countOr(d.GoalsConceded)),
 				components.Text(per90(d.Tackles, mins)), components.Text(per90(d.Interceptions, mins)), components.Text(per90(d.Clearances, mins)),
 				components.Text(pct(d.PassPct)),
-				components.Styled(strconv.Itoa(s.Goals), toneOr(th, s.Goals, s.XG, th.TableCell)), components.Text(components.Float(s.XG, 1)))
+				components.Styled(strconv.Itoa(s.Goals), components.ToneOr(th, s.Goals, s.XG, th.TableCell)), components.Text(components.Float(s.XG, 1)))
 		case playerstats.MID:
 			row = append(row,
-				components.Styled(strconv.Itoa(s.Goals), toneOr(th, s.Goals, s.XG, th.Accent.Bold(true))),
-				components.Styled(strconv.Itoa(s.Assists), toneOr(th, s.Assists, s.XA, th.TableCell)),
+				components.Styled(strconv.Itoa(s.Goals), components.ToneOr(th, s.Goals, s.XG, th.Accent.Bold(true))),
+				components.Styled(strconv.Itoa(s.Assists), components.ToneOr(th, s.Assists, s.XA, th.TableCell)),
 				components.Text(components.Float(s.XG, 1)), components.Text(components.Float(s.XA, 1)),
 				components.Text(per90(sumPtr(d.Tackles, d.Interceptions), mins)), components.Text(pct(d.PassPct)),
 				components.Text(components.Int(s.Shots)), components.Text(components.Int(s.KeyPasses)))

@@ -370,7 +370,7 @@ func (m *Model) playerLines(c Card, inner int) []string {
 	}
 	return append(lines,
 		th.Muted.Render(components.Truncate(club, inner)),
-		th.Accent.Bold(true).Render(components.Truncate(count(s.Goals, "goal")+" · "+count(s.Assists, "assist"), inner)),
+		th.Accent.Bold(true).Render(components.Truncate(components.Plural(s.Goals, "goal")+" · "+components.Plural(s.Assists, "assist"), inner)),
 		th.TableCell.Render(components.Truncate(strings.Join(parts, " · "), inner)),
 	)
 }
@@ -426,14 +426,6 @@ func shortAge(then time.Time) string {
 		return strconv.Itoa(int(d.Hours()/24)) + "d"
 	}
 	return strconv.Itoa(int(d.Hours()/24/30)) + "mo"
-}
-
-// count is "1 goal", "3 goals".
-func count(n int, unit string) string {
-	if n == 1 {
-		return "1 " + unit
-	}
-	return strconv.Itoa(n) + " " + unit + "s"
 }
 
 // padBar pads a bar to width so the number after it lines up.

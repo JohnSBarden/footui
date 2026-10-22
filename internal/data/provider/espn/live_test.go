@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/JohnSBarden/footui/internal/data/provider"
-	footysync "github.com/JohnSBarden/footui/internal/data/sync"
+	datasync "github.com/JohnSBarden/footui/internal/data/sync"
 )
 
 // TestLiveCanary refreshes the current NWSL season from ESPN's real API
@@ -29,8 +29,8 @@ func TestLiveCanary(t *testing.T) {
 	t.Setenv(CacheDirEnv, "")
 
 	const compID = "usa-nwsl"
-	cov, ok := footysync.FindCoverage(compID)
-	if !ok || cov.Provider != footysync.ProviderESPN {
+	cov, ok := datasync.FindCoverage(compID)
+	if !ok || cov.Provider != datasync.ProviderESPN {
 		t.Fatalf("%s is no longer routed to ESPN; pick another league for the canary", compID)
 	}
 	year := cov.CurrentSeason(time.Now())

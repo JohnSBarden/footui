@@ -93,14 +93,6 @@ func TestResultShowsAShootOut(t *testing.T) {
 	}
 }
 
-func TestOrdinal(t *testing.T) {
-	for n, want := range map[int]string{1: "1st", 2: "2nd", 3: "3rd", 4: "4th", 11: "11th", 12: "12th", 13: "13th", 21: "21st", 22: "22nd", 101: "101st", 111: "111th"} {
-		if got := Ordinal(n); got != want {
-			t.Errorf("Ordinal(%d) = %q, want %q", n, got, want)
-		}
-	}
-}
-
 func TestTheFeedCyclesAndGoesStale(t *testing.T) {
 	var f Feed
 	t0 := time.Date(2026, 10, 20, 20, 0, 0, 0, time.UTC)

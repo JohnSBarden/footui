@@ -377,8 +377,8 @@ func (m *Model) tableParts(rows []SeasonRow, width int) ([]components.Column, []
 			components.Text(r.Team.Name),
 			components.Text(strconv.Itoa(appsOf(r))),
 			components.Text(minutesCell(r)),
-			components.Styled(strconv.Itoa(s.Goals), toneOr(th, s.Goals, s.XG, th.Accent.Bold(true))),
-			components.Styled(strconv.Itoa(s.Assists), toneOr(th, s.Assists, s.XA, th.TableCell)),
+			components.Styled(strconv.Itoa(s.Goals), components.ToneOr(th, s.Goals, s.XG, th.Accent.Bold(true))),
+			components.Styled(strconv.Itoa(s.Assists), components.ToneOr(th, s.Assists, s.XA, th.TableCell)),
 			components.Text(components.Float(s.XG, 1)),
 			components.Text(components.Float(s.XA, 1)),
 			components.Text(components.Int(s.Shots)),
@@ -396,15 +396,6 @@ func (m *Model) tableParts(rows []SeasonRow, width int) ([]components.Column, []
 			th.Below.Render("■")+th.Muted.Render(" fell short"))
 	}
 	return cols, cells, notes
-}
-
-// toneOr colours a count against its expected value when there is one,
-// and falls back to style when there isn't.
-func toneOr(th styles.Theme, actual int, expected *float64, style lipgloss.Style) lipgloss.Style {
-	if expected == nil {
-		return style
-	}
-	return components.Tone(th, float64(actual), *expected)
 }
 
 // wantTeamCol keeps club names distinguishable — "Manchester United" and
@@ -448,11 +439,11 @@ func (m *Model) careerLines(width int) []string {
 		return nil
 	}
 
-	parts := []string{plural(c.Seasons, "season"), plural(c.Appearances, "app")}
+	parts := []string{components.Plural(c.Seasons, "season"), components.Plural(c.Appearances, "app")}
 	if c.HasMinutes {
 		parts = append(parts, strconv.Itoa(c.Minutes)+" mins")
 	}
-	parts = append(parts, plural(c.Goals, "goal"), plural(c.Assists, "assist"))
+	parts = append(parts, components.Plural(c.Goals, "goal"), components.Plural(c.Assists, "assist"))
 	if c.HasShots {
 		parts = append(parts, strconv.Itoa(c.Shots)+" shots")
 	}
@@ -484,13 +475,6 @@ func (m *Model) careerLines(width int) []string {
 		lines[i] = ansi.Truncate(l, width, "…")
 	}
 	return lines
-}
-
-func plural(n int, noun string) string {
-	if n == 1 {
-		return "1 " + noun
-	}
-	return strconv.Itoa(n) + " " + noun + "s"
 }
 
 func (m *Model) deltaStyle(v float64) lipgloss.Style {

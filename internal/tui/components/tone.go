@@ -20,3 +20,12 @@ func Tone(th styles.Theme, actual, expected float64) lipgloss.Style {
 	}
 	return th.TableCell
 }
+
+// ToneOr colours a count against its expected value when there is one,
+// and falls back to style when there isn't.
+func ToneOr(th styles.Theme, actual int, expected *float64, style lipgloss.Style) lipgloss.Style {
+	if expected == nil {
+		return style
+	}
+	return Tone(th, float64(actual), *expected)
+}

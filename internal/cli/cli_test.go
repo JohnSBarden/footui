@@ -159,7 +159,7 @@ func TestScreenCommandsRequireAName(t *testing.T) {
 	}
 }
 
-func TestBareFootyRejectsStrayArguments(t *testing.T) {
+func TestBareFootuiRejectsStrayArguments(t *testing.T) {
 	if _, err := run(t, "some-team-name"); err == nil {
 		t.Error("a bare argument should be rejected rather than silently ignored")
 	}

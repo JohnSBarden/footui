@@ -12,7 +12,7 @@ import (
 
 	"github.com/JohnSBarden/footui/internal/data/models"
 	"github.com/JohnSBarden/footui/internal/data/provider"
-	footysync "github.com/JohnSBarden/footui/internal/data/sync"
+	datasync "github.com/JohnSBarden/footui/internal/data/sync"
 )
 
 var (
@@ -245,8 +245,8 @@ func TestDiskCacheServesRepeatRequests(t *testing.T) {
 // Every competition the registry routes here must have a slug, or a
 // refresh of it fails at runtime instead of in this test.
 func TestEveryRoutedCompetitionHasASlug(t *testing.T) {
-	for _, c := range footysync.Coverages {
-		if c.Provider != footysync.ProviderESPN {
+	for _, c := range datasync.Coverages {
+		if c.Provider != datasync.ProviderESPN {
 			continue
 		}
 		if _, ok := leagueSlugs[c.Competition.ID]; !ok {
@@ -254,7 +254,7 @@ func TestEveryRoutedCompetitionHasASlug(t *testing.T) {
 		}
 	}
 	for id := range leagueSlugs {
-		if c, ok := footysync.FindCoverage(id); !ok || c.Provider != footysync.ProviderESPN {
+		if c, ok := datasync.FindCoverage(id); !ok || c.Provider != datasync.ProviderESPN {
 			t.Errorf("leagueSlugs has %s, which the registry doesn't route to espn", id)
 		}
 	}

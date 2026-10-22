@@ -516,8 +516,8 @@ func (m *Model) squadBody(maxRows, width int) string {
 			row = append(row, components.Text(strconv.Itoa(s.Minutes)))
 		}
 		row = append(row,
-			components.Styled(strconv.Itoa(s.Goals), toneOr(th, s.Goals, s.XG, th.Accent.Bold(true))),
-			components.Styled(strconv.Itoa(s.Assists), toneOr(th, s.Assists, s.XA, th.TableCell)),
+			components.Styled(strconv.Itoa(s.Goals), components.ToneOr(th, s.Goals, s.XG, th.Accent.Bold(true))),
+			components.Styled(strconv.Itoa(s.Assists), components.ToneOr(th, s.Assists, s.XA, th.TableCell)),
 			components.Text(th.Accent.Render(strings.Repeat("▮", min(s.Goals, squadBarMax)))+
 				th.Info.Render(strings.Repeat("▯", min(s.Assists, squadBarMax)))),
 		)
@@ -550,15 +550,6 @@ func (m *Model) squadBody(maxRows, width int) string {
 // squadBarMax caps each half of a squad row's goals-and-assists bar, so a
 // prolific scorer's row doesn't push the column wide.
 const squadBarMax = 5
-
-// toneOr colours a count against its expected value when there is one,
-// and falls back to style when there isn't.
-func toneOr(th styles.Theme, actual int, expected *float64, style lipgloss.Style) lipgloss.Style {
-	if expected == nil {
-		return style
-	}
-	return components.Tone(th, float64(actual), *expected)
-}
 
 // playerColWidth is wide enough for the long names in these leagues
 // ("Martín Zubimendi", "Alexander Isak") to stay distinguishable. It never
