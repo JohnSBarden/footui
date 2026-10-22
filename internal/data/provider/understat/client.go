@@ -174,10 +174,10 @@ func (c *Client) writeDiskCache(leagueKey, season string, body []byte) {
 	if path == "" {
 		return
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return
 	}
-	_ = os.WriteFile(path, body, 0o644)
+	_ = os.WriteFile(path, body, 0o600)
 }
 
 // get fetches a league/season payload, retrying transient failures.

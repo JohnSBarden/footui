@@ -138,10 +138,10 @@ func WriteTemplate(path string) error {
 	if _, err := os.Stat(path); err == nil {
 		return fmt.Errorf("%s already exists — edit it, or remove it first", path)
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return fmt.Errorf("config: %w", err)
 	}
-	return os.WriteFile(path, []byte(Template), 0o644)
+	return os.WriteFile(path, []byte(Template), 0o600)
 }
 
 // SetTheme records theme as the theme setting in the file at path,
@@ -183,8 +183,8 @@ func SetTheme(path, theme string) error {
 		lines = append(lines, line, "")
 	}
 
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return fmt.Errorf("config: %w", err)
 	}
-	return os.WriteFile(path, []byte(strings.Join(lines, "\n")), 0o644)
+	return os.WriteFile(path, []byte(strings.Join(lines, "\n")), 0o600)
 }

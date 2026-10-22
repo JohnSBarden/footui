@@ -3,6 +3,7 @@ package espn
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"regexp"
 	"strconv"
 
@@ -33,7 +34,7 @@ func (p *Provider) AthleteSeason(ctx context.Context, competitionID string, year
 		return models.PlayerSeasonDetail{}, fmt.Errorf("espn: no player detail for %q", competitionID)
 	}
 	var resp categories
-	path := fmt.Sprintf("/%s/seasons/%d/types/1/athletes/%s/statistics", slug, year, athleteID)
+	path := fmt.Sprintf("/%s/seasons/%d/types/1/athletes/%s/statistics", slug, year, url.PathEscape(athleteID))
 	if err := p.client.core(ctx, path, &resp); err != nil {
 		return models.PlayerSeasonDetail{}, err
 	}
@@ -110,7 +111,7 @@ var leagueSeasonRef = regexp.MustCompile(`/leagues/([^/?]+)/seasons/(\d{4})`)
 // left out; so is a season listed twice (a mid-season move).
 func (p *Provider) AthleteCareer(ctx context.Context, athleteID string) ([]provider.CareerSeason, error) {
 	var log careerLog
-	if err := p.client.core(ctx, "/all/athletes/"+athleteID+"/statisticslog", &log); err != nil {
+	if err := p.client.core(ctx, "/all/athletes/"+url.PathEscape(athleteID)+"/statisticslog", &log); err != nil {
 		return nil, err
 	}
 	bySlug := make(map[string]string, len(leagueSlugs)+len(statSlugs))
@@ -149,7 +150,7 @@ func (p *Provider) Squad(ctx context.Context, competitionID string, year int, es
 		return nil, fmt.Errorf("espn: no rosters for %q", competitionID)
 	}
 	var ro rosterResponse
-	path := fmt.Sprintf("/site/v2/sports/soccer/%s/teams/%s/roster?season=%s", slug, espnTeamID, strconv.Itoa(year))
+	path := fmt.Sprintf("/site/v2/sports/soccer/%s/teams/%s/roster?season=%s", slug, url.PathEscape(espnTeamID), strconv.Itoa(year))
 	if err := p.client.site(ctx, path, &ro); err != nil {
 		return nil, err
 	}

@@ -388,7 +388,7 @@ func (c *Client) readCache(url string) ([]byte, bool) {
 
 func (c *Client) writeCache(url string, body []byte) {
 	if p := c.cachePath(url); p != "" {
-		_ = os.MkdirAll(c.cacheDir, 0o755)
-		_ = os.WriteFile(p, body, 0o644)
+		_ = os.MkdirAll(c.cacheDir, 0o700)
+		_ = os.WriteFile(p, body, 0o600)
 	}
 }

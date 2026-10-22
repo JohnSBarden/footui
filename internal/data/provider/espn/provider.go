@@ -3,6 +3,7 @@ package espn
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"sync"
 	"time"
 
@@ -171,7 +172,7 @@ func (p *Provider) fetch(ctx context.Context, ref provider.CompetitionRef, seaso
 		}
 
 		var ro rosterResponse
-		err := p.client.site(ctx, fmt.Sprintf("/site/v2/sports/soccer/%s/teams/%s/roster?season=%s", slug, espnID, year), &ro)
+		err := p.client.site(ctx, fmt.Sprintf("/site/v2/sports/soccer/%s/teams/%s/roster?season=%s", slug, url.PathEscape(espnID), year), &ro)
 		if err != nil {
 			rosterFailures++
 		} else {
@@ -181,7 +182,7 @@ func (p *Provider) fetch(ctx context.Context, ref provider.CompetitionRef, seaso
 		}
 
 		var ts categories
-		if err := p.client.core(ctx, fmt.Sprintf("/%s/seasons/%s/types/1/teams/%s/statistics", slug, year, espnID), &ts); err == nil {
+		if err := p.client.core(ctx, fmt.Sprintf("/%s/seasons/%s/types/1/teams/%s/statistics", slug, year, url.PathEscape(espnID)), &ts); err == nil {
 			applyTeamStats(row, ts)
 		}
 	}
