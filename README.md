@@ -18,7 +18,17 @@ match data into a local SQLite database, then lets you browse it: league
 tables, club pages, player careers, recent games and box scores, xG where
 the source has it, and national teams' full match records.
 
-![footui's matchday dashboard](docs/screenshots/matchday.png)
+### Matchday Overview
+
+<p align="center" width="100%">
+    <img  src="docs/screenshots/matchday.png"> 
+    Matchday Overview
+</p>
+
+<p align="center" width="100%">
+    <img  src="docs/screenshots/kansas-city-current.png"> 
+    Club Details
+</p>
 
 ## Install
 
