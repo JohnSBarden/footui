@@ -1,6 +1,17 @@
-# footui
+<h1 align="center">⚽ footui</h1>
 
-[![CI](https://github.com/JohnSBarden/footui/actions/workflows/ci.yml/badge.svg)](https://github.com/JohnSBarden/footui/actions/workflows/ci.yml)
+<p align="center">
+  <strong>Football stats you can drill into, right in your terminal.</strong><br>
+  Tables, xG, form, squads, careers and every match a nation plays —
+  in your club's colours, from a database on your own machine.
+</p>
+
+<p align="center">
+  <a href="https://github.com/JohnSBarden/footui/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/JohnSBarden/footui/actions/workflows/ci.yml/badge.svg"></a>
+  <img alt="Go 1.26+" src="https://img.shields.io/badge/go-1.26%2B-00ADD8?logo=go&logoColor=white">
+  <img alt="Linux and macOS" src="https://img.shields.io/badge/platform-linux%20%7C%20macOS-555">
+  <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-C8F25A"></a>
+</p>
 
 A terminal UI for football stats. footui downloads league, club, player and
 match data into a local SQLite database, then lets you browse it: league
