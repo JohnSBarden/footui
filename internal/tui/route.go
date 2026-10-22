@@ -6,21 +6,15 @@ import (
 	"github.com/JohnSBarden/footui/internal/tui/core"
 )
 
-// routedMsg carries a message produced by a command that a screen beneath
-// the top of the stack issued, addressed back to that screen.
-//
-// Without it, a buried screen's reply goes to whichever screen is on top:
-// Browse re-running its search after a refresh, say, would have its
-// results handed to the catalog on top of it and sit on "Searching…".
+// routedMsg addresses a buried screen's command result back to it, rather
+// than to whichever screen is on top.
 type routedMsg struct {
 	id  int
 	msg tea.Msg
 }
 
-// routeFrom wraps a command issued by the screen at stack index i so its
-// message comes back to that screen. The top screen's commands are left
-// alone: the normal path already delivers to it, and app-level messages
-// it sends (push, pop, status) must still reach the app.
+// routeFrom leaves the top screen's commands alone, so its app-level
+// messages (push, pop, status) still reach the app.
 func (a *App) routeFrom(i int, cmd tea.Cmd) tea.Cmd {
 	if cmd == nil || i == len(a.stack)-1 {
 		return cmd
@@ -48,9 +42,8 @@ func route(id int, cmd tea.Cmd) tea.Cmd {
 	}
 }
 
-// deliver hands a routed message to its screen if it is still on the
-// stack. App-level messages pass through to the app; a reply for a screen
-// that has since been popped is dropped.
+// deliver drops a reply for a screen that has since been popped;
+// app-level messages pass through.
 func (a *App) deliver(r routedMsg) tea.Cmd {
 	if isAppMsg(r.msg) {
 		_, cmd := a.Update(r.msg)
@@ -71,8 +64,6 @@ func (a *App) deliver(r routedMsg) tea.Cmd {
 	return nil
 }
 
-// isAppMsg reports whether msg is addressed to the app rather than to a
-// screen.
 func isAppMsg(msg tea.Msg) bool {
 	switch msg.(type) {
 	case core.PushMsg, core.PopMsg, core.StatusMsg, core.RefreshRequestMsg,

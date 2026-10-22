@@ -20,9 +20,8 @@ const (
 	fromDefault = "default"
 )
 
-// settings are the resolved values every command runs with. Each is
-// taken from, in order: its command-line flag, its environment variable,
-// the config file, and the built-in default.
+// settings are the resolved values: flag, then environment, then config
+// file, then default.
 type settings struct {
 	theme      styles.Mode
 	accent     styles.Accent
@@ -33,9 +32,7 @@ type settings struct {
 	sources map[string]string
 }
 
-// envSetting reads a FOOTUI_ variable, falling back to the FOOTY_ name it
-// had before the command was renamed, so existing shell profiles keep
-// working.
+// envSetting falls back to the legacy FOOTY_ name for old shell profiles.
 func envSetting(name string) string {
 	if v := os.Getenv(name); v != "" {
 		return v
@@ -43,8 +40,6 @@ func envSetting(name string) string {
 	return os.Getenv(strings.Replace(name, "FOOTUI_", "FOOTY_", 1))
 }
 
-// configPath is the settings file in use: $FOOTUI_CONFIG when set,
-// otherwise the XDG default.
 func configPath() string {
 	if p := envSetting("FOOTUI_CONFIG"); p != "" {
 		return p
@@ -52,9 +47,8 @@ func configPath() string {
 	return config.DefaultPath()
 }
 
-// resolveSettings merges flags, environment, and the config file. It runs
-// before every command, so a malformed config file fails fast with the
-// file's name rather than surfacing halfway through a refresh.
+// resolveSettings runs before every command so a bad config file fails
+// fast.
 func (g *globalFlags) resolveSettings(cmd *cobra.Command) error {
 	file, err := config.Load(configPath())
 	if err != nil {
@@ -66,7 +60,6 @@ func (g *globalFlags) resolveSettings(cmd *cobra.Command) error {
 		return f != nil && f.Changed
 	}
 
-	// theme: --theme, FOOTUI_THEME, file, weak.
 	themeName, src := "", fromDefault
 	switch {
 	case changed("theme"):
@@ -82,7 +75,6 @@ func (g *globalFlags) resolveSettings(cmd *cobra.Command) error {
 	}
 	s.theme, s.sources["theme"] = mode, src
 
-	// accent: FOOTUI_ACCENT, file, lime.
 	accentName, src := "", fromDefault
 	switch {
 	case envSetting("FOOTUI_ACCENT") != "":
@@ -95,10 +87,9 @@ func (g *globalFlags) resolveSettings(cmd *cobra.Command) error {
 		return fmt.Errorf("%s (from %s)", err, src)
 	}
 	s.accent, s.sources["accent"] = accent, src
-	// Every theme is built from it, so it is in place before any is.
+	// Must be set before any theme is built.
 	styles.UseAccent(accent)
 
-	// stale_after: --stale-after, file, 6h.
 	switch {
 	case changed("stale-after"):
 		s.staleAfter, s.sources["stale_after"] = g.staleAfter, fromFlag
@@ -108,7 +99,6 @@ func (g *globalFlags) resolveSettings(cmd *cobra.Command) error {
 		s.staleAfter, s.sources["stale_after"] = DefaultStaleAfter, fromDefault
 	}
 
-	// db: --db, file, XDG default.
 	switch {
 	case changed("db"):
 		s.dbPath, s.sources["db"] = g.dbPath, fromFlag
@@ -118,7 +108,6 @@ func (g *globalFlags) resolveSettings(cmd *cobra.Command) error {
 		s.dbPath, s.sources["db"] = config.DefaultDBPath(), fromDefault
 	}
 
-	// no_color: --no-color, NO_COLOR, file, false.
 	switch {
 	case changed("no-color"):
 		s.noColor, s.sources["no_color"] = g.noColor, fromFlag

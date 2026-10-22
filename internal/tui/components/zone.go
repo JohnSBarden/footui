@@ -7,11 +7,8 @@ import (
 	zone "github.com/lrstanley/bubblezone"
 )
 
-// Clickable regions. A screen marks what can be clicked — a table row, a
-// tab, a card — with Zone, and the root app, which owns the frame, finds
-// which marked region a click landed in (ZoneAt) and tells the screen its
-// ID. Until the app turns mouse support on (EnableZones), Zone returns its
-// input untouched, so tests and the CLI render plain text.
+// Clickable regions: screens mark them with Zone, the root app resolves
+// clicks with ZoneAt. Until EnableZones, Zone returns its input untouched.
 var zones struct {
 	mu sync.Mutex
 	on bool
@@ -38,9 +35,8 @@ func Zone(id, s string) string {
 	return zone.Mark(id, s)
 }
 
-// ScanZones records where frame's regions ended up on screen, for clicks
-// to be matched against, and returns frame without their markers. It
-// ends the frame: the next Zone call starts a new one.
+// ScanZones records where frame's regions landed and strips their
+// markers. It ends the frame: the next Zone call starts a new one.
 func ScanZones(frame string) string {
 	zones.mu.Lock()
 	defer zones.mu.Unlock()
@@ -52,9 +48,7 @@ func ScanZones(frame string) string {
 	return frame
 }
 
-// ZoneAt is the innermost region the mouse event landed in, and false when
-// it landed in none. ids are the regions to consider: those of the last
-// frame drawn.
+// ZoneAt is the innermost of ids (the last frame's) the event landed in.
 func ZoneAt(msg tea.MouseMsg, ids []string) (string, bool) {
 	best, area := "", 0
 	for _, id := range ids {
@@ -70,8 +64,8 @@ func ZoneAt(msg tea.MouseMsg, ids []string) (string, bool) {
 	return best, best != ""
 }
 
-// MarkedZones are the IDs marked in the frame being drawn, for the app to
-// keep before ScanZones ends it.
+// MarkedZones are the IDs marked in the current frame; read them before
+// ScanZones ends it.
 func MarkedZones() []string {
 	zones.mu.Lock()
 	defer zones.mu.Unlock()

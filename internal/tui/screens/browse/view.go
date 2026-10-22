@@ -41,16 +41,12 @@ func (m *Model) View() string {
 	return b.String()
 }
 
-// line is one row of the results list: a group heading (result -1) or a
-// result.
+// line is a group heading (result -1) or a result.
 type line struct {
 	text   string
 	result int
 }
 
-// resultsList draws the results under their group headings, each with its
-// club's dot and its context on the right, scrolled so the cursor's row
-// is on screen.
 func (m *Model) resultsList() string {
 	th := m.deps.Theme
 	var lines []line
@@ -88,8 +84,7 @@ func (m *Model) resultsList() string {
 	return strings.Join(out, "\n")
 }
 
-// resultLine is "  ● Manchester United ★ ←        England · men": the
-// club's dot, the name, the selection marker and the context.
+// resultLine is "  ● Manchester United ★ ←        England · men".
 func (m *Model) resultLine(r Result, selected bool) string {
 	th := m.deps.Theme
 	kind, id := r.favoriteKey()
@@ -127,8 +122,7 @@ func (m *Model) resultLine(r Result, selected bool) string {
 	return left + strings.Repeat(" ", gap) + th.Muted.Render(meta)
 }
 
-// context is the trailing detail that disambiguates same-named results —
-// which country a club is in, which position a player plays.
+// context disambiguates same-named results.
 func (m *Model) context(r Result) string {
 	switch r.Kind {
 	case KindCompetition:
@@ -171,12 +165,8 @@ func (m *Model) listHeight() int {
 func (m *Model) emptyState() string {
 	th := m.deps.Theme
 	if strings.TrimSpace(m.input.Value()) == "" {
-		// Nothing cached at all — this is a first run.
-		//
-		// Each line is styled separately and joined afterwards: a newline
-		// inside a single Render call makes Lip Gloss pad every line to
-		// the width of the longest, which leaves the shorter one visibly
-		// indented.
+		// First run. Style lines separately: Lip Gloss pads a multi-line
+		// Render to its widest line.
 		lines := []string{
 			th.Empty.Render("Nothing cached yet."),
 			"",

@@ -18,9 +18,8 @@ import (
 	"github.com/JohnSBarden/footui/internal/tui/tuitest"
 )
 
-// twentyClubs is a full Premier League table, so every zone has a club in
-// it. Club 7 has the points of a mid-table side and the chances of a
-// top-four one.
+// twentyClubs fills every zone. Club 7 has mid-table points and top-four
+// chances.
 func twentyClubs() []storagetest.TeamRow {
 	rows := make([]storagetest.TeamRow, 20)
 	for i := range rows {

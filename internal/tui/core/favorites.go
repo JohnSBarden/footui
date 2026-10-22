@@ -8,11 +8,8 @@ import (
 	"github.com/JohnSBarden/footui/internal/data/models"
 )
 
-// Favorites is the set of starred entities, shared by pointer through Deps
-// like Appearance, so a star toggled on one screen shows on every other.
-// The root app is the only writer: it persists the change, updates the
-// set, then broadcasts FavoritesChangedMsg. A nil *Favorites is an empty
-// set.
+// Favorites is the set of starred entities, shared by pointer. The root
+// app is the only writer. A nil *Favorites is an empty set.
 type Favorites struct {
 	set map[favoriteKey]bool
 }
@@ -56,8 +53,7 @@ func (f *Favorites) Set(kind models.FavoriteKind, id string, on bool) {
 	}
 }
 
-// Star prefixes title with ★ when the entity is a favourite, so every
-// screen marks its own favourite state the same way.
+// Star prefixes title with ★ when the entity is a favourite.
 func (d Deps) Star(kind models.FavoriteKind, id, title string) string {
 	if d.Favorites.Has(kind, id) {
 		return "★ " + title
@@ -65,17 +61,14 @@ func (d Deps) Star(kind models.FavoriteKind, id, title string) string {
 	return title
 }
 
-// FavoriteTarget is what the favourite key would star or un-star from the
-// current screen.
+// FavoriteTarget is what the favourite key would toggle.
 type FavoriteTarget struct {
 	Kind models.FavoriteKind
 	ID   string
-	// Name is how the status line refers to it.
 	Name string
 }
 
-// Favoritable is implemented by screens with something to favourite: the
-// league, club or player they show, or the highlighted row or card.
+// Favoritable is implemented by screens with something to favourite.
 type Favoritable interface {
 	FavoriteTarget() (FavoriteTarget, bool)
 }
@@ -84,9 +77,8 @@ type Favoritable interface {
 // added or removed, so stars and the dashboard redraw.
 type FavoritesChangedMsg struct{}
 
-// FavoriteToggledMsg reports the outcome of persisting a favourite toggle
-// to the root app. On is the new state; Err is set when the write failed,
-// in which case nothing changed.
+// FavoriteToggledMsg reports a persisted toggle. On a non-nil Err nothing
+// changed.
 type FavoriteToggledMsg struct {
 	Target FavoriteTarget
 	On     bool

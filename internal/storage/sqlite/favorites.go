@@ -9,8 +9,8 @@ import (
 
 // --- FavoritesRepo ---
 
-// AddFavorite stars an entity. Starring one that is already a favourite
-// keeps its original AddedAt, so re-adding never reorders the dashboard.
+// AddFavorite keeps an existing favourite's AddedAt, so re-adding never
+// reorders the dashboard.
 func (s *Store) AddFavorite(ctx context.Context, f models.Favorite) error {
 	_, err := s.db.ExecContext(ctx, `
 		INSERT INTO favorite (entity_type, entity_id, added_at) VALUES (?, ?, ?)
@@ -22,8 +22,7 @@ func (s *Store) AddFavorite(ctx context.Context, f models.Favorite) error {
 	return nil
 }
 
-// RemoveFavorite un-stars an entity. Removing one that isn't a favourite
-// is not an error.
+// RemoveFavorite is not an error for a non-favourite.
 func (s *Store) RemoveFavorite(ctx context.Context, kind models.FavoriteKind, id string) error {
 	_, err := s.db.ExecContext(ctx,
 		`DELETE FROM favorite WHERE entity_type = ? AND entity_id = ?`, string(kind), id)

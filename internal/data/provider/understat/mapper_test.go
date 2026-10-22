@@ -65,8 +65,7 @@ func TestMapPlayersAttributesTransferredPlayerToMostRecentClub(t *testing.T) {
 	if transfer == nil {
 		t.Fatal("expected player understat-101 in mapped output")
 	}
-	// team_title "Chelsea,Arsenal" -> most recent club is Arsenal, not a
-	// bogus concatenated "Chelsea,Arsenal" slug with no matching team row.
+	// team_title "Chelsea,Arsenal" -> most recent club, Arsenal.
 	if *transfer != "understat:eng-arsenal" {
 		t.Errorf("expected transferred player attributed to eng-arsenal, got %q", *transfer)
 	}
@@ -76,8 +75,7 @@ func TestMapPlayerEntitiesExtractsIdentity(t *testing.T) {
 	data := loadFixture(t)
 	players := mapPlayerEntities(data)
 
-	// One identity row per player entry in the payload, whatever the
-	// fixture happens to contain.
+	// One identity row per player entry.
 	if len(players) != len(data.Players) {
 		t.Fatalf("expected %d players, got %d", len(data.Players), len(players))
 	}
@@ -96,8 +94,7 @@ func TestMapMatchesReadsResultsFixturesAndXG(t *testing.T) {
 	updated := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	matches := mapMatches(data, "eng-premier-league", "eng-premier-league:2025", updated)
 
-	// The third entry names a club the payload has no team for, so it
-	// can't be stored against anyone.
+	// The third entry names a club the payload has no team for.
 	if len(matches) != 2 {
 		t.Fatalf("got %d matches, want 2: %+v", len(matches), matches)
 	}

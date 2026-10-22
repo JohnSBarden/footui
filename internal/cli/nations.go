@@ -10,9 +10,8 @@ import (
 	"github.com/JohnSBarden/footui/internal/textfold"
 )
 
-// parseNationQuery splits "england women" into the name and the gender a
-// user means. A nation's men's and women's sides share a name, so the
-// gender is a word on the end, and men's is the default.
+// parseNationQuery splits a trailing gender word off ("england
+// women"); men's is the default.
 func parseNationQuery(query string) (name, gender string) {
 	words := strings.Fields(query)
 	if n := len(words); n > 1 {
@@ -26,9 +25,8 @@ func parseNationQuery(query string) (name, gender string) {
 	return strings.TrimSpace(query), "men"
 }
 
-// exactNation finds the national team a query names exactly — "spain",
-// "england women" — so `footui team spain` opens the nation rather than a
-// list of everything with "spain" in it.
+// exactNation finds the national team a query names exactly, so
+// `footui team spain` opens the nation rather than a list.
 func exactNation(ctx context.Context, repos storage.Repositories, query string) (models.Team, bool) {
 	name, gender := parseNationQuery(query)
 	nations, err := repos.NationalTeams(ctx, gender)
@@ -44,9 +42,8 @@ func exactNation(ctx context.Context, repos storage.Repositories, query string) 
 	return models.Team{}, false
 }
 
-// resolveNation turns a free-text name into one national team for
-// `refresh --team`. With no nations cached at all it seeds the directory
-// first (seed), so the very first `footui refresh --team england` works.
+// resolveNation finds one national team for `refresh --team`, seeding
+// the directory first when no nations are cached.
 func resolveNation(ctx context.Context, repos storage.Repositories, query string, seed func() error) (models.Team, error) {
 	name, gender := parseNationQuery(query)
 	all, err := repos.NationalTeams(ctx, "")

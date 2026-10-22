@@ -9,23 +9,18 @@ import (
 	"github.com/JohnSBarden/footui/internal/data/provider"
 )
 
-// Provider serves footui's provider contracts from understat.com, answering
-// every one of them from a single cached league-season payload.
+// Provider serves footui's provider contracts from understat.com.
 type Provider struct {
 	client *Client
 }
 
-// New constructs a Provider with a default 1-second minimum gap between
-// outbound requests.
+// New constructs a Provider with a 1-second gap between requests.
 func New() *Provider {
 	return &Provider{client: NewClient(1 * time.Second)}
 }
 
-// OnRetry registers fn to be told each time a failed request is about to
-// be retried, with the attempt that failed, the total allowed, and why.
-// Callers that report progress to a user should set it: a retry cycle
-// against an unresponsive host otherwise sits silent for the length of
-// every timeout it waits through.
+// OnRetry registers fn to be told before each retry, so a slow refresh
+// doesn't look like a hang.
 func (p *Provider) OnRetry(fn func(attempt, of int, err error)) *Provider {
 	p.client.OnRetry = fn
 	return p
@@ -57,9 +52,7 @@ func (p *Provider) Standings(ctx context.Context, comp provider.CompetitionRef, 
 	return mapStandings(data, comp.CompetitionID, season.SeasonID), nil
 }
 
-// Teams returns the Team identity rows referenced by this competition/season
-// — needed alongside Standings since TeamSeasonStats only carries team IDs,
-// not full Team records.
+// Teams implements provider.TeamsProvider.
 func (p *Provider) Teams(ctx context.Context, comp provider.CompetitionRef, season provider.SeasonRef) ([]models.Team, error) {
 	data, err := p.fetch(ctx, comp, season)
 	if err != nil {
@@ -68,8 +61,7 @@ func (p *Provider) Teams(ctx context.Context, comp provider.CompetitionRef, seas
 	return mapTeamEntities(data, comp.CompetitionID), nil
 }
 
-// AllRosterStats returns every player's season stats across the whole
-// league-season.
+// AllRosterStats implements provider.LeaguePlayersProvider.
 func (p *Provider) AllRosterStats(ctx context.Context, comp provider.CompetitionRef, season provider.SeasonRef) ([]models.PlayerSeasonStats, error) {
 	data, err := p.fetch(ctx, comp, season)
 	if err != nil {
@@ -78,9 +70,8 @@ func (p *Provider) AllRosterStats(ctx context.Context, comp provider.Competition
 	return mapPlayers(data, comp.CompetitionID, season.SeasonID), nil
 }
 
-// SeasonMatches implements provider.SeasonMatchesProvider from the same
-// payload as everything else, so a league's matches cost no request of
-// their own.
+// SeasonMatches implements provider.SeasonMatchesProvider; it costs no
+// extra request.
 func (p *Provider) SeasonMatches(ctx context.Context, comp provider.CompetitionRef, season provider.SeasonRef) ([]models.Match, error) {
 	data, err := p.fetch(ctx, comp, season)
 	if err != nil {
@@ -89,8 +80,7 @@ func (p *Provider) SeasonMatches(ctx context.Context, comp provider.CompetitionR
 	return mapMatches(data, comp.CompetitionID, season.SeasonID, time.Now().UTC()), nil
 }
 
-// Players returns the Player identity rows (name/position/gender) for an
-// entire league/season payload, for upserting alongside AllRosterStats.
+// Players implements provider.LeaguePlayersProvider.
 func (p *Provider) Players(ctx context.Context, comp provider.CompetitionRef, season provider.SeasonRef) ([]models.Player, error) {
 	data, err := p.fetch(ctx, comp, season)
 	if err != nil {

@@ -1,7 +1,5 @@
-// Package kickabout turns whatever screen is showing into a pitch: the
-// screen's own text stays where it was as scenery, a few of its words come
-// alive as defenders, and you dribble round them into a goal that won't
-// keep still.
+// Package kickabout turns the current screen into a pitch: its text is
+// scenery and a few of its words come alive as defenders.
 package kickabout
 
 import (
@@ -11,9 +9,8 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-// Field is a screen frame as a grid of cells. Its text is only scenery:
-// the ball and the player go straight over it, and only the edges stop
-// them.
+// Field is a screen frame as a grid of cells. Its text is only scenery;
+// only the edges stop the ball and player.
 type Field struct {
 	W, H  int
 	cells [][]rune
@@ -61,9 +58,8 @@ type Word struct {
 	Text string
 }
 
-// Words are the field's runs of non-space cells that read as words: 2 to
-// 12 runes with at least one letter, so rules, borders and lone numbers
-// are left out.
+// Words are runs of 2 to 12 non-space runes with at least one letter, so
+// rules, borders and lone numbers are left out.
 func (f Field) Words() []Word {
 	var ws []Word
 	for y, row := range f.cells {
@@ -94,7 +90,7 @@ func hasLetter(rs []rune) bool {
 	return false
 }
 
-// Lift blanks w's cells: the word has walked off the screen to play.
+// Lift blanks w's cells.
 func (f Field) Lift(w Word) {
 	for i := range []rune(w.Text) {
 		if f.inside(w.X+i, w.Y) {

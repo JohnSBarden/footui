@@ -13,19 +13,15 @@ import (
 	"github.com/JohnSBarden/footui/internal/tui/components"
 )
 
-// Column widths. These are fixed rather than proportional: standings are
-// read by scanning down a column, which only works if the digits line up.
+// Column widths are fixed so digits line up down a column.
 const (
 	posWidth   = 3
 	smallWidth = 3 // MP, W, D, L
 	goalWidth  = 4 // GF, GA, GD, Pts
 	xgWidth    = 6 // xG, xGA, xGD
-	// wantTeamCol is wide enough for the longest club names footui covers
-	// ("Wolverhampton Wanderers", "Borussia Mönchengladbach") to stay
-	// distinguishable from each other, after the club's dot. It never
+	// wantTeamCol fits "Borussia Mönchengladbach" after the dot. It never
 	// shrinks; see components.FitColumns.
-	wantTeamCol = 26
-	// pointsBarWidth and xgdHalf size the two bars at the end of a row.
+	wantTeamCol    = 26
 	pointsBarWidth = 10
 	xgdHalf        = 6
 )
@@ -45,7 +41,6 @@ func (m *Model) columns() []components.Column {
 		{Title: "PTS", Width: goalWidth, Right: true},
 	}
 
-	// The team column is already in base, so nothing extra is reserved.
 	var groups [][]components.Column
 	for _, g := range m.extraGroups() {
 		groups = append(groups, g.columns)
@@ -53,18 +48,14 @@ func (m *Model) columns() []components.Column {
 	return components.FitColumns(m.width, base, 0, groups)
 }
 
-// extraGroup is a set of optional columns that are shown or dropped
-// together, with the cells each row contributes to them.
+// extraGroup is optional columns shown or dropped together.
 type extraGroup struct {
 	columns []components.Column
 	cells   func(s models.TeamSeasonStats) []components.Cell
 }
 
-// extraGroups picks the optional columns this competition's data can
-// fill, in the order they're given up on a narrow terminal. Competitions
-// from understat have expected goals; those from ESPN have none, but may
-// have possession and shots instead. A column nobody in the table has a
-// value for is never shown: a column of dashes is just noise.
+// extraGroups are ordered as dropped on a narrow terminal. Columns with
+// no values are never shown.
 func (m *Model) extraGroups() []extraGroup {
 	var groups []extraGroup
 	has := func(f func(models.TeamSeasonStats) bool) bool {
@@ -76,8 +67,7 @@ func (m *Model) extraGroups() []extraGroup {
 		return false
 	}
 	if has(func(s models.TeamSeasonStats) bool { return s.XG != nil }) {
-		// xG and xGA go together: attacking output means little without
-		// what the team conceded. xGD is derived from the pair.
+		// xG and xGA go together; xGD derives from them.
 		groups = append(groups,
 			extraGroup{
 				columns: []components.Column{
@@ -131,8 +121,6 @@ func (m *Model) extraGroups() []extraGroup {
 	return append(groups, m.pointsBarGroup())
 }
 
-// pointsBarGroup is each club's points as a bar against the leader's: the
-// table's shape — a runaway leader, a bunched middle — at a glance.
 func (m *Model) pointsBarGroup() extraGroup {
 	top := 0
 	for _, r := range m.rows {
@@ -147,8 +135,6 @@ func (m *Model) pointsBarGroup() extraGroup {
 	}
 }
 
-// xgdBarGroup draws expected goal difference either side of zero, so the
-// clubs whose chances deserved better stand out from their position.
 func (m *Model) xgdBarGroup() extraGroup {
 	th := m.deps.Theme
 	maxAbs := 0.0
@@ -171,8 +157,7 @@ func (m *Model) xgdBarGroup() extraGroup {
 	}
 }
 
-// zoneCell marks what a position leads to: a coloured bar, or a letter
-// without colour (C Champions League, E Europa League, ↓ relegation).
+// zoneCell falls back to a letter without colour.
 func (m *Model) zoneCell(pos *int) components.Cell {
 	th := m.deps.Theme
 	season, _ := m.currentSeason()
@@ -195,7 +180,6 @@ func (m *Model) zoneCell(pos *int) components.Cell {
 	return components.Text(" ")
 }
 
-// zoneLegend explains the gutter, for a season that has zones.
 func (m *Model) zoneLegend() string {
 	th := m.deps.Theme
 	season, ok := m.currentSeason()
@@ -210,11 +194,10 @@ func (m *Model) zoneLegend() string {
 		th.Negative.Render("▌") + th.Muted.Render(" relegation")
 }
 
-// insightGap is the least shortfall against expected points worth a line.
+// insightGap is the least xPts shortfall worth a line.
 const insightGap = 1.0
 
-// insight names the club furthest below its expected points, the table's
-// hard-luck story, where the provider supplies expected points.
+// insight names the club furthest below its expected points.
 func (m *Model) insight() string {
 	var best Row
 	gap := insightGap
@@ -224,7 +207,7 @@ func (m *Model) insight() string {
 		if !ok {
 			continue
 		}
-		// Rows run top to bottom, so on a tie the higher club keeps it.
+		// On a tie the higher club keeps it.
 		if g := x - float64(r.Stats.Points); g >= gap && (!found || g > gap) {
 			best, gap, found = r, g, true
 		}
@@ -277,11 +260,9 @@ func (m *Model) header() string {
 	if name == "" {
 		name = m.compID
 	}
-	// The header is one more stop for the cursor above the first club,
-	// marked the way the catalog and Team screens mark the focused pane.
-	// The title is already drawn like a selected row, so a highlight
-	// alone wouldn't show; the gutter is kept when it's not selected so
-	// the title doesn't shift as the cursor moves.
+	// The title already looks selected, so mark the header with an arrow
+	// (as the catalog and Team screens do); keep the gutter so it doesn't
+	// shift.
 	marker := "  "
 	if m.HeaderSelected() {
 		marker = th.PanelTitle.Render("▸ ")
@@ -307,8 +288,7 @@ func (m *Model) header() string {
 		line = lipgloss.JoinHorizontal(lipgloss.Center, title, th.Subtitle.Render("  "+strings.Join(meta, " · ")))
 	}
 
-	// The season tabs share their line with the freshness note, so they
-	// get whatever width the note leaves.
+	// Season tabs get the width the freshness note leaves.
 	freshness := m.freshnessNote()
 	budget := m.width
 	if freshness != "" {
@@ -329,10 +309,7 @@ func (m *Model) header() string {
 	return line
 }
 
-// freshnessNote says when this season was last refreshed. A failed attempt
-// is reported as a failure rather than silently showing the older
-// successful time, because "we tried and it broke" is what the user needs
-// to act on.
+// freshnessNote reports a failed refresh as a failure, not as age.
 func (m *Model) freshnessNote() string {
 	th := m.deps.Theme
 	if m.lastSync == nil {
@@ -349,14 +326,8 @@ func (m *Model) freshnessNote() string {
 	return th.Muted.Render("updated " + ago)
 }
 
-// seasonBar renders the season selector. It's shown even with a single
-// cached season so the user can always see which season the numbers are
-// from, rather than having to infer it.
-//
-// Seasons read left to right in time, oldest first, so the left arrow
-// (an older season) moves left on screen. Every cached season is offered;
-// when they don't all fit, the bar shows a window around the selected one
-// with ‹ and › marking seasons off either end.
+// seasonBar is shown even for one season, so it's clear which one this is.
+// Oldest is leftmost so the left arrow (older) moves left on screen.
 func (m *Model) seasonBar(maxWidth int) string {
 	th := m.deps.Theme
 	n := len(m.seasons)
@@ -364,8 +335,7 @@ func (m *Model) seasonBar(maxWidth int) string {
 		return ""
 	}
 
-	// m.seasons is most recent first; display position d holds season
-	// n-1-d, so the selected season sits at n-1-seasonIdx.
+	// m.seasons is newest first; display position d holds season n-1-d.
 	tabs := make([]string, n)
 	for d := 0; d < n; d++ {
 		i := n - 1 - d
@@ -379,9 +349,8 @@ func (m *Model) table() string {
 	rows := make([][]components.Cell, 0, len(m.rows))
 
 	extras := m.extraGroups()
-	// A club competition's group is a slice of the overall table, ranked
-	// overall: on its own tab it's numbered from 1, and the zones (which
-	// go by overall place) are left off.
+	// A club competition's group tab is renumbered from 1 and has no
+	// zones, which go by overall place.
 	inGroup := m.Group() != "" && !m.comp.International()
 	for i, r := range m.visibleRows() {
 		s := r.Stats
@@ -426,9 +395,7 @@ func (m *Model) table() string {
 	})
 }
 
-// deltaStyle colours a signed value by direction. Under NO_COLOR the theme's
-// positive/negative styles are identical, and the explicit +/- sign
-// components.Signed already emits is what carries the meaning.
+// deltaStyle: under NO_COLOR the +/- sign carries the meaning.
 func (m *Model) deltaStyle(v float64) lipgloss.Style {
 	switch {
 	case v > 0:
@@ -440,20 +407,15 @@ func (m *Model) deltaStyle(v float64) lipgloss.Style {
 	}
 }
 
-// minStripBody is the room the screen keeps below the scores along the
-// top for them to be drawn: on a short terminal they would leave the
-// table a handful of rows.
+// minStripBody must remain below the score strip for it to be drawn.
 const minStripBody = 14
 
-// showStrip says whether the scores along the top fit above the table.
 func (m *Model) showStrip() bool {
 	return !m.strip.Empty() &&
 		m.height-components.Lines(m.header())-1-m.strip.Height()-1 >= minStripBody
 }
 
-// tableHeight is the lines left for the standings, or the fixtures, under
-// everything else the screen draws: measured, not guessed, so the table
-// meets the footer however tall the header has grown.
+// tableHeight is measured, not guessed, so the table meets the footer.
 func (m *Model) tableHeight() int {
 	used := components.Lines(m.header()) + 1
 	if m.showStrip() {
@@ -471,9 +433,8 @@ func (m *Model) emptyState(reason string) string {
 	if season, ok := m.currentSeason(); ok && m.comp.International() {
 		command += " --season " + season.Label
 	}
-	// Each line is styled separately and joined afterwards: a newline
-	// inside a single Render call makes Lip Gloss pad every line to the
-	// width of the longest, which leaves the shorter one visibly indented.
+	// Style lines separately: Lip Gloss pads multi-line renders to the
+	// longest line.
 	lines := []string{
 		th.Empty.Render(reason),
 		"",

@@ -10,9 +10,8 @@ import (
 )
 
 // Score renders a match's score as the home side sees it: "2–1",
-// "2–1 aet", "1–1 (4–5 p)". A match that hasn't started has no score and
-// renders as its state ("postp.", "canc.") or empty for a fixture still to
-// come, which callers show as a kickoff time instead.
+// "2–1 aet", "1–1 (4–5 p)". An unstarted match renders its state
+// ("postp.") or "" for a fixture.
 func Score(m models.Match) string {
 	return scoreText(m, m.HomeScore, m.AwayScore, m.HomePens, m.AwayPens)
 }
@@ -54,9 +53,7 @@ func scoreText(m models.Match, a, b, ap, bp *int) string {
 // GroupStage is the stage every group match is listed under.
 const GroupStage = "Group stage"
 
-// Stage is the part of a competition a match belongs to: the group stage
-// for any group's match, otherwise its round ("Quarterfinal"), or
-// "Matches" when the source names none (a friendly).
+// Stage is GroupStage for any group match, else its round, else "Matches".
 func Stage(m models.Match) string {
 	switch {
 	case strings.HasPrefix(m.Round, "Group ") || m.Round == GroupStage:
@@ -67,8 +64,7 @@ func Stage(m models.Match) string {
 	return m.Round
 }
 
-// Kickoff renders when a fixture kicks off, in the viewer's own time zone:
-// "Sat 14 Nov 19:45".
+// Kickoff renders a kickoff in local time: "Sat 14 Nov 19:45".
 func Kickoff(t time.Time) string {
 	return t.Local().Format("Mon 2 Jan 15:04")
 }

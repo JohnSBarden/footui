@@ -38,7 +38,6 @@ func open(t *testing.T, deps core.Deps, query string) core.Screen {
 	return tuitest.Resize(t, tuitest.Settle(t, browse.New(deps, query)), 100, 30)
 }
 
-// A click selects a result; a click on the selected one opens it.
 func TestClickingAResultSelectsThenOpens(t *testing.T) {
 	deps := newDeps(seeded(t))
 	opened := ""
@@ -195,8 +194,6 @@ func TestNoMatchEmptyStateIsDistinctFromFirstRun(t *testing.T) {
 	}
 }
 
-// Searching from an ASCII keyboard must find accented names — the common
-// case for a tool full of them.
 func TestBrowseFindsAccentedNamesFromASCIIQueries(t *testing.T) {
 	repos := storagetest.New(t)
 	storagetest.SeedCompetition(t, repos, storagetest.PremierLeague(), "2025", []storagetest.TeamRow{
@@ -228,8 +225,6 @@ func TestFirstRunEmptyStateOffersTheRefreshKey(t *testing.T) {
 	}
 }
 
-// With nothing cached there is nothing to pick from, so the refresh target
-// is the default competition the empty state names.
 func TestRefreshTargetOnFirstRunIsTheDefaultCompetition(t *testing.T) {
 	s := open(t, newDeps(storagetest.New(t)), "")
 	got, ok := s.(core.Refreshable).RefreshTarget()
@@ -269,9 +264,7 @@ func TestRefreshedMsgRerunsTheSearch(t *testing.T) {
 	}
 }
 
-// tab hands the keyboard to the results, where bare letters are
-// shortcuts again — otherwise q, ? and r could never be pressed on the
-// screen footui opens on.
+// Without tab, q, ? and r could never be pressed on the opening screen.
 func TestTabMovesFocusToTheResults(t *testing.T) {
 	s := tuitest.Key(t, open(t, newDeps(seeded(t)), "manchester"), "tab")
 

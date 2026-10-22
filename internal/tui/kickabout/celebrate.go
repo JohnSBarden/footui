@@ -6,11 +6,7 @@ import (
 	"strings"
 )
 
-// A goal stops play for a celebration: the pitch flashes, the net
-// ripples, fireworks go up (the first out of the goal itself) and a
-// block-letter GOAL! sweeps in, waves along its letters in the spark
-// colours and sweeps out, while the toast chants a GOOOAL that keeps
-// growing. Space cuts it short.
+// A goal stops play for a celebration; space cuts it short.
 
 const (
 	partyTicks = 3 * fps
@@ -45,8 +41,7 @@ func (p party) on() bool { return p.left > 0 }
 // t is how many ticks the celebration has run.
 func (p party) t() int { return partyTicks - p.left }
 
-// advance runs the celebration a tick: fireworks go up on their ticks and
-// every spark flies on, falling and fading.
+// advance runs the celebration a tick.
 func (p *party) advance(f Field, rng *rand.Rand) {
 	t := p.t()
 	for i, at := range bursts {
@@ -75,8 +70,7 @@ func (p *party) advance(f Field, rng *rand.Rand) {
 	p.left--
 }
 
-// burst is n sparks flying out of from in a ring, or, back from the net,
-// a fan thrown back up the pitch.
+// burst is n sparks in a ring, or from the net a fan back up the pitch.
 func burst(from Vec, n int, back bool, rng *rand.Rand) []spark {
 	ss := make([]spark, n)
 	for i := range ss {
@@ -114,8 +108,8 @@ func (s spark) glyph(plain bool) rune {
 	return '·'
 }
 
-// font is the banner's block letters, five rows each, every column drawn
-// twice across so they keep their shape in tall cells.
+// font is five rows per letter, every column doubled to keep the shape
+// in tall cells.
 var font = map[rune][5]string{
 	'G': {" ### ", "#    ", "# ###", "#   #", " ### "},
 	'O': {" ### ", "#   #", "#   #", "#   #", " ### "},
@@ -154,8 +148,7 @@ func (p party) chant() string {
 	return "G" + strings.Repeat("O", 2+min(p.t()/3, 12)) + "AL!"
 }
 
-// overlay is what the celebration draws over a w×h pitch, by y*w+x: the
-// sparks, with the banner on top.
+// overlay is what the celebration draws over a w×h pitch, by y*w+x.
 func (p party) overlay(w, h int, plain bool) map[int]glyph {
 	out := map[int]glyph{}
 	put := func(x, y int, g glyph) {
@@ -185,8 +178,7 @@ func (p party) overlay(w, h int, plain bool) map[int]glyph {
 		block = '#'
 	}
 	lx := int(math.Round(x))
-	// Clear a box behind the banner, room for the wave and a column of
-	// grass either side, so the letters read over a busy screen.
+	// Clear a box behind the banner so it reads over a busy screen.
 	for y := top - 2; y < top+7; y++ {
 		for c := lx - 2; c < lx+bw+2; c++ {
 			put(c, y, glyph{' ', kindChalk})

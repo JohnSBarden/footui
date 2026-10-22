@@ -8,9 +8,8 @@ import (
 	"github.com/JohnSBarden/footui/internal/tui/core"
 )
 
-// loadHistory fetches every cached season for the player and groups it by
-// competition, resolving team, competition, and season names in three
-// batch queries rather than one lookup per row.
+// loadHistory groups cached seasons by competition, resolving names in
+// three batch queries rather than one per row.
 func (m *Model) loadHistory() tea.Cmd {
 	deps, player := m.deps, m.player
 	playerID := player.ID
@@ -92,8 +91,7 @@ func distinctRefs(stats []models.PlayerSeasonStats) (compIDs, seasonIDs, teamIDs
 	return compIDs, seasonIDs, teamIDs
 }
 
-// selectInitial picks the competition tab to open on: one the player
-// appeared in for the club the user drilled in from, when that's known.
+// selectInitial prefers a tab the player appeared in for fromTeamID.
 func (m *Model) selectInitial() {
 	m.compIdx = 0
 	m.cursor = 0

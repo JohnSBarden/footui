@@ -5,10 +5,8 @@ import (
 	"time"
 )
 
-// Freshness renders how long ago a refresh happened, in the coarsest unit
-// that still says something useful. Cached football data is meaningfully
-// stale after days, not seconds, so "3 days ago" is the answer a user
-// wants and "3 days, 4 hours, 12 minutes ago" is noise.
+// Freshness renders how long ago a refresh happened, in the coarsest
+// useful unit.
 func Freshness(then, now time.Time) string {
 	if then.IsZero() {
 		return ""
@@ -17,8 +15,7 @@ func Freshness(then, now time.Time) string {
 	d := now.Sub(then)
 	switch {
 	case d < 0:
-		// A clock change or a hand-edited row; claiming the future would
-		// be worse than saying nothing definite.
+		// Clock change or hand-edited row; don't claim the future.
 		return "just now"
 	case d < time.Minute:
 		return "just now"

@@ -94,8 +94,7 @@ func useCareer(t *testing.T, src sync.CareerSource) {
 }
 
 // r on a player asks for their whole career. A finished season fetched
-// after it ended is kept rather than fetched again (so this test makes no
-// request for it), the cup isn't a table, and the detail comes after.
+// after it ended isn't fetched again, and the cup isn't a table.
 func TestPlayerHistoryRefresh(t *testing.T) {
 	useDetail(t, stubDetail{})
 	useCareer(t, stubCareer{
@@ -150,8 +149,7 @@ func TestStartupQueuesFavouritePlayers(t *testing.T) {
 	}
 }
 
-// Refresh failures reach the TUI's status line, which never names a
-// data source.
+// The TUI's status line never names a data source.
 func TestTUIErrorsNameNoSource(t *testing.T) {
 	for _, err := range []error{
 		&understat.TimeoutError{Host: "understat.com", After: 20 * time.Second},

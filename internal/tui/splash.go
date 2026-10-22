@@ -15,14 +15,9 @@ import (
 )
 
 const (
-	// splashFor is how long the launch splash stays when nothing makes
-	// it wait.
-	splashFor = 2 * time.Second
-	// splashFrameEvery paces the splash's animation.
+	splashFor        = 2 * time.Second
 	splashFrameEvery = 50 * time.Millisecond
-	// splashSettleAfter is how long the balls bounce at full height
-	// before, with nothing left to refresh, they come to rest; settling
-	// takes about 0.9 s, so on an idle launch they stop as it closes.
+	// splashSettleAfter plus ~0.9 s of settling ends as splashFor does.
 	splashSettleAfter = 1100 * time.Millisecond
 	splashSpinEvery   = 80 * time.Millisecond
 	splashListWidth   = 50
@@ -31,29 +26,21 @@ const (
 
 var splashSpinner = []rune("⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏")
 
-// splashDoneMsg is the splash's timer running out.
 type splashDoneMsg struct{}
 
-// splashFrameMsg asks for the splash's next animation frame.
 type splashFrameMsg struct{}
 
-// splashState is the launch screen: footui's name with its two bouncing
-// balls, what the launch is bringing up to date, and whether a provider
-// has paused footui. It never blocks: any key skips it, and it goes on
-// its own.
+// splashState is the launch screen. It never blocks: any key skips it.
 type splashState struct {
 	// waitForData keeps it up on an empty database until the first
-	// refresh lands, since the screen beneath has nothing to show yet.
+	// refresh lands.
 	waitForData bool
-	// done are the refreshes that finished while it was showing.
-	done []splashDone
-	// elapsed is how long it has been animating, counted in frames so
-	// the animation doesn't depend on the clock.
+	done        []splashDone
+	// elapsed is counted in frames, so it doesn't depend on the clock.
 	elapsed time.Duration
 	balls   splashBalls
 }
 
-// splashDone is one finished refresh, and whether it failed.
 type splashDone struct {
 	label  string
 	failed bool
@@ -72,9 +59,8 @@ func splashFrame() tea.Cmd {
 	return tea.Tick(splashFrameEvery, func(time.Time) tea.Msg { return splashFrameMsg{} })
 }
 
-// splashAnimate moves the splash on a frame and asks for the next, until
-// the splash has gone. The balls settle once they've had their bounce and
-// nothing is left to refresh.
+// splashAnimate settles the balls once they've bounced and nothing is left
+// to refresh.
 func (a *App) splashAnimate() tea.Cmd {
 	if a.splash == nil {
 		return nil
@@ -98,8 +84,7 @@ func (a *App) splashTimedOut() {
 	}
 }
 
-// noteRefreshed records a finished refresh on the splash; the first one to
-// land on an empty database is what the splash was waiting for.
+// noteRefreshed: the first success on an empty database ends the splash.
 func (a *App) noteRefreshed(req core.RefreshRequest, err error) {
 	if a.splash == nil {
 		return
@@ -127,10 +112,7 @@ func (a *App) splashView() string {
 	return lipgloss.Place(a.width, room, lipgloss.Center, lipgloss.Center, block) + "\n" + hint
 }
 
-// splashBody is everything under the wordmark: the tagline, then what the
-// launch is refreshing, a progress bar and where it has got to, then any
-// provider pause. Rows are padded to one width so they line up when the
-// block is centred.
+// splashBody pads rows to one width so they line up when centred.
 func (a *App) splashBody(th styles.Theme) string {
 	lines := []string{"", th.Muted.Render(a.splashTagline())}
 	width := min(splashListWidth, a.width-2)
@@ -154,8 +136,6 @@ func (a *App) splashBody(th styles.Theme) string {
 			spin := splashSpinner[int(a.splash.elapsed/splashSpinEvery)%len(splashSpinner)]
 			lines = append(lines, splashTask(width, th.Accent.Render(string(spin)), th.TableCell, a.active.Label(), th.Muted.Render("refreshing")))
 		}
-		// A queued league says why it's being refreshed: how old its
-		// cache is ("cached 21h ago"), or that it's new.
 		for _, q := range a.queue {
 			lines = append(lines, splashTask(width, th.Faint.Render("·"), th.Muted, q.Label(), th.Faint.Render(q.Why)))
 		}
@@ -194,8 +174,6 @@ func (a *App) splashBody(th styles.Theme) string {
 	return strings.Join(lines, "\n")
 }
 
-// splashTagline is the line under the wordmark, with the build's version
-// when there is one.
 func (a *App) splashTagline() string {
 	const tagline = "football stats in your terminal"
 	v := a.deps.Version
@@ -209,8 +187,6 @@ func (a *App) splashTagline() string {
 	return tagline + " · " + v
 }
 
-// splashTask is one refresh on the splash: its icon, its label, and on
-// the right what has become of it.
 func splashTask(width int, icon string, label lipgloss.Style, text, meta string) string {
 	room := max(1, width-2-lipgloss.Width(meta)-1)
 	return padBetween(icon+" "+label.Render(components.Truncate(text, room)), meta, width)

@@ -1,10 +1,5 @@
-// Package keys defines footui's key bindings in one place.
-//
-// Bindings pair the keys themselves with their help text, so a binding and
-// the footer that documents it cannot drift apart — the recurring failure
-// mode of hand-written help strings. The root app renders the footer from
-// whatever bindings the current screen declares, so no screen writes its
-// own.
+// Package keys defines footui's key bindings, each paired with its help
+// text so the footer can't drift from what's handled.
 package keys
 
 import "github.com/charmbracelet/bubbles/key"
@@ -19,10 +14,8 @@ var (
 		key.WithKeys("q", "ctrl+c"),
 		key.WithHelp("q", "quit"),
 	)
-	// QuitFromTextEntry is what the footer advertises while a screen has a
-	// focused text box. There, "q" is a literal character the box needs,
-	// so offering it as the quit key would be a lie the user discovers by
-	// typing their search and finding nothing happens.
+	// QuitFromTextEntry is advertised while a text box has focus, where
+	// "q" is a literal.
 	QuitFromTextEntry = key.NewBinding(
 		key.WithKeys("ctrl+c"),
 		key.WithHelp("ctrl+c", "quit"),
@@ -31,33 +24,27 @@ var (
 		key.WithKeys("?"),
 		key.WithHelp("?", "keys"),
 	)
-	// Refresh fetches the current screen's competition. ctrl+r is bound
-	// too so the key works while a text box has focus.
+	// Refresh: ctrl+r works while a text box has focus.
 	Refresh = key.NewBinding(
 		key.WithKeys("r", "ctrl+r"),
 		key.WithHelp("r", "refresh"),
 	)
-	// RefreshFromTextEntry is what the footer advertises while a screen
-	// has a focused text box, where "r" is a letter the box needs.
+	// RefreshFromTextEntry is advertised while a text box has focus.
 	RefreshFromTextEntry = key.NewBinding(
 		key.WithKeys("ctrl+r"),
 		key.WithHelp("ctrl+r", "refresh"),
 	)
-	// Catalog opens the league catalog, where competitions and seasons
-	// are chosen for download. ctrl+g works while a text box has focus.
+	// Catalog opens the league catalog; ctrl+g works in a text box.
 	Catalog = key.NewBinding(
 		key.WithKeys("d", "ctrl+g"),
 		key.WithHelp("d", "download"),
 	)
-	// Kickabout turns the screen into a pitch. It's deliberately left out
-	// of every footer, a surprise listed only in the full help; ctrl+k
-	// rather than a letter so it works while a text box has focus.
+	// Kickabout is deliberately only in the full help, never the footer.
 	Kickabout = key.NewBinding(
 		key.WithKeys("ctrl+k"),
 		key.WithHelp("ctrl+k", "kickabout"),
 	)
-	// Theme switches club screens between the weak theme (club colours as
-	// highlights) and the strong one (painted in the club's colours).
+	// Theme switches club screens between weak and strong themes.
 	Theme = key.NewBinding(
 		key.WithKeys("t", "ctrl+t"),
 		key.WithHelp("t", "theme"),
@@ -76,9 +63,7 @@ var (
 		key.WithKeys("ctrl+g"),
 		key.WithHelp("ctrl+g", "download"),
 	)
-	// Favorite stars or un-stars the league, club or player on screen (or
-	// the highlighted search result or dashboard card). ctrl+f works while
-	// a text box has focus.
+	// Favorite stars or un-stars what's on screen or highlighted.
 	Favorite = key.NewBinding(
 		key.WithKeys("f", "ctrl+f"),
 		key.WithHelp("f", "★ favourite"),
@@ -194,8 +179,7 @@ var (
 	)
 )
 
-// Navigation bindings screens share. Each screen picks the ones it
-// actually responds to; a binding a screen doesn't declare is not shown.
+// Navigation bindings screens share; each declares those it handles.
 var (
 	Up = key.NewBinding(
 		key.WithKeys("up", "k"),
@@ -243,14 +227,12 @@ var (
 		key.WithKeys("tab"),
 		key.WithHelp("tab", "seasons/squad"),
 	)
-	// MoveInTextEntry is cursor movement while a text box has focus, where
-	// j and k are letters rather than movement.
+	// MoveInTextEntry omits j/k, which a text box needs as letters.
 	MoveInTextEntry = key.NewBinding(
 		key.WithKeys("up", "down", "ctrl+p", "ctrl+n"),
 		key.WithHelp("↑/↓", "move"),
 	)
-	// ToResults moves focus from the search box to its results, where
-	// bare-letter shortcuts work again.
+	// ToResults moves focus from the search box to its results.
 	ToResults = key.NewBinding(
 		key.WithKeys("tab"),
 		key.WithHelp("tab", "results"),

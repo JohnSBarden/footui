@@ -34,8 +34,7 @@ func TestFreshnessOfAnUnknownTimeIsEmpty(t *testing.T) {
 	}
 }
 
-// A clock change or a hand-edited row shouldn't make the UI claim data
-// arrives from the future.
+// A clock change shouldn't make the UI claim data from the future.
 func TestFreshnessNeverClaimsTheFuture(t *testing.T) {
 	now := time.Date(2026, 9, 9, 12, 0, 0, 0, time.UTC)
 	if got := Freshness(now.Add(time.Hour), now); got != "just now" {

@@ -1,13 +1,6 @@
-// Package core defines the rendering contract: the small set of types every
-// TUI screen shares. It exists as its own package so screen packages
-// (internal/tui/screens/*) can depend on the contract without depending on
-// the root app model that hosts them — the root imports the screens, never
-// the other way around.
-//
-// Screens reach data exclusively through Deps.Repos, a
-// storage.Repositories. No screen imports internal/data/provider or
-// internal/storage/sqlite: per docs/architecture.md's boundary 3, the TUI
-// consumes only the backend contract's query methods.
+// Package core is the contract every TUI screen shares, kept apart from the
+// root app so screens never import it. Screens reach data only through
+// Deps.Repos (docs/architecture.md, boundary 3).
 package core
 
 import (
@@ -24,61 +17,41 @@ import (
 	"github.com/JohnSBarden/footui/internal/tui/styles"
 )
 
-// Deps is everything a screen is constructed with. Passing one value
-// rather than a growing argument list keeps screen constructors stable as
-// new shared concerns (theme, clock, feature flags) appear.
+// Deps is everything a screen is constructed with.
 type Deps struct {
 	Ctx   context.Context
 	Repos storage.Repositories
 	Theme styles.Theme
-	// Nav constructs the screens this screen can drill into. Injecting
-	// constructors instead of importing sibling screen packages directly
-	// keeps navigation acyclic: League can open Team and Team can open
-	// League without the two packages importing each other.
+	// Nav is injected so screen packages never import each other.
 	Nav Navigator
-	// Refresh runs one RefreshRequest (a competition, or a club's or a
-	// nation's games). Nil means the
-	// host didn't wire one up (tests, mostly); the root app then tells
-	// the user to use the CLI instead of failing silently.
+	// Refresh runs one RefreshRequest. Nil (tests, mostly) makes the app
+	// tell the user to use the CLI.
 	Refresh Refresher
-	// Catalog is every competition the host can fetch, for the league
-	// catalog screen. Empty means the host offered none (tests, mostly).
+	// Catalog is every competition the host can fetch.
 	Catalog []CatalogEntry
-	// Appearance is the user's theme choice. It is a pointer shared by
-	// every screen so a runtime toggle reaches all of them; nil means
-	// the default (weak).
+	// Appearance is shared by every screen so a toggle reaches all of
+	// them; nil means weak.
 	Appearance *styles.Appearance
-	// SaveTheme records a theme chosen at runtime as the user's default.
-	// Nil means the host can't persist settings, and the toggle only
-	// lasts for the session.
+	// SaveTheme persists a runtime theme choice; nil means session-only.
 	SaveTheme func(styles.Mode) error
-	// Favorites are the user's starred entities, shared by every screen
-	// so a toggle shows everywhere at once.
+	// Favorites is shared by every screen so a toggle shows everywhere.
 	Favorites *Favorites
-	// ClubDue reports whether a club's recent games need fetching, and
-	// why, without fetching anything; the Team screen asks it on open and
-	// queues the club's refresh when they do. Nil means never (tests, or
-	// the stale check turned off).
+	// ClubDue reports whether a club's recent games need fetching, without
+	// fetching. Nil means never.
 	ClubDue func(club models.Team) (why string, due bool)
-	// ProviderPause is when footui may ask its data sources again after
-	// being rate-limited; a zero time means nothing is paused. Nil means
-	// the host can't tell. The TUI never names the source.
+	// ProviderPause is when a rate-limit pause ends; zero means none, nil
+	// means the host can't tell. The TUI never names the source.
 	ProviderPause func() (until time.Time)
-	// Players searches the data source for players who aren't cached,
-	// and lists the seasons they played, so search can offer them. Nil
-	// means search is local only.
+	// Players searches the source beyond the cache; nil means local only.
 	Players PlayerSearcher
-	// Version is the build's version, for the launch splash; empty
-	// leaves it off.
+	// Version is shown on the splash; empty leaves it off.
 	Version string
-	// Log is what's been happening in the background (downloads and
-	// how they went), written by the root app. Nil records nothing.
+	// Log records background downloads; nil records nothing.
 	Log *Log
 }
 
-// PlayerSearcher finds players at the data source, beyond the cache, and
-// lists the seasons a player appeared in, newest first. It mirrors the
-// provider contract of the same name, so the TUI needn't import it.
+// PlayerSearcher mirrors the provider contract of the same name, so the TUI
+// needn't import it. PlayerCareer is newest first.
 type PlayerSearcher interface {
 	SearchPlayers(ctx context.Context, query string) ([]models.FoundPlayer, error)
 	PlayerCareer(ctx context.Context, id string) ([]models.CareerSeason, error)
@@ -92,67 +65,51 @@ func (d Deps) ThemeMode() styles.Mode {
 	return d.Appearance.Mode
 }
 
-// ThemeChangedMsg is broadcast to every screen when the user switches
-// theme mode. Theme is the new theme for content with no club colours of
-// its own; every screen adopts it (it draws its own content, so a painted
-// background would otherwise sit under text styled for the terminal's),
-// and a screen showing a club rebuilds that club's theme in Mode.
+// ThemeChangedMsg is broadcast to every screen on a theme switch. Every
+// screen must adopt Theme, or a painted background sits under text styled
+// for the terminal's; club screens rebuild their theme in Mode.
 type ThemeChangedMsg struct {
 	Mode  styles.Mode
 	Theme styles.Theme
 }
 
-// ThemedScreen is implemented by screens that render in a theme of their
-// own (a club's colours). The root app draws its chrome — breadcrumb,
-// footer, status line — in that theme too, and paints the whole frame in
-// its background when it has one.
+// ThemedScreen is a screen with its own theme; the app draws its chrome in
+// it too.
 type ThemedScreen interface {
 	ScreenTheme() styles.Theme
 }
 
-// Navigator is the set of screen constructors available for drill-down.
-// The root app (internal/tui) populates it once at startup; tests fill in
-// only the fields the screen under test actually uses, and screens treat
-// a nil field as a drill-down that does nothing.
+// Navigator is the set of screen constructors for drill-down. Screens treat
+// a nil field as a no-op.
 type Navigator struct {
-	// League opens a competition's standings at seasonID, or at its most
-	// recent cached season when seasonID is empty.
+	// League opens at the latest cached season when seasonID is empty.
 	League func(deps Deps, competitionID, seasonID string) Screen
 	Team   func(deps Deps, team models.Team, competitionID, seasonID string) Screen
-	// Nation opens a national team's matches. (Team does too, for a team
-	// that is national.)
 	Nation func(deps Deps, team models.Team) Screen
 	// Games opens a club's last games in every competition.
-	Games  func(deps Deps, team models.Team) Screen
-	Player func(deps Deps, player models.Player, teamID string) Screen
-	Browse func(deps Deps, query string) Screen
-	// Catalog opens the screen for choosing leagues and seasons to fetch.
+	Games   func(deps Deps, team models.Team) Screen
+	Player  func(deps Deps, player models.Player, teamID string) Screen
+	Browse  func(deps Deps, query string) Screen
 	Catalog func(deps Deps) Screen
 }
 
-// Screen is one view in the navigation stack. It mirrors tea.Model except
-// that Update returns a Screen, so the root model can keep a stack of them
-// without type assertions on every keystroke.
+// Screen is tea.Model with Update returning a Screen, so the stack needs no
+// type assertions.
 type Screen interface {
 	Init() tea.Cmd
 	Update(msg tea.Msg) (Screen, tea.Cmd)
 	View() string
-	// Title is shown in the app's breadcrumb bar.
+	// Title is shown in the breadcrumb.
 	Title() string
-	// Keys are the bindings this screen responds to. The root app renders
-	// the footer from them, so a screen never writes its own help text and
-	// the documented keys cannot drift from the handled ones.
+	// Keys drives the footer, so documented keys can't drift from handled
+	// ones.
 	Keys() KeyMap
 }
 
-// KeyMap is a screen's bindings, split into the few worth a permanent
-// footer and the full set behind "?".
+// KeyMap is a screen's footer bindings and the full set behind "?".
 type KeyMap struct {
-	// Short is the always-visible footer line. Keep it to the handful a
-	// user needs to get around.
 	Short []key.Binding
-	// Full is the expanded help, grouped into columns. When empty, Short
-	// is used for both.
+	// Full is grouped into columns; empty means Short.
 	Full [][]key.Binding
 }
 
@@ -167,23 +124,17 @@ func (k KeyMap) FullHelp() [][]key.Binding {
 	return k.Full
 }
 
-// PushMsg asks the root model to push a new screen onto the stack. A screen
-// drills down by returning Push(next) rather than swapping itself out, so
-// "back" is always just popping — no screen has to remember where it came
-// from or reconstruct its parent's state.
+// PushMsg asks the root model to push a screen; "back" is always a pop.
 type PushMsg struct{ Screen Screen }
 
-// PopMsg asks the root model to pop the current screen. Popping the last
-// screen quits the app.
+// PopMsg asks the root model to pop; popping the last screen quits.
 type PopMsg struct{}
 
-// ErrMsg reports a failure that should be surfaced to the user rather than
-// crashing the program — typically a repository query that failed.
+// ErrMsg reports a failure to surface to the user.
 type ErrMsg struct{ Err error }
 
-// ClickMsg is a click on a region the screen marked as clickable
-// (components.Zone), named by the ID it was marked with. Wheel scrolling
-// reaches screens as the up and down keys instead.
+// ClickMsg is a click on a components.Zone. The wheel arrives as up/down
+// keys instead.
 type ClickMsg struct{ ID string }
 
 // ClickedIndex reads a click on a region marked prefix+":"+index, such as
@@ -197,8 +148,7 @@ func (c ClickMsg) ClickedIndex(prefix string) (int, bool) {
 	return i, err == nil
 }
 
-// StatusMsg sets a transient one-line message in the footer, for feedback
-// that doesn't warrant a whole screen (e.g. "no roster cached for 2019").
+// StatusMsg sets a transient one-line footer message.
 type StatusMsg struct{ Text string }
 
 // Push returns a command that pushes s onto the navigation stack.
@@ -216,24 +166,20 @@ func Status(text string) tea.Cmd {
 	return func() tea.Msg { return StatusMsg{Text: text} }
 }
 
-// TextEntry is implemented by screens that capture free-text input (the
-// Browse search box). While such a screen reports true, the root app stops
-// interpreting bare letter keys as shortcuts, so typing "q" enters a "q"
-// instead of quitting the program.
+// TextEntry is a screen capturing free text; while true, bare letters
+// aren't global shortcuts.
 type TextEntry interface {
 	CapturingText() bool
 }
 
-// Escaper is implemented by screens with state that esc should unwind
-// before it navigates back — a search query to clear, say. Escape reports
-// whether the screen consumed the key.
+// Escaper lets esc unwind screen state before navigating back. Escape
+// reports whether it consumed the key.
 type Escaper interface {
 	Escape() (handled bool, cmd tea.Cmd)
 }
 
-// Searcher is implemented by the screen that hosts the search box. The
-// root app's search key returns to it, rather than stacking up a new
-// search screen every time it is pressed.
+// Searcher hosts the search box; the search key returns to it rather than
+// stacking a new one.
 type Searcher interface {
 	FocusSearch() tea.Cmd
 }

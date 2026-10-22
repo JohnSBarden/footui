@@ -40,9 +40,7 @@ func TestRequestedRefreshesRunInOrderAndEveryScreenHears(t *testing.T) {
 	}
 }
 
-// A club's recent games asked for while they're already being fetched —
-// the stale check started them, then the Team screen opened — aren't
-// queued to run again.
+// A club's recent games already being fetched aren't queued again.
 func TestRecentGamesAlreadyRunningAreNotQueuedAgain(t *testing.T) {
 	app := newAppWithRefresh(newFake("Team"), &fakeRefresher{summary: "ok"})
 	app.active = &core.RefreshRequest{TeamID: "eng-arsenal", Automatic: true}
@@ -119,7 +117,6 @@ func TestStartupRefreshIsSkippedWithoutARefresher(t *testing.T) {
 	}
 }
 
-// press is a command delivering one key, for drive.
 func press(name string) tea.Cmd {
 	return func() tea.Msg { return keyPress(name) }
 }

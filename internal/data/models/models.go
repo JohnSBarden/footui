@@ -1,7 +1,5 @@
-// Package models defines the canonical data model shared by every provider,
-// the storage layer, and the TUI. A provider's job is to map its own
-// source-specific shapes into these structs; nothing outside a provider
-// package should ever see a provider-specific type.
+// Package models defines the canonical data model shared by providers,
+// storage and the TUI. No provider-specific type escapes its package.
 package models
 
 import "time"
@@ -14,17 +12,12 @@ type Competition struct {
 	Tier    int    // 1 = top flight, 2 = second division
 	Gender  string // "men" | "women"
 	Format  string // "league" | "cup", defaults to "league"
-	// CalendarYear marks a competition whose seasons fall within one
-	// calendar year (MLS, NWSL): its 2026 season is "2026", not
-	// "2026-27".
+	// CalendarYear: seasons fall within one calendar year (MLS, NWSL).
 	CalendarYear bool
-	// Category is empty for a club league. An international one is a
-	// CategoryTournament, CategoryQualifier, CategoryNationsLeague or
-	// CategoryFriendly, which is what a nation's competition filter
-	// presets select on. A domestic cup is CategoryCup.
+	// Category is empty for a club league, CategoryCup for a domestic
+	// cup, else one of the international categories.
 	Category string
-	// ShortName is a compact label for tight columns ("WC", "UNL"); empty
-	// when there isn't one.
+	// ShortName is a compact label ("WC", "UNL"); may be empty.
 	ShortName string
 }
 
@@ -36,8 +29,7 @@ const (
 	CategoryFriendly      = "friendly"
 )
 
-// CategoryCup is a domestic club cup (the FA Cup, the DFB-Pokal): a
-// source of a club's matches, not a competition with a table to browse.
+// CategoryCup is a domestic club cup: a source of matches, not a table.
 const CategoryCup = "cup"
 
 // International reports whether this is a competition between national
@@ -47,8 +39,7 @@ func (c Competition) International() bool { return c.Category != "" && c.Categor
 // Cup reports whether this is a domestic club cup.
 func (c Competition) Cup() bool { return c.Category == CategoryCup }
 
-// HasTable reports whether an international competition publishes group
-// tables. Friendlies have none, and nor does a domestic cup.
+// HasTable reports whether an international competition has group tables.
 func (c Competition) HasTable() bool {
 	return c.International() && c.Category != CategoryFriendly
 }
@@ -62,22 +53,19 @@ func (c Competition) Abbrev() string {
 }
 
 // Season is one edition of a Competition, keyed by its start year: the
-// 2025-26 Premier League is "2025". Showing it as "2025-26" is the TUI's
-// job, not stored here.
+// 2025-26 Premier League is "2025".
 type Season struct {
 	ID            string // "eng-premier-league:2025"
 	CompetitionID string
 	Label         string // the start year, "2025"
 	StartDate     *time.Time
 	EndDate       *time.Time
-	// CalendarYear is copied from the season's competition when read, so
-	// a season can be displayed without looking its competition up.
+	// CalendarYear is copied from the competition when read.
 	CalendarYear bool
 }
 
-// Team is a club side. Men's and women's sides for the same club are
-// separate Team rows (distinct IDs), since they play in different
-// competitions and have independent squads/history.
+// Team is a club or national side. Men's and women's sides are separate
+// Teams with distinct IDs.
 type Team struct {
 	ID          string // slug, e.g. "eng-manchester-united"
 	Name        string
@@ -86,13 +74,11 @@ type Team struct {
 	Gender      string // "men" | "women"
 	FoundedYear int
 	Venue       string
-	// National marks a national team rather than a club. Its ID is
-	// "nat-{slug}" ("nat-{slug}-women"), which can't collide with a club's.
+	// National marks a national team; its ID is "nat-{slug}[-women]".
 	National bool
 }
 
-// Label is how a sentence refers to the team: its name, with "(women)"
-// for a women's national team, whose name is just the country's.
+// Label is the team's name, with "(women)" for a women's national team.
 func (t Team) Label() string {
 	if t.National && t.Gender == "women" {
 		return t.Name + " (women)"
@@ -100,15 +86,14 @@ func (t Team) Label() string {
 	return t.Name
 }
 
-// TeamSeasonStats is a team's aggregate performance in one Competition in
-// one Season. This is the row-per-(team,competition,season) grain that
-// keeps a team's numbers sliceable by competition instead of blended.
+// TeamSeasonStats is a team's aggregate for one Competition in one Season;
+// numbers are never blended across competitions.
 type TeamSeasonStats struct {
 	TeamID        string
 	CompetitionID string
 	SeasonID      string
-	// GroupLabel is the group a tournament table row belongs to ("Group
-	// A"); Position is then the rank within it. Empty for one table.
+	// GroupLabel is the tournament group ("Group A"); Position ranks
+	// within it. Empty for a single table.
 	GroupLabel     string
 	Position       *int // league standing rank; nil for cup competitions
 	MatchesPlayed  int
@@ -129,24 +114,17 @@ type TeamSeasonStats struct {
 	Corners        *int
 	XG             *float64 // nullable: only populated once an xG pass has run
 	XGA            *float64
-	// Extras carries source-specific long-tail stats that don't warrant a
-	// column of their own — pressing intensity, expected points, deep
-	// completions. Keys are stable snake_case identifiers (see
-	// models.Stat* constants); a provider that has none leaves this nil,
-	// and screens render whichever keys are actually present.
+	// Extras holds long-tail stats keyed by the Stat* constants; nil when
+	// a provider has none.
 	Extras    map[string]float64
 	Source    string // provenance, e.g. "understat"
 	UpdatedAt time.Time
 }
 
-// Long-tail team stat keys used in TeamSeasonStats.Extras. They are
-// declared here rather than in a provider package because the storage
-// layer and TUI both read them: a provider chooses which it can supply,
-// but not what they are called.
+// Long-tail team stat keys for TeamSeasonStats.Extras. Storage and the
+// TUI read them too, so they live here.
 const (
-	// StatNPxG is non-penalty expected goals — expected goals with
-	// penalties excluded, a better measure of open-play attacking quality
-	// than raw xG.
+	// StatNPxG is non-penalty expected goals.
 	StatNPxG = "npxg"
 	// StatNPxGA is non-penalty expected goals against.
 	StatNPxGA = "npxga"
@@ -155,13 +133,12 @@ const (
 	StatPPDA = "ppda"
 	// StatPPDAAllowed is the same measure applied to the opponent's press.
 	StatPPDAAllowed = "ppda_allowed"
-	// StatDeep counts completed passes within ~20 yards of the opponent's
-	// goal (excluding crosses).
+	// StatDeep counts completed passes within ~20 yards of goal, excluding
+	// crosses.
 	StatDeep = "deep"
 	// StatDeepAllowed is the same, conceded.
 	StatDeepAllowed = "deep_allowed"
-	// StatExpectedPoints is points the team would be expected to have
-	// taken given the chances in each match.
+	// StatExpectedPoints is points expected from each match's chances.
 	StatExpectedPoints = "xpts"
 )
 
@@ -175,9 +152,8 @@ type Player struct {
 	Gender      string
 }
 
-// PlayerSeasonStats is a player's aggregate performance for one Team in one
-// Competition in one Season — same (competition, season) grain as
-// TeamSeasonStats, for the same "don't blend across competitions" reason.
+// PlayerSeasonStats is a player's aggregate for one Team in one
+// Competition in one Season.
 type PlayerSeasonStats struct {
 	PlayerID      string
 	TeamID        string
@@ -189,8 +165,7 @@ type PlayerSeasonStats struct {
 	Assists       int
 	XG            *float64
 	XA            *float64
-	// Shots, KeyPasses, NonPenaltyGoals, and NPxG are nullable because a
-	// provider may supply the basics without them.
+	// Nullable: a provider may supply the basics without these.
 	Shots           *int
 	KeyPasses       *int
 	NonPenaltyGoals *int
@@ -201,19 +176,15 @@ type PlayerSeasonStats struct {
 	UpdatedAt       time.Time
 }
 
-// PlayerSeasonDetail is the rest of a player's season for one Team in one
-// Competition — what a position is judged on beyond goals and assists:
-// clean sheets and saves for a keeper, tackles and interceptions for a
-// defender. It is fetched per player, on demand, so it exists only for
-// players someone has opened or starred. Every stat is nullable: nil is
-// "not recorded", which a provider's zero sometimes really means.
+// PlayerSeasonDetail is the positional rest of a player's season for one
+// Team in one Competition, fetched on demand per player. nil means "not
+// recorded", which a provider's zero sometimes really means.
 type PlayerSeasonDetail struct {
 	PlayerID      string
 	TeamID        string
 	CompetitionID string
 	SeasonID      string
-	// Position is the single position letter — "G", "D", "M" or "F" —
-	// sources map theirs to (provider.SquadMember), or "" for none.
+	// Position is "G", "D", "M", "F" or "".
 	Position      string
 	Appearances   *int
 	Minutes       *int
@@ -229,9 +200,8 @@ type PlayerSeasonDetail struct {
 	FetchedAt time.Time
 }
 
-// Trophy is a single honour in a Team's history. Not tied to a Season row
-// since trophies pre-date most in-scope seasons; SeasonLabel is a free-text
-// year/season string for display.
+// Trophy is a single honour in a Team's history. SeasonLabel is free text,
+// since trophies pre-date most in-scope seasons.
 type Trophy struct {
 	ID            int64
 	TeamID        string
@@ -242,11 +212,8 @@ type Trophy struct {
 	Source        string
 }
 
-// SyncRun records one attempt to refresh one competition-season. Failed
-// attempts are recorded too: "we tried an hour ago and it didn't work" is
-// different from "we haven't tried since Tuesday", and a staleness
-// indicator that hides failures would show the second when it means the
-// first.
+// SyncRun records one attempt to refresh one competition-season. Failures
+// are recorded too, so staleness reflects attempts, not just successes.
 type SyncRun struct {
 	ID            int64
 	Provider      string
@@ -257,9 +224,8 @@ type SyncRun struct {
 	Status        string // SyncStatus* below
 	RowsUpserted  int
 	Error         string
-	// Year is set for a run that fetched one calendar year of a
-	// competition's matches (an international "unit") rather than one
-	// season; SeasonID is then empty.
+	// Year is set for an international calendar-year run; SeasonID is
+	// then empty.
 	Year int
 }
 
@@ -268,22 +234,18 @@ const (
 	SyncStatusOK = "ok"
 	// SyncStatusFailed is a unit that was attempted and errored.
 	SyncStatusFailed = "failed"
-	// SyncStatusSkipped is a unit that was never attempted, because the
-	// run gave up after repeated failures.
+	// SyncStatusSkipped is a unit never attempted after the run gave up.
 	SyncStatusSkipped = "skipped"
-	// SyncStatusRateLimited is a unit the provider refused because footui
-	// was asking too often. It counts as a failure, and it suspends
-	// automatic refreshes for a while.
+	// SyncStatusRateLimited counts as a failure and suspends automatic
+	// refreshes for a while.
 	SyncStatusRateLimited = "rate_limited"
 )
 
 // Succeeded reports whether the run completed without error.
 func (r SyncRun) Succeeded() bool { return r.Status == SyncStatusOK }
 
-// CompetitionCache summarizes what is cached for one competition: how much
-// data is held and how fresh it is. It exists because a tool built around
-// a local cache has to be able to answer "what do I actually have?"
-// without making the user open the interface and look.
+// CompetitionCache summarizes how much is cached for one competition and
+// how fresh it is.
 type CompetitionCache struct {
 	Competition Competition
 	Seasons     int
@@ -292,11 +254,9 @@ type CompetitionCache struct {
 	EarliestSeason string
 	LatestSeason   string
 	Teams          int
-	// PlayerSeasons counts player-season rows, not distinct players: it is
-	// a measure of how much was fetched, not of squad size.
+	// PlayerSeasons counts player-season rows, not distinct players.
 	PlayerSeasons int
-	// LastSync is the most recent refresh attempt across any of this
-	// competition's seasons, or nil if it has never been attempted.
+	// LastSync is the latest attempt across all seasons; nil if never.
 	LastSync *SyncRun
 }
 
@@ -319,31 +279,27 @@ const (
 	FavoritePlayer      FavoriteKind = "player"
 )
 
-// Favorite is a competition, team or player the user has starred. It is
-// keyed by canonical ID, so a club favourited from its Premier League
-// page is the same favourite when reached through the Champions League.
+// Favorite is a starred competition, team or player, keyed by canonical
+// ID so it holds across competitions.
 type Favorite struct {
 	Kind    FavoriteKind
 	ID      string
 	AddedAt time.Time
 }
 
-// FoundPlayer is a player a data source's own search turned up, cached
-// locally or not.
+// FoundPlayer is a player a data source's search turned up.
 type FoundPlayer struct {
-	// Provider names the source, and ID is its own ID for the player:
-	// together they are the player's external_ref once a sync has
-	// stored them.
+	// Provider and ID together form the player's external_ref.
 	Provider string
 	ID       string
 	Name     string
-	// Context is where the source says the player is now, such as
-	// "English Premier League - Man City".
+	// Context is the source's description, e.g. "English Premier League -
+	// Man City".
 	Context string
 }
 
 // CareerSeason is one competition-season a player appeared in. Year is
-// the season's bare start year, as footui labels seasons.
+// the season's start year.
 type CareerSeason struct {
 	CompetitionID string
 	Year          string

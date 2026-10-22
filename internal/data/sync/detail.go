@@ -34,16 +34,10 @@ type DetailResult struct {
 // under in external_ref.
 const DetailProvider = ProviderESPN
 
-// RefreshPlayerDetail brings one player's season detail up to date, a
-// request per season line that needs it. A past season is fetched once
-// and kept: it no longer changes. The current season is fetched again
-// once its copy is older than maxAge; zero means always (a refresh the
-// user asked for).
-//
-// The player's ESPN ID is the one recorded when they were synced from an
-// ESPN competition, or else found by matching them on their club's ESPN
-// roster for the season, and recorded. A player that can't be matched is
-// counted, not an error: their page just goes without the detail.
+// RefreshPlayerDetail brings one player's season detail up to date. A past
+// season is fetched once; the current one again once older than maxAge
+// (zero means always). Without a recorded ESPN ID the player is matched on
+// their club's ESPN roster; no match is counted, not an error.
 func RefreshPlayerDetail(ctx context.Context, repos storage.Repositories, src DetailSource, playerID string, now time.Time, maxAge time.Duration) (DetailResult, error) {
 	var res DetailResult
 	player, err := repos.GetPlayer(ctx, playerID)
@@ -106,9 +100,8 @@ func RefreshPlayerDetail(ctx context.Context, repos storage.Repositories, src De
 		keeper := position == "G" || isKeeperCode(player.Position)
 		d, err := src.AthleteSeason(ctx, line.CompetitionID, year, athleteID, keeper)
 		if errors.Is(err, provider.ErrNotFound) {
-			// Not every season is kept (ESPN has no Champions League
-			// stats for Messi): the page goes without that season's
-			// detail, as for a player the source doesn't know.
+			// ESPN doesn't keep every season (no Champions League stats
+			// for Messi).
 			res.Missing++
 			continue
 		}
@@ -133,7 +126,6 @@ func RefreshPlayerDetail(ctx context.Context, repos storage.Repositories, src De
 	return res, nil
 }
 
-// findOnSquad looks the player up on their club's roster for the season.
 func findOnSquad(ctx context.Context, repos storage.Repositories, src DetailSource, player models.Player, line models.PlayerSeasonStats, year int) (provider.SquadMember, bool, error) {
 	team, err := repos.ProviderID(ctx, "team", line.TeamID, DetailProvider)
 	if errors.Is(err, storage.ErrNotFound) {
@@ -150,10 +142,7 @@ func findOnSquad(ctx context.Context, repos storage.Repositories, src DetailSour
 	return m, ok, nil
 }
 
-// matchSquadMember is matchPlayer's rule from the other side: the roster
-// member with the player's name, or failing that the one member whose
-// name contains it or is contained by it ("Gabriel" = "Gabriel
-// Magalhães" only if no other Gabriel is on the roster).
+// matchSquadMember is matchPlayer's rule from the other side.
 func matchSquadMember(p models.Player, squad []provider.SquadMember) (provider.SquadMember, bool) {
 	name := normalizePerson(p.Name)
 	var exact, loose []provider.SquadMember

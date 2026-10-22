@@ -46,10 +46,8 @@ func TestMidfieldersGetAnAssistsChart(t *testing.T) {
 	}
 }
 
-// understat lists every position a player has played, alphabetically, so
-// "F M S" is no claim to be a forward. The badge names them all, and the
-// chart follows what the player produces: Bruno-style, more assists than
-// goals, gets the assists chart.
+// "F M S" is alphabetical, not a claim to be a forward: more assists than
+// goals gets the assists chart.
 func TestACreatorListedAsFMSGetsTheAssistsChart(t *testing.T) {
 	repos := storagetest.New(t)
 	storagetest.SeedCompetition(t, repos, storagetest.PremierLeague(), "2025", storagetest.SampleStandings())

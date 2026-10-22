@@ -7,15 +7,13 @@ import (
 	"github.com/JohnSBarden/footui/internal/data/models"
 )
 
-// Provider names, as recorded in the sync log and used to route a
-// competition to the package that fetches it.
+// Provider names, as recorded in the sync log.
 const (
 	ProviderUnderstat = "understat"
 	ProviderESPN      = "espn"
 )
 
-// Coverage is one competition footui can sync: which provider serves it,
-// how its seasons are counted, and how far back its history goes.
+// Coverage is one competition footui can sync.
 type Coverage struct {
 	Competition models.Competition
 	Provider    string
@@ -23,22 +21,15 @@ type Coverage struct {
 	// usable table for. For an international competition it is also the
 	// first calendar year of its matches the provider has.
 	FirstSeason int
-	// Editions lists a tournament's editions, by the year each is named
-	// for; nil means one season a year. Tournaments are every two or four
-	// years, and irregularly — Copa América 2015 and 2016 — so the list is
-	// explicit rather than a rule.
+	// Editions lists a tournament's editions by the year each is named
+	// for; nil means one season a year. Explicit because they're irregular.
 	Editions []int
 }
 
 // Coverages is every competition footui can sync. A provider-side table
 // (understat's leagueKeys, espn's leagueSlugs) must have a row for each
-// ID routed to it.
-//
-// understat.com serves the six leagues it has expected goals for — it is
-// kept as their source because nothing else free has xG. ESPN's public
-// API covers everything else: MLS, the women's leagues, the second
-// divisions, and the European competitions, with no xG but with
-// possession, corners, and fouls, which understat never had.
+// ID routed to it. understat is kept for its six leagues because nothing
+// else free has xG; ESPN covers the rest.
 var Coverages = withShortNames([]Coverage{
 	// Men's top flights — understat (with xG).
 	{men("eng-premier-league", "Premier League", "England", 1), ProviderUnderstat, 2014, nil},
@@ -65,18 +56,15 @@ var Coverages = withShortNames([]Coverage{
 	{women("fra-premiere-ligue", "Première Ligue", "France", 1), ProviderESPN, 2022, nil},
 	{calendar(women("usa-nwsl", "NWSL", "USA", 1)), ProviderESPN, 2016, nil},
 
-	// European competitions — ESPN. Country "Europe" keeps them together
-	// in lists; their tables are the league phase (or the group stage in
-	// older seasons).
+	// European competitions — ESPN. Country "Europe" is matched on
+	// elsewhere.
 	{men("eur-champions-league", "Champions League", "Europe", 1), ProviderESPN, 2010, nil},
 	{men("eur-europa-league", "Europa League", "Europe", 1), ProviderESPN, 2010, nil},
 	{men("eur-conference-league", "Conference League", "Europe", 1), ProviderESPN, 2021, nil},
 	{women("eur-womens-champions-league", "Women's Champions League", "Europe", 1), ProviderESPN, 2021, nil},
 
-	// Domestic cups — ESPN. Not competitions to browse: a club's cup ties
-	// are fetched as its matches, a calendar year at a time like
-	// international football. Only recent years are ever asked for, so
-	// FirstSeason is a conservative floor rather than a checked one.
+	// Domestic cups — ESPN, fetched by calendar year as a club's matches.
+	// FirstSeason is a conservative floor, not a checked one.
 	{cup("eng-fa-cup", "FA Cup", "FAC", "England"), ProviderESPN, 2015, nil},
 	{cup("eng-league-cup", "League Cup", "EFL", "England"), ProviderESPN, 2015, nil},
 	{cup("esp-copa-del-rey", "Copa del Rey", "CDR", "Spain"), ProviderESPN, 2015, nil},
@@ -85,13 +73,9 @@ var Coverages = withShortNames([]Coverage{
 	{cup("fra-coupe-de-france", "Coupe de France", "CDF", "France"), ProviderESPN, 2015, nil},
 	{calendar(cup("usa-open-cup", "U.S. Open Cup", "USOC", "USA")), ProviderESPN, 2015, nil},
 
-	// International football — ESPN. A nation's matches come from every
-	// one of these of its gender; each first year was checked against
-	// ESPN, and anything that didn't answer was left out. An edition is
-	// keyed by the year it is named for (Euro 2020, played in 2021, is
-	// 2020), so tournaments and friendlies show as one year, and
-	// qualifiers and nations leagues, which span two or three, as a split
-	// season.
+	// International football — ESPN. Each first year was checked against
+	// ESPN. An edition is keyed by the year it is named for (Euro 2020,
+	// played in 2021, is 2020).
 	{international("world-cup", "FIFA World Cup", "WC", "men", models.CategoryTournament), ProviderESPN, 2010,
 		[]int{2010, 2014, 2018, 2022, 2026}},
 	{international("euro", "European Championship", "EURO", "men", models.CategoryTournament), ProviderESPN, 2012,
@@ -122,9 +106,8 @@ var Coverages = withShortNames([]Coverage{
 	{international("int-friendly-women", "Women's International Friendlies", "FRND", "women", models.CategoryFriendly), ProviderESPN, 2015, nil},
 })
 
-// leagueShortNames are the club leagues' compact labels, for the
-// competition column of a club's games. Cups and international
-// competitions carry theirs in their constructors.
+// leagueShortNames are the club leagues' compact labels. Cups and
+// international competitions set theirs in their constructors.
 var leagueShortNames = map[string]string{
 	"eng-premier-league": "PL", "esp-la-liga": "LL", "ger-bundesliga": "BL", "ita-serie-a": "SA",
 	"fra-ligue-1": "L1", "rus-premier-league": "RPL", "eng-championship": "CH", "esp-la-liga-2": "LL2",
@@ -143,9 +126,6 @@ func withShortNames(covs []Coverage) []Coverage {
 	return covs
 }
 
-// international builds an international competition. Its country is
-// "International", which keeps them together in lists; tier means nothing
-// outside a domestic pyramid, so it is 0.
 func international(id, name, short, gender, category string) models.Competition {
 	return models.Competition{
 		ID: id, Name: name, ShortName: short, Country: "International", Gender: gender, Format: "cup",
@@ -175,9 +155,8 @@ func calendar(c models.Competition) models.Competition {
 	return c
 }
 
-// Scope is every syncable club league, in Coverages order. International competitions and domestic cups are left
-// out — their matches are fetched for the nations and clubs someone
-// follows, not for every competition on a schedule.
+// Scope is every syncable club league, in Coverages order. International
+// competitions and cups are fetched per followed team instead.
 var Scope = func() []models.Competition {
 	var out []models.Competition
 	for _, c := range Coverages {
@@ -188,9 +167,7 @@ var Scope = func() []models.Competition {
 	return out
 }()
 
-// baseIDs are the competitions a fresh install starts with: the big five,
-// MLS, NWSL, the WSL, the World Cup, and the Champions and Europa
-// Leagues. The rest of Coverages is a catalog pick away.
+// baseIDs are the competitions a fresh install starts with.
 var baseIDs = map[string]bool{
 	"eng-premier-league": true, "esp-la-liga": true, "ger-bundesliga": true, "ita-serie-a": true,
 	"fra-ligue-1": true, "usa-mls": true, "usa-nwsl": true, "eng-wsl": true, "world-cup": true,
@@ -213,8 +190,7 @@ var Base = func() []models.Competition {
 func InBase(id string) bool { return baseIDs[id] }
 
 // InternationalCoverages is every international competition of one gender
-// ("men" or "women"), in Coverages order: the competitions a nation's
-// matches are fetched from.
+// ("men" or "women"), in Coverages order.
 func InternationalCoverages(gender string) []Coverage {
 	var out []Coverage
 	for _, c := range Coverages {
@@ -242,8 +218,7 @@ func FindCoverage(id string) (Coverage, bool) {
 }
 
 // calendarRolloverMonth is when a calendar-year league's new season is
-// treated as current. MLS and NWSL kick off in late February or March;
-// before that the season just finished is the one with data.
+// treated as current: MLS and NWSL kick off in late February or March.
 const calendarRolloverMonth = time.March
 
 // CurrentSeason is the start year of this competition's season in
@@ -251,15 +226,12 @@ const calendarRolloverMonth = time.March
 func (c Coverage) CurrentSeason(now time.Time) string {
 	switch {
 	case c.Editions != nil:
-		// The latest edition that has begun its year: in October 2026 the
-		// World Cup's current edition is 2026.
 		if eds := c.AvailableSeasons(now); len(eds) > 0 {
 			return eds[0]
 		}
 		return strconv.Itoa(c.Editions[0])
 	case c.Competition.International():
-		// A qualifier or nations league runs all year round, and a match
-		// list is fetched by calendar year.
+		// Qualifiers and nations leagues are fetched by calendar year.
 		return strconv.Itoa(now.Year())
 	}
 	if !c.Competition.CalendarYear {
@@ -282,9 +254,8 @@ func (c Coverage) RecentSeasons(now time.Time, n int) []string {
 	return all[:min(n, len(all))]
 }
 
-// AvailableSeasons returns every season the provider offers for this
-// competition, current first: a tournament's editions so far, otherwise
-// every year back to FirstSeason.
+// AvailableSeasons returns every season the provider offers, current
+// first.
 func (c Coverage) AvailableSeasons(now time.Time) []string {
 	if c.Editions != nil {
 		var out []string

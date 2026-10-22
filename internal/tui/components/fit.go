@@ -9,11 +9,8 @@ import (
 	"github.com/JohnSBarden/footui/internal/tui/styles"
 )
 
-// The helpers here share one idea: a screen measures what it has drawn
-// rather than guessing at it. A constant for "the lines above the table"
-// goes stale the first time a header grows a line, and then the table
-// either runs off the bottom or leaves a gap. Rendering the rest first and
-// handing the table whatever is left can't drift.
+// Screens measure what they've drawn rather than hard-coding line counts,
+// which go stale the moment a header grows.
 
 // Lines is how many terminal lines s takes; none for an empty string.
 func Lines(s string) int {
@@ -23,9 +20,8 @@ func Lines(s string) int {
 	return strings.Count(s, "\n") + 1
 }
 
-// TableRows is how many rows a Table can show in the given lines, of
-// total. The header takes a line, and a table cut short says "showing x-y
-// of z" on another.
+// TableRows is how many of total rows a Table can show in lines,
+// allowing for the header and the "showing x-y of z" line.
 func TableRows(lines, total int) int {
 	if total <= lines-1 {
 		return max(total, 1)
@@ -33,8 +29,7 @@ func TableRows(lines, total int) int {
 	return max(lines-2, 1)
 }
 
-// TableLines is the lines a Table of total rows takes when given at most
-// rows of them: the inverse of TableRows.
+// TableLines is the inverse of TableRows.
 func TableLines(rows, total int) int {
 	if total <= rows {
 		return max(total, 1) + 1
@@ -42,10 +37,8 @@ func TableLines(rows, total int) int {
 	return rows + 2
 }
 
-// SideBySide sets blocks next to each other, each padded to its width so
-// the next starts on a straight edge, with gap spaces between them. A line
-// too long for its column is cut rather than wrapped: wrapping would push
-// every line under it out of step with its neighbours.
+// SideBySide sets blocks next to each other, padded to widths. Long lines
+// are cut, not wrapped, so rows stay in step across columns.
 func SideBySide(gap int, widths []int, blocks ...string) string {
 	cols := make([][]string, len(blocks))
 	height := 0
@@ -76,11 +69,8 @@ func SideBySide(gap int, widths []int, blocks ...string) string {
 }
 
 // StatPanel renders stats in the roomiest form that fits in maxLines:
-// bordered cards, then the same cards without their borders, then one
-// line per stat. A short terminal gives up the boxes around the numbers
-// before it gives up any number, so the tables beneath still get the room
-// to be read. Only when even one line each won't fit are the last stats
-// dropped: screens list them most telling first.
+// cards, borderless cards, then a line each. Only then are the last stats
+// dropped, so screens list them most telling first.
 func StatPanel(th styles.Theme, stats []Stat, width, maxLines int) string {
 	if len(stats) == 0 {
 		return ""
@@ -95,8 +85,7 @@ func StatPanel(th styles.Theme, stats []Stat, width, maxLines int) string {
 	return strings.Join(lines[:min(len(lines), max(maxLines, 1))], "\n")
 }
 
-// flatCards are stat cards without the border and padding: label, value
-// and hint stacked, two spaces between cards.
+// flatCards are stat cards without the border and padding.
 func flatCards(th styles.Theme, stats []Stat, width int) string {
 	inner := cardInnerWidth(stats)
 	perRow := Balanced(len(stats), (width+2)/(inner+2))
@@ -123,9 +112,8 @@ func flatCards(th styles.Theme, stats []Stat, width int) string {
 	return strings.Join(rows, "\n")
 }
 
-// StatLines puts each stat on a line of its own, "GOALS  3  0.45/90",
-// packed into as many columns as width allows. Labels and values are
-// padded to one width so the numbers line up down each column.
+// StatLines puts each stat on a line of its own, packed into as many
+// columns as width allows.
 func StatLines(th styles.Theme, stats []Stat, width int) string {
 	labelW, valueW, hintW := 0, 0, 0
 	for _, s := range stats {
@@ -166,8 +154,7 @@ func valueStyle(th styles.Theme, s Stat) lipgloss.Style {
 	return th.Accent.Bold(true)
 }
 
-// ColumnsWidth is the width a Table with these columns draws: each
-// column and the space between it and the next.
+// ColumnsWidth is the width a Table with these columns draws.
 func ColumnsWidth(cols []Column) int {
 	w := 0
 	for _, c := range cols {
@@ -176,9 +163,8 @@ func ColumnsWidth(cols []Column) int {
 	return max(w-1, 0)
 }
 
-// Balanced is how many of n items to put in each row, given that at most
-// perRow fit: as few rows as perRow allows, filled evenly, so ten cards
-// wrap five and five rather than eight and a stray two.
+// Balanced is how many of n items to put per row, at most perRow, filled
+// evenly (ten wraps five and five, not eight and two).
 func Balanced(n, perRow int) int {
 	perRow = max(perRow, 1)
 	if n <= perRow {

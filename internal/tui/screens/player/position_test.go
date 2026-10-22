@@ -224,8 +224,6 @@ func TestForwardRatesUseDetailMinutes(t *testing.T) {
 	wantAll(t, out, "4.12", "per 90 · 110", "2400")
 }
 
-// A season with appearances but no minutes anywhere: no rates, and the
-// minutes tile says so rather than showing 0.
 func TestForwardWithoutMinutes(t *testing.T) {
 	repos := storagetest.New(t)
 	seedArsenalSeason(t, repos, pl2025, "2025")
@@ -256,10 +254,8 @@ func TestTableUsesDetailMinutes(t *testing.T) {
 	}
 }
 
-// A forward keeps the standard table, which took the line's minutes: an
-// ESPN league showed 0 in the table and the career line, beside a minutes
-// tile reading 1240. Both now take the detail's, and the career line
-// stops counting key passes ESPN never recorded.
+// A forward's standard table and career line take the detail's minutes,
+// and skip key passes ESPN never recorded.
 func TestForwardTableAndCareerUseDetailMinutes(t *testing.T) {
 	repos := storagetest.New(t)
 	seedArsenalSeason(t, repos, pl2025, "2025")
@@ -293,7 +289,6 @@ func TestUnknownMinutesShowAsDash(t *testing.T) {
 	wantAll(t, out, "not recorded")
 }
 
-// Opening a player asks the root app to bring their detail up to date.
 func TestOpenRequestsPlayerRefresh(t *testing.T) {
 	m := player.New(newDeps(rayaRepos(t, true)), raya, "eng-arsenal")
 	var found *core.RefreshRequest

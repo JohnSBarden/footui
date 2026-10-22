@@ -49,8 +49,6 @@ func TestNarrowTerminalKeepsOnlyTheBaseColumns(t *testing.T) {
 
 // Dropping half a pair would leave a column nobody can read a season from.
 func TestGroupsAreDroppedWhole(t *testing.T) {
-	// Walk every width across the transition and assert the pair is never
-	// split.
 	for width := 30; width < 120; width++ {
 		got := FitColumns(width, baseCols, nameCol, groups)
 		if has(got, "xG") != has(got, "xGA") {

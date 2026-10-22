@@ -30,9 +30,8 @@ func withDirectory(t *testing.T) storage.Repositories {
 	return repos
 }
 
-// fakeESPN serves fictional nations in ESPN's shape for every scoreboard,
-// directory and standings path, counting requests by kind. Every
-// competition-year has one match: Arcadia against Borduria.
+// fakeESPN serves fictional nations in ESPN's shape, counting requests
+// by kind. Every competition-year has one match: Arcadia v Borduria.
 type fakeESPN struct {
 	scoreboards, directories, standings int32
 	status                              int // non-zero: answer every request with it

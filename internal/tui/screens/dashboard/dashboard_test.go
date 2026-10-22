@@ -36,13 +36,11 @@ func (s stub) View() string                          { return s.name }
 func (s stub) Title() string                         { return s.name }
 func (stub) Keys() core.KeyMap                       { return core.KeyMap{} }
 
-// opened records what the dashboard asked to open.
 type opened struct {
 	kind, id, comp, season, team string
 }
 
-// seed caches a Premier League season with a squad, and stars, in this
-// order: a player, a club, the league, and a club that isn't cached.
+// seed stars, in order: a player, a club, the league, an uncached club.
 func seed(t *testing.T) (storage.Repositories, core.Deps, *opened) {
 	t.Helper()
 	repos := storagetest.New(t)
@@ -111,8 +109,6 @@ func TestCardsAreGroupedLeaguesClubsPlayers(t *testing.T) {
 	}
 }
 
-// A starred club's card shows its form over its last games in every
-// competition, oldest first.
 func TestAClubCardShowsItsForm(t *testing.T) {
 	repos, deps, _ := seed(t)
 	day := func(d int) time.Time { return storagetest.Fixed.AddDate(0, 0, -d) }
@@ -127,7 +123,6 @@ func TestAClubCardShowsItsForm(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	// Beside the headline, where there's room.
 	view := load(t, deps, 120).View()
 	if !regexp.MustCompile(`1st · 90 pts +L W`).MatchString(view) {
 		t.Errorf("no form beside the headline:\n%s", view)
@@ -159,8 +154,7 @@ func TestCardsShowWhereEachFavouriteStands(t *testing.T) {
 
 func TestArrowKeysMoveAcrossTheGrid(t *testing.T) {
 	_, deps, _ := seed(t)
-	// 120 columns hold three: the league spans the first two, and the
-	// other cards stack down the third beside it.
+	// 120 cols: the league spans two columns, the rest stack in the third.
 	var s core.Screen = load(t, deps, 120)
 	sel := func() string { c, _ := s.(*dashboard.Model).Selected(); return c.ID }
 
@@ -204,7 +198,6 @@ func TestEnterOpensTheCardsScreenWithItsSeason(t *testing.T) {
 		t.Errorf("opened %+v", *got)
 	}
 
-	// A missing card explains itself rather than opening an empty screen.
 	m.Update(tea.KeyMsg{Type: tea.KeyUp})
 	_, cmd = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	if msg, ok := tuitest.CapturedCmd(cmd).(core.StatusMsg); !ok || !strings.Contains(msg.Text, "isn't cached") {
@@ -239,7 +232,6 @@ func TestUnstarringReloadsTheCards(t *testing.T) {
 	}
 }
 
-// A favourite club outside the top five is still shown in its league.
 func TestLeagueCardShowsAStarredClubOutsideTheTopRows(t *testing.T) {
 	repos := storagetest.New(t)
 	rows := []storagetest.TeamRow{}
@@ -263,8 +255,6 @@ func TestLeagueCardShowsAStarredClubOutsideTheTopRows(t *testing.T) {
 	}
 }
 
-// On a narrow terminal the cards stack in one column and nothing spills
-// past the edge.
 func TestNarrowTerminalStacksCards(t *testing.T) {
 	_, deps, _ := seed(t)
 	m := load(t, deps, 40)
@@ -365,8 +355,6 @@ func mustFavorites(t *testing.T, repos storage.Repositories) []models.Favorite {
 
 func stripANSI(s string) string { return ansi.Strip(s) }
 
-// A league's card is twice the others each way: two columns wide, with
-// the whole record on each row, and the other cards flow in beside it.
 func TestALeagueCardSpansTwoColumnsWithTheWholeRecord(t *testing.T) {
 	_, deps, _ := seed(t)
 	view := load(t, deps, 120).View()
@@ -388,7 +376,6 @@ func TestALeagueCardSpansTwoColumnsWithTheWholeRecord(t *testing.T) {
 	if !regexp.MustCompile(`★ Arsenal +38 +28 +6 +4 +\+62 .* 90`).MatchString(arsenal) {
 		t.Errorf("Arsenal's row %q lacks its record", arsenal)
 	}
-	// The club card sits beside the league's heading, past its two columns.
 	top := lines[3]
 	if !strings.Contains(top, "Premier League") || !strings.Contains(top, "Arsenal") {
 		t.Errorf("the club card should flow in beside the league:\n%s", view)
@@ -398,7 +385,6 @@ func TestALeagueCardSpansTwoColumnsWithTheWholeRecord(t *testing.T) {
 	}
 }
 
-// On one column a league card is one column wide, like the rest.
 func TestANarrowLeagueCardKeepsPointsOnly(t *testing.T) {
 	_, deps, _ := seed(t)
 	view := load(t, deps, 40).View()

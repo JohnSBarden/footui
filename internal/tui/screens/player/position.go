@@ -14,10 +14,8 @@ import (
 	"github.com/JohnSBarden/footui/internal/tui/core"
 )
 
-// enrichHistory attaches what the page judges a position by: each
-// season's detail, a keeper's estimated xGA, and the numbers unusual for
-// the player's group. It returns that group, and whether any season has
-// detail to show.
+// enrichHistory attaches detail, keeper xGA and standouts to each season,
+// returning the player's group and whether any season has detail.
 func enrichHistory(deps core.Deps, p models.Player, stats []models.PlayerSeasonStats, history map[string][]SeasonRow) (playerstats.Group, bool, error) {
 	details, err := deps.Repos.PlayerSeasonDetails(deps.Ctx, p.ID)
 	if err != nil {
@@ -86,7 +84,7 @@ func enrichHistory(deps core.Deps, p models.Player, stats []models.PlayerSeasonS
 	return group, hasDetail, nil
 }
 
-// minutesOf is the season's minutes, the detail's when it has them.
+// minutesOf prefers the detail's minutes.
 func minutesOf(r SeasonRow) int {
 	if r.Detail != nil && r.Detail.Minutes != nil && *r.Detail.Minutes > 0 {
 		return *r.Detail.Minutes
@@ -101,8 +99,7 @@ func appsOf(r SeasonRow) int {
 	return r.Stats.Appearances
 }
 
-// per90 is a count as a rate per 90 minutes, or "—" when it wasn't
-// recorded or the minutes are too few to mean anything.
+// per90 is "—" when unrecorded or the minutes are too few.
 func per90(n *int, minutes int) string {
 	if n == nil || minutes < 90 {
 		return "—"
@@ -148,12 +145,10 @@ func countOr(n *int) string {
 	return strconv.Itoa(*n)
 }
 
-// positionCards are the selected season's tiles for the player's group.
 func (m *Model) positionCards(r SeasonRow) []components.Stat {
 	d, s := r.Detail, r.Stats
 	mins := minutesOf(r)
-	// The line's own counts (shots, key passes) go over the line's own
-	// minutes; an ESPN league's line has none, so the detail's stand in.
+	// An ESPN league line has no minutes, so the detail's stand in.
 	lineMins := s.Minutes
 	if lineMins < 90 {
 		lineMins = mins
@@ -228,8 +223,7 @@ func (m *Model) positionCards(r SeasonRow) []components.Stat {
 	}
 }
 
-// lineCount is a tile for one of the line's own counts: a rate per 90
-// when there are minutes to divide by, else the plain total.
+// lineCount is per 90 when there are minutes, else the plain total.
 func lineCount(label string, n *int, minutes, apps int) components.Stat {
 	if minutes < 90 {
 		return components.Stat{Label: label, Value: countOr(n), Hint: strconv.Itoa(apps) + " apps"}
@@ -237,8 +231,6 @@ func lineCount(label string, n *int, minutes, apps int) components.Stat {
 	return components.Stat{Label: label, Value: per90(n, minutes), Hint: "per 90 · " + countOr(n)}
 }
 
-// minutesCell is a table's minutes for the season, "—" for a season
-// played whose minutes weren't recorded.
 func minutesCell(r SeasonRow) string {
 	mins := minutesOf(r)
 	if mins == 0 && appsOf(r) > 0 {
@@ -247,8 +239,6 @@ func minutesCell(r SeasonRow) string {
 	return strconv.Itoa(mins)
 }
 
-// minutesTile says "not recorded" for a season with appearances but no
-// minutes, rather than 0.
 func minutesTile(minutes, apps int) components.Stat {
 	if minutes == 0 && apps > 0 {
 		return components.Stat{Label: "Minutes", Value: "—", Hint: "not recorded · " + strconv.Itoa(apps) + " apps"}
@@ -256,8 +246,6 @@ func minutesTile(minutes, apps int) components.Stat {
 	return components.Stat{Label: "Minutes", Value: strconv.Itoa(minutes), Hint: strconv.Itoa(apps) + " apps"}
 }
 
-// callout names the selected season's numbers unusual for the position,
-// a line each.
 func (m *Model) callout(r SeasonRow) string {
 	if len(r.Standouts) == 0 {
 		return ""
@@ -277,8 +265,7 @@ func (m *Model) callout(r SeasonRow) string {
 	return strings.Join(lines, "\n")
 }
 
-// cleanSheetChart is a keeper's or defender's clean sheets by season,
-// oldest first, for the band.
+// cleanSheetChart plots clean sheets by season, oldest first.
 func (m *Model) cleanSheetChart() []string {
 	rows := m.CurrentRows() // newest first
 	type point struct {
@@ -310,8 +297,7 @@ func (m *Model) cleanSheetChart() []string {
 	return padLines(out)
 }
 
-// padLines pads every line to the widest, so a right-aligned block keeps
-// its columns straight.
+// padLines pads to the widest line so a right-aligned block stays straight.
 func padLines(out []string) []string {
 	width := 0
 	for _, l := range out {
@@ -323,11 +309,8 @@ func padLines(out []string) []string {
 	return out
 }
 
-// positionTable is the season-by-season columns for a keeper, defender or
-// midfielder with detail: the base columns, the optional groups dropped
-// right to left on a narrow terminal, and each row's cells in that order.
-// ok is false for a forward or a player without detail, who keep the
-// standard table.
+// positionTable drops optional column groups right to left when narrow.
+// ok is false for forwards and players without detail.
 func (m *Model) positionTable(rows []SeasonRow) (base []components.Column, extra [][]components.Column, cells [][]components.Cell, ok bool) {
 	if !m.hasDetail || m.group == playerstats.FWD {
 		return nil, nil, nil, false
@@ -395,7 +378,6 @@ func (m *Model) positionTable(rows []SeasonRow) (base []components.Column, extra
 	return base, extra, cells, true
 }
 
-// footnotes explain the table's marks, only those it uses.
 func (m *Model) footnotes(rows []SeasonRow) []string {
 	th := m.deps.Theme
 	var notes []string
@@ -415,8 +397,6 @@ func (m *Model) footnotes(rows []SeasonRow) []string {
 	return notes
 }
 
-// detailStatus says whether the player's detail is being refreshed, or
-// how old it is.
 func (m *Model) detailStatus() string {
 	th := m.deps.Theme
 	if m.refreshing {

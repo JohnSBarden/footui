@@ -33,9 +33,7 @@ func Tabs(theme styles.Theme, tabs []Tab, active int) string {
 	return strings.Join(parts, " ")
 }
 
-// TabLabel is one tab: a filled pill when active, a muted one otherwise.
-// Without colour the active tab is bracketed, so the selection survives
-// NO_COLOR.
+// TabLabel is one tab. Without colour the active tab is bracketed.
 func TabLabel(th styles.Theme, label string, active bool) string {
 	if th.NoColor {
 		if active {
@@ -49,10 +47,8 @@ func TabLabel(th styles.Theme, label string, active bool) string {
 	return th.TabIdle.Render(" " + label + " ")
 }
 
-// WindowTabs joins tabs, ordered left to right, into a bar at most
-// maxWidth wide. When they don't all fit, it shows a window around the
-// selected one, growing towards the right first, with ‹ and › marking the
-// tabs off either end, so the selection is never the one scrolled away.
+// WindowTabs joins tabs into a bar at most maxWidth wide, windowing
+// around the selected one with ‹ and › marking hidden tabs.
 func WindowTabs(th styles.Theme, tabs []string, sel, maxWidth int) string {
 	n := len(tabs)
 	if n == 0 {

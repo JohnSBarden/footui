@@ -32,8 +32,7 @@ func TestFoldStripsAccentsAndCase(t *testing.T) {
 	}
 }
 
-// The whole point: an ASCII query and the accented name must fold to the
-// same thing, in both directions.
+// An ASCII query and the accented name must fold the same.
 func TestASCIIQueriesMatchAccentedNames(t *testing.T) {
 	pairs := [][2]string{
 		{"martin", "Martín"},
@@ -60,8 +59,7 @@ func TestFoldIsIdempotent(t *testing.T) {
 }
 
 func TestFoldLeavesNonLatinScriptsSearchable(t *testing.T) {
-	// Cyrillic has no accents to strip; folding must still lowercase it
-	// rather than mangling or dropping it.
+	// Cyrillic must still be lowercased, not mangled or dropped.
 	if got := Fold("Зенит"); got != "зенит" {
 		t.Errorf("Fold(Cyrillic) = %q", got)
 	}

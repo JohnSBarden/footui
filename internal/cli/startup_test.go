@@ -131,8 +131,7 @@ func TestSummarizeUnitsKeepsAPartialDownload(t *testing.T) {
 	}
 }
 
-// A favourite league is followed even when only old seasons are cached:
-// starring it says "keep this current", whatever was downloaded before.
+// A favourite league is followed even when only old seasons are cached.
 func TestStaleRefreshesFollowsFavouriteLeagues(t *testing.T) {
 	repos := withDirectory(t)
 	seedSeason(t, repos, "ita-serie-a", "2016", september.Add(-24*time.Hour), models.SyncStatusOK)

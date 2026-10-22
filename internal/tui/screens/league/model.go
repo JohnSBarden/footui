@@ -1,5 +1,5 @@
-// Package league renders a competition's standings table, one cached
-// season at a time, with every cached season selectable from a tab bar.
+// Package league renders a competition's standings, one cached season at a
+// time.
 package league
 
 import (
@@ -18,9 +18,7 @@ import (
 // pin it.
 var now = time.Now
 
-// Row pairs a standings stat line with the team it belongs to. Stats rows
-// carry only team IDs, so the screen resolves names once at load time
-// rather than per render.
+// Row pairs a standings line with its team, resolved once at load time.
 type Row struct {
 	Stats models.TeamSeasonStats
 	Team  models.Team
@@ -30,8 +28,7 @@ type Row struct {
 type Model struct {
 	deps   core.Deps
 	compID string
-	// fromSeasonID is the season to open on, when the user drilled in
-	// from a particular one; empty opens the most recent.
+	// fromSeasonID: empty opens the most recent season.
 	fromSeasonID string
 
 	comp      models.Competition
@@ -39,32 +36,25 @@ type Model struct {
 	seasonIdx int
 
 	rows []Row
-	// cursor is the highlighted standings row, or headerRow when the
-	// league's own header is highlighted.
+	// cursor may be headerRow.
 	cursor int
 
-	// groups are a tournament table's groups in order, empty for one
-	// table; groupIdx is the one shown.
+	// groups is empty for a single table.
 	groups   []string
 	groupIdx int
 
-	// matches are an international season's fixtures, shown instead of
-	// the table while matchesView is on.
+	// matches are an international season's fixtures.
 	matches      []models.Match
 	matchTeams   map[string]models.Team
 	matchesView  bool
 	matchCursor  int
 	matchesShown bool // the view was switched to at least once this season
 
-	// strip is the scores along the top: the season's latest round and
-	// its next.
 	strip scorestrip.Strip
 
-	// lastSync is the most recent refresh attempt for the displayed
-	// season, or nil when it has never been attempted.
+	// lastSync is nil when the season has never been refreshed.
 	lastSync *models.SyncRun
-	// colors are the clubs' brand colours, for their dots; xpts each
-	// club's expected points, where the provider has them.
+	// xpts is only present where the provider has expected points.
 	colors map[string]models.TeamColors
 	xpts   map[string]float64
 
@@ -72,20 +62,16 @@ type Model struct {
 	height int
 
 	loading bool
-	// loaded distinguishes "still fetching" from "fetched, and there
-	// genuinely is nothing cached" — the two need different empty states.
+	// loaded separates "still fetching" from "nothing cached".
 	loaded bool
 	err    error
 }
 
-// headerRow is the cursor position of the league header, one step above
-// the first club. The screen opens on it, so the favourite key stars the
-// league until the user moves down into the table.
+// headerRow is the cursor on the league header, above the first club. The
+// screen opens here so the favourite key stars the league.
 const headerRow = -1
 
-// New constructs the League screen for a competition ID. Data loading
-// happens in Init, so constructing a screen is cheap and never blocks the
-// event loop.
+// New constructs the League screen; loading happens in Init.
 func New(deps core.Deps, competitionID string) *Model {
 	return NewAt(deps, competitionID, "")
 }
@@ -158,7 +144,6 @@ func (m *Model) Group() string {
 	return m.groups[m.groupIdx]
 }
 
-// visibleRows are the table rows on screen: one group's, or all of them.
 func (m *Model) visibleRows() []Row {
 	g := m.Group()
 	if g == "" {
@@ -193,8 +178,7 @@ func (m *Model) HeaderSelected() bool {
 	return m.cursor == headerRow
 }
 
-// RefreshTarget implements core.Refreshable: a refresh from the League
-// screen fetches the competition it is showing.
+// RefreshTarget implements core.Refreshable.
 func (m *Model) RefreshTarget() (string, bool) {
 	return m.compID, true
 }
@@ -207,14 +191,11 @@ type competitionLoadedMsg struct {
 }
 
 type standingsLoadedMsg struct {
-	seasonID string
-	rows     []Row
-	// matches and their teams, for an international season.
+	seasonID   string
+	rows       []Row
 	matches    []models.Match
 	matchTeams map[string]models.Team
-	// lastSync is nil when this competition-season has never been
-	// refreshed — a normal state for data loaded before sync logging
-	// existed, or seeded by hand.
+	// lastSync nil (never refreshed) is a normal state.
 	lastSync *models.SyncRun
 	colors   map[string]models.TeamColors
 	xpts     map[string]float64
@@ -223,7 +204,6 @@ type standingsLoadedMsg struct {
 
 // --- commands ---
 
-// loadCompetition fetches the competition row and its cached seasons.
 func (m *Model) loadCompetition() tea.Cmd {
 	deps, compID := m.deps, m.compID
 	return func() tea.Msg {
@@ -239,8 +219,6 @@ func (m *Model) loadCompetition() tea.Cmd {
 	}
 }
 
-// loadStandings fetches one season's standings and resolves every team name
-// in a single batch query.
 func (m *Model) loadStandings(seasonID string) tea.Cmd {
 	deps, compID, international := m.deps, m.compID, m.comp.International()
 	return func() tea.Msg {
@@ -265,9 +243,8 @@ func (m *Model) loadStandings(seasonID string) tea.Cmd {
 	}
 }
 
-// loadStrip is the season's latest round and its next, from matches when
-// they're already loaded. The strip is a nicety, so a failure leaves it
-// empty rather than failing the screen.
+// loadStrip reuses matches when loaded, and leaves the strip empty on
+// failure rather than failing the screen.
 func loadStrip(deps core.Deps, compID, seasonID string, matches []models.Match) scorestrip.Strip {
 	t := now()
 	var round []models.Match
@@ -289,8 +266,7 @@ func loadStrip(deps core.Deps, compID, seasonID string, matches []models.Match) 
 	return strip
 }
 
-// loadTable is one season's standings with every team name resolved in
-// a single batch query.
+// loadTable resolves team names in one batch query.
 func loadTable(deps core.Deps, compID, seasonID string) (standingsLoadedMsg, error) {
 	stats, err := deps.Repos.Standings(deps.Ctx, compID, seasonID)
 	if err != nil {
@@ -310,16 +286,13 @@ func loadTable(deps core.Deps, compID, seasonID string) (standingsLoadedMsg, err
 	for _, s := range stats {
 		team, ok := teams[s.TeamID]
 		if !ok {
-			// Render the ID rather than dropping the row: a missing
-			// team row is a data defect worth seeing, not worth
-			// hiding a league position over.
+			// Show the ID rather than hide a row over a data defect.
 			team = models.Team{ID: s.TeamID, Name: s.TeamID}
 		}
 		rows = append(rows, Row{Stats: s, Team: team})
 	}
 
-	// A missing sync log entry is expected, not an error, so it never
-	// fails the load.
+	// A missing sync log entry is expected, not an error.
 	var lastSync *models.SyncRun
 	if run, err := deps.Repos.LatestSyncRun(deps.Ctx, compID, seasonID); err == nil {
 		lastSync = &run
@@ -336,7 +309,6 @@ func loadTable(deps core.Deps, compID, seasonID string) (standingsLoadedMsg, err
 	return standingsLoadedMsg{seasonID: seasonID, rows: rows, lastSync: lastSync, colors: colors, xpts: xpts}, nil
 }
 
-// currentSeason returns the season currently being displayed, if any.
 func (m *Model) currentSeason() (models.Season, bool) {
 	if m.seasonIdx < 0 || m.seasonIdx >= len(m.seasons) {
 		return models.Season{}, false
@@ -344,8 +316,7 @@ func (m *Model) currentSeason() (models.Season, bool) {
 	return m.seasons[m.seasonIdx], true
 }
 
-// SelectedRow returns the row under the cursor, for drill-down. It is
-// false while the header is highlighted, and while fixtures are shown.
+// SelectedRow is false on the header and while fixtures are shown.
 func (m *Model) SelectedRow() (Row, bool) {
 	rows := m.visibleRows()
 	if m.matchesView || m.cursor < 0 || m.cursor >= len(rows) {

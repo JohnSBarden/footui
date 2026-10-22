@@ -16,9 +16,8 @@ import (
 
 // --- MatchesRepo ---
 
-// UpsertMatches writes every match and its stats in one transaction: a
-// year of friendlies is a few hundred matches, and one commit for them all
-// is the difference between instant and a visible pause.
+// UpsertMatches uses one transaction: hundreds of per-row commits are a
+// visible pause.
 func (s *Store) UpsertMatches(ctx context.Context, matches []models.Match) error {
 	if len(matches) == 0 {
 		return nil
@@ -79,10 +78,7 @@ func (s *Store) UpsertMatches(ctx context.Context, matches []models.Match) error
 	return nil
 }
 
-// matchSelect reads a match with both sides' stats. The stats are joined
-// by side rather than fetched per match: a nation's two years is a couple
-// of dozen matches, and a box score for each would otherwise be a query
-// each.
+// matchSelect joins both sides' stats to avoid a query per match.
 const matchSelect = `
 	SELECT m.id, m.competition_id, m.season_id, m.kickoff, m.status, COALESCE(m.round, ''),
 		m.home_team_id, m.away_team_id, m.neutral, m.home_score, m.away_score, m.home_pens, m.away_pens,
@@ -144,8 +140,7 @@ func (c statCols) stats() *models.MatchTeamStats {
 	return st
 }
 
-// filterClause turns a match filter and a set of calendar years into SQL
-// conditions on the aliases in matchSelect.
+// filterClause builds conditions on matchSelect's aliases.
 func filterClause(filter models.MatchFilter, years []int) (string, []any) {
 	var conds []string
 	var args []any
@@ -229,8 +224,7 @@ func (s *Store) MatchesForCompetitionSeason(ctx context.Context, competitionID, 
 	return scanMatches(rows)
 }
 
-// TeamMatchSummary is computed from the filtered matches on read, so any
-// filter gives a correct record without anything precomputed to go stale.
+// TeamMatchSummary is computed on read so nothing precomputed goes stale.
 func (s *Store) TeamMatchSummary(ctx context.Context, teamID string, filter models.MatchFilter, years []int) (models.MatchSummary, error) {
 	matches, err := s.MatchesForTeam(ctx, teamID, filter, years)
 	if err != nil {
@@ -288,8 +282,7 @@ func (s *Store) GetTeamMatchFilter(ctx context.Context, teamID string) (models.M
 	f := models.MatchFilter{Preset: preset.String}
 	if comps.Valid {
 		if err := json.Unmarshal([]byte(comps.String), &f.Competitions); err != nil {
-			// A filter is a convenience: an unreadable one is the default,
-			// not a screen that won't open.
+			// An unreadable filter falls back to the default.
 			return models.MatchFilter{}, nil
 		}
 		if f.Competitions == nil {

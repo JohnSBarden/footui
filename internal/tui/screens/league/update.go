@@ -13,8 +13,6 @@ import (
 func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 	switch msg := msg.(type) {
 	case core.ThemeChangedMsg:
-		// This screen draws its own content, so it adopts the new theme
-		// rather than leaving text styled for the old background.
 		m.deps.Theme = msg.Theme
 		return m, nil
 
@@ -23,14 +21,12 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 		return m, nil
 
 	case core.RefreshedMsg:
-		// A nation's refresh brings in the yearly match lists every
-		// international competition's seasons are made of.
+		// A nation's refresh feeds every international competition.
 		if msg.CompetitionID != m.compID && !(msg.International && m.comp.International()) {
 			return m, nil
 		}
-		// Reload from the top: the refresh may have added a season, not
-		// just rows to the one already shown. The season on screen is
-		// kept rather than snapping back to the newest.
+		// Reload from the top (a season may have been added), keeping the
+		// season on screen.
 		if season, ok := m.currentSeason(); ok {
 			m.fromSeasonID = season.ID
 		}
@@ -48,8 +44,7 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 			}
 		}
 		if len(m.seasons) == 0 {
-			// No seasons cached at all: nothing left to fetch, so settle
-			// into the empty state rather than spinning forever.
+			// Settle into the empty state rather than spin forever.
 			m.loading = false
 			m.loaded = true
 			return m, nil
@@ -57,14 +52,11 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 		return m, m.loadStandings(m.seasons[m.seasonIdx].ID)
 
 	case standingsLoadedMsg:
-		// A stale response for a season the user has already navigated
-		// away from must not overwrite the current view.
+		// Drop stale responses for a season the user has left.
 		if season, ok := m.currentSeason(); !ok || season.ID != msg.seasonID {
 			return m, nil
 		}
-		// A refresh reloads the same season: keep the cursor on the same
-		// club, wherever it now sits, rather than throwing the user back
-		// to the header.
+		// Keep the cursor on the same club across a reload.
 		selected, hadSelection := m.SelectedRow()
 		group := m.Group()
 		m.rows = msg.rows
@@ -80,8 +72,7 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 				break
 			}
 		}
-		// A season with fixtures but no table (friendlies, a knockout-only
-		// finals) opens on its fixtures.
+		// Fixtures but no table (friendlies, knockout-only): open on them.
 		if len(m.rows) == 0 && len(m.matches) > 0 {
 			m.matchesView = true
 		}
@@ -109,8 +100,7 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 	return m, nil
 }
 
-// click selects a club (opening it if it was already selected), a season
-// or a group.
+// click opens a club row that was already selected.
 func (m *Model) click(msg core.ClickMsg) tea.Cmd {
 	if i, ok := msg.ClickedIndex("row"); ok && i < len(m.visibleRows()) {
 		if i == m.cursor {
@@ -204,19 +194,16 @@ func (m *Model) moveCursor(delta int) {
 	if len(rows) == 0 {
 		return
 	}
-	// The header sits one step above the first club.
 	m.cursor = min(max(m.cursor+delta, headerRow), len(rows)-1)
 }
 
-// setGroups reads a tournament table's groups from its rows, keeping the
-// group that was on screen, or else opening on the group of a starred
-// nation — the one the user follows the tournament for.
+// setGroups keeps the group on screen, else opens on a starred nation's.
 func (m *Model) setGroups(keep string) {
 	m.groups = nil
 	seen := map[string]bool{}
 	starred := ""
-	// A club competition's groups (MLS conferences, an old Champions
-	// League group stage) come after the overall table, its first tab.
+	// Club competition groups (e.g. MLS conferences) follow the overall
+	// table, the "" tab.
 	if !m.comp.International() && slices.ContainsFunc(m.rows, func(r Row) bool { return r.Stats.GroupLabel != "" }) {
 		m.groups = append(m.groups, "")
 	}
@@ -229,8 +216,7 @@ func (m *Model) setGroups(keep string) {
 		m.groups = append(m.groups, g)
 	}
 	if len(m.groups) > 0 && m.groups[0] == "" {
-		// Ranked overall, the rows come in no group order; the tabs go
-		// A to H, East before West.
+		// Rows are ranked overall, so sort the group tabs.
 		slices.Sort(m.groups[1:])
 	}
 	for _, r := range m.rows {
@@ -247,8 +233,7 @@ func (m *Model) setGroups(keep string) {
 	}
 }
 
-// defaultMatch is where the fixtures view opens: the next match to be
-// played, or the last one when it's all over.
+// defaultMatch is the next match to be played, else the last.
 func defaultMatch(matches []models.Match) int {
 	for i, mt := range matches {
 		if !mt.Finished() && mt.Status != models.MatchCancelled {
@@ -258,8 +243,7 @@ func defaultMatch(matches []models.Match) int {
 	return max(len(matches)-1, 0)
 }
 
-// selectSeason switches the displayed season. Seasons are ordered most
-// recent first, so a lower index is a newer season.
+// selectSeason: seasons are most recent first, so lower is newer.
 func (m *Model) selectSeason(idx int) tea.Cmd {
 	if idx < 0 || idx >= len(m.seasons) || idx == m.seasonIdx {
 		return nil
@@ -274,8 +258,6 @@ func (m *Model) selectSeason(idx int) tea.Cmd {
 	return m.loadStandings(m.seasons[idx].ID)
 }
 
-// drillDown opens the Team screen for the selected row. League decides what
-// drilling into a row means; the root model only moves the stack.
 func (m *Model) drillDown() tea.Cmd {
 	row, ok := m.SelectedRow()
 	if !ok {

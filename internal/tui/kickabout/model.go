@@ -82,8 +82,6 @@ func (m *Model) reset() {
 
 func (m Model) kickOffSpot() Vec { return Vec{2, float64(m.f.H / 2)} }
 
-// kickOff lines everyone up again: the player on the spot with the ball,
-// the defenders back home.
 func (m *Model) kickOff() {
 	m.player = m.kickOffSpot()
 	m.facing = Vec{1, 0}
@@ -115,8 +113,8 @@ func (m Model) tick() tea.Cmd {
 	return tea.Tick(time.Second/fps, func(time.Time) tea.Msg { return TickMsg{gen: gen} })
 }
 
-// moves are the keys that run, as a step: two cells across for every one
-// down, since cells are about half as wide as they are tall.
+// moves step two cells across per one down: cells are about half as wide
+// as they are tall.
 var moves = map[string]Vec{
 	"up": {0, -1}, "k": {0, -1}, "down": {0, 1}, "j": {0, 1},
 	"left": {-2, 0}, "h": {-2, 0}, "right": {2, 0}, "l": {2, 0},
@@ -187,8 +185,8 @@ func sign(v float64) float64 {
 	return 0
 }
 
-// blocksPlayer reports a defender on (x, y): the player has to go round.
-// One already on top of the player doesn't hold them in place.
+// blocksPlayer ignores a defender already on top of the player, so it
+// can't hold them in place.
 func (m Model) blocksPlayer(x, y int) bool {
 	px, py := cell(m.player.X), cell(m.player.Y)
 	for _, d := range m.defs {
@@ -199,9 +197,8 @@ func (m Model) blocksPlayer(x, y int) bool {
 	return false
 }
 
-// blocksBall reports a defender on (x, y) the ball bounces off: not one
-// still resting after a tackle, nor one the ball is inside already, so a
-// cleared ball can roll free.
+// blocksBall skips resting defenders and any the ball is already inside,
+// so a cleared ball can roll free.
 func (m Model) blocksBall(x, y int) bool {
 	bx, by := cell(m.ball.Pos.X), cell(m.ball.Pos.Y)
 	for _, d := range m.defs {
@@ -212,8 +209,6 @@ func (m Model) blocksBall(x, y int) bool {
 	return false
 }
 
-// pickUp takes a stopped ball back to the player's feet once they reach
-// it.
 func (m *Model) pickUp() {
 	near := math.Abs(m.ball.Pos.X-m.player.X) <= 2 && math.Abs(m.ball.Pos.Y-m.player.Y) <= 1
 	if near && m.ball.Vel == (Vec{}) {
@@ -274,9 +269,7 @@ func (m *Model) defenderAt(x, y int) *Defender {
 	return nil
 }
 
-// challenge lets a defender that has reached the ball win it: off the
-// player's feet it's a tackle, loose it's a clearance, and either way the
-// ball goes back up the pitch while the defender gets its breath.
+// challenge lets a defender that has reached the ball win it.
 func (m *Model) challenge() {
 	bx, by := cell(m.ball.Pos.X), cell(m.ball.Pos.Y)
 	px, py := cell(m.player.X), cell(m.player.Y)
@@ -319,7 +312,6 @@ const (
 	kinds = kindSpark + hues
 )
 
-// glyph is a rune and the kind it's drawn as.
 type glyph struct {
 	r rune
 	k kind
@@ -406,8 +398,7 @@ func (m Model) View() string {
 	return strings.Join(rows, "\n")
 }
 
-// defenderCells is every defender's runes, by y*W+x. During a
-// celebration they hang their heads, faded like the scenery.
+// defenderCells is every defender's runes, by y*W+x.
 func (m Model) defenderCells() map[int]glyph {
 	k := kindDefender
 	if m.party.on() {
@@ -425,9 +416,7 @@ func (m Model) defenderCells() map[int]glyph {
 	return out
 }
 
-// cell is what (x, y) shows: the score bar and toast over the top rows,
-// then any celebration, the player, the ball, the defenders, the goal and
-// the ball's trail, and otherwise the screen's own text, faded.
+// cell is what (x, y) shows; the case order is the draw order.
 func (m Model) cell(x, y int, bar, toast []rune, over, defs map[int]glyph) glyph {
 	switch {
 	case y == 0 && x < len(bar):

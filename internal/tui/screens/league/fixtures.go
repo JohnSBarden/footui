@@ -11,16 +11,10 @@ import (
 	"github.com/JohnSBarden/footui/internal/tui/components"
 )
 
-// A tournament season is shown either as its group tables or as every
-// fixture by round. Fixtures are grouped into stages — the group stage,
-// then each knockout round — in the order they were played; within the
-// group stage they run group by group, which is how a reader follows one.
-
-// stageOf is the section a match is listed under.
 func stageOf(m models.Match) string { return components.Stage(m) }
 
-// displayOrder sorts a season's matches into the order the fixtures view
-// lists them: stage by stage, each stage where its first match falls.
+// displayOrder lists stage by stage, each where its first match falls;
+// the group stage runs group by group.
 func displayOrder(matches []models.Match) []models.Match {
 	first := map[string]int{}
 	for i, m := range matches { // matches arrive in kickoff order
@@ -41,8 +35,6 @@ func displayOrder(matches []models.Match) []models.Match {
 	return out
 }
 
-// fixturesView lists every fixture of the season under its stage, scrolled
-// so the cursor's match is on screen.
 func (m *Model) fixturesView() string {
 	th := m.deps.Theme
 	if len(m.matches) == 0 {
@@ -83,15 +75,13 @@ func (m *Model) fixturesView() string {
 		lines = append(lines, line{text, i})
 	}
 
-	// Keep the cursor's line in view, with its stage heading where room
-	// allows.
 	at := 0
 	for i, l := range lines {
 		if l.match == m.matchCursor {
 			at = i
 		}
 	}
-	// A line is kept for "fixture n of m" under them.
+	// Reserve a line for "fixture n of m".
 	height := max(m.tableHeight()-1, 3)
 	start := min(max(at-height/2, 0), max(len(lines)-height, 0))
 	end := min(start+height, len(lines))
@@ -121,7 +111,7 @@ func (m *Model) groupBar() string {
 	th := m.deps.Theme
 	heading := "Groups "
 	if m.groups[0] == "" {
-		// A club competition's: the overall table, then its groups.
+		// Club competition: overall table first.
 		heading = "Table "
 	}
 	parts := []string{th.Muted.Render(heading)}

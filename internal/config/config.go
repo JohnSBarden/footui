@@ -1,5 +1,4 @@
-// Package config resolves footui's on-disk locations, following the XDG
-// base directory convention, and reads the user's settings file.
+// Package config resolves footui's XDG paths and reads the settings file.
 package config
 
 import (
@@ -7,10 +6,9 @@ import (
 	"path/filepath"
 )
 
-// DefaultDBPath returns $XDG_DATA_HOME/footui/footui.db, falling back to
-// ~/.local/share/footui/footui.db when XDG_DATA_HOME is unset. A database
-// written before the command was renamed, footy.db beside it, is used
-// when footui.db doesn't exist yet, so nobody's cache goes missing.
+// DefaultDBPath returns $XDG_DATA_HOME/footui/footui.db (default
+// ~/.local/share). A legacy footy.db beside it is used if footui.db
+// doesn't exist yet.
 func DefaultDBPath() string {
 	dataHome := os.Getenv("XDG_DATA_HOME")
 	if dataHome == "" {

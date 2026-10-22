@@ -7,9 +7,8 @@ import (
 	"github.com/JohnSBarden/footui/internal/data/models"
 )
 
-// Missing is what every screen prints for a stat the provider didn't
-// supply. understat.com has real gaps (no possession, fouls, or corners),
-// so "not available" has to be visually distinct from a genuine zero.
+// Missing is printed for a stat the provider didn't supply; it must stay
+// visually distinct from a genuine zero.
 const Missing = "—"
 
 // Float renders a nullable float to the given number of decimals.
@@ -47,9 +46,7 @@ func Int(v *int) string {
 	return strconv.Itoa(*v)
 }
 
-// Signed renders an int with an explicit sign, for goal difference and
-// xG-minus-actual style deltas where the direction matters as much as the
-// magnitude.
+// Signed renders an int with an explicit sign.
 func Signed(v int) string {
 	if v > 0 {
 		return "+" + strconv.Itoa(v)
@@ -72,10 +69,8 @@ func SeasonName(s models.Season) string {
 	return SeasonLabelFor(s.CalendarYear, s.Label)
 }
 
-// SeasonLabelFor displays a bare start-year label for a competition that
-// does (calendar) or doesn't run within one calendar year: "2025" for
-// MLS, "2025-26" for the Premier League. A label that isn't a bare year
-// is passed through untouched.
+// SeasonLabelFor displays a bare start-year label as "2025" (calendar) or
+// "2025-26"; anything else passes through untouched.
 func SeasonLabelFor(calendar bool, label string) string {
 	if calendar {
 		return label

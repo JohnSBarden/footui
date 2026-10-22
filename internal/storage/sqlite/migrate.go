@@ -13,25 +13,18 @@ import (
 //go:embed migrations/*.sql
 var migrationFiles embed.FS
 
-// Migrate applies any migration files that haven't yet been recorded in the
-// schema_migrations table, in filename order. Migrations are plain SQL and
-// run inside a transaction each.
-//
-// A database that records a migration this build doesn't have was written
-// by a newer footui. Migrate refuses it rather than carrying on: an older
-// binary writing rows into a schema it doesn't understand is how a user's
-// cache gets quietly corrupted after a downgrade.
+// Migrate applies unrecorded migration files in filename order, one
+// transaction each. It refuses a database migrated by a newer build, so a
+// downgrade can't corrupt the cache.
 func Migrate(db *sql.DB) error {
 	return migrateTo(db, "")
 }
 
-// ErrNewerSchema is returned when the database was migrated by a newer
-// build than this one.
+// ErrNewerSchema means the database was migrated by a newer build.
 var ErrNewerSchema = errors.New("the database was created by a newer version of footui")
 
-// migrateTo applies migrations up to and including the one whose filename
-// starts with upTo, or all of them when upTo is empty. Tests use it to
-// build a database as an older release would have left it.
+// migrateTo applies migrations up to and including upTo (all when
+// empty); tests use it to build older schemas.
 func migrateTo(db *sql.DB, upTo string) error {
 	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS schema_migrations (
 		version TEXT PRIMARY KEY,

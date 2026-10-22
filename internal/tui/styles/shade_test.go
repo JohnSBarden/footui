@@ -35,8 +35,7 @@ func TestShadeSurvivesResetsAndLeavesOwnBackgrounds(t *testing.T) {
 }
 
 // On a strong theme a selected panel's fill must not be its highlight
-// (the text colour), and the text must read at least as well on it as on
-// the stripe beneath.
+// (the text colour), and text must read at least as well as on the stripe.
 func TestStrongShadeKeepsTextContrast(t *testing.T) {
 	entries, err := colors.Load()
 	if err != nil {

@@ -1,12 +1,6 @@
-// Package ticker is the news line beneath the footer: what a refresh
-// brought in for the clubs and nations the user follows — a result, a
-// move up or down the table — cycling one item at a time. Refresh
-// progress and status messages still take the line first; the ticker
-// fills it when they're gone.
-//
-// News is found by comparing two snapshots of the followed teams, one
-// taken before a batch of refreshes starts and one after it drains, so a
-// result is news once, when it lands, not every time it's looked at.
+// Package ticker is the news line beneath the footer for followed teams.
+// News is a diff of snapshots taken before and after a refresh batch, so a
+// result is news once, when it lands.
 package ticker
 
 import (
@@ -24,13 +18,12 @@ import (
 // refresh fills in years of results, and none of those are.
 const recent = 4 * 24 * time.Hour
 
-// Snapshot is what the ticker compares across a refresh: the followed
-// teams' finished matches and league standings.
+// Snapshot holds the followed teams' recent results and standings.
 type Snapshot struct {
 	taken    bool
 	finished map[string]models.Match // by match ID
-	// standing is each team's newest season in each league, keyed by
-	// team and competition.
+	// standing is each team's newest season per league, keyed
+	// team|competition.
 	standing map[string]standing
 }
 
@@ -77,9 +70,8 @@ func Take(ctx context.Context, repos storage.Repositories, now time.Time) Snapsh
 	return s
 }
 
-// News is what landed between before and after, as ticker lines: results
-// first, oldest first, then table moves. A before that was never taken
-// has no news to compare against.
+// News is results (oldest first), then table moves. A before never taken
+// yields none.
 func News(ctx context.Context, repos storage.Repositories, before, after Snapshot) []string {
 	if !before.taken || !after.taken {
 		return nil
@@ -146,8 +138,7 @@ func News(ctx context.Context, repos storage.Repositories, before, after Snapsho
 	return out
 }
 
-// Result is a finished match as a ticker line: "FT Arsenal 2–1 Chelsea ·
-// Premier League", with the shoot-out or extra time when there was one.
+// Result is a ticker line like "FT  Arsenal 2–1 Chelsea · Premier League".
 func Result(m models.Match, home, away, comp string) string {
 	score := fmt.Sprintf("%d–%d", *m.HomeScore, *m.AwayScore)
 	state := "FT"
@@ -163,8 +154,7 @@ func Result(m models.Match, home, away, comp string) string {
 	return fmt.Sprintf("%s  %s %s %s · %s", state, home, score, away, comp)
 }
 
-// Move is a team's change of place as a ticker line: "↑ Arsenal up to
-// 2nd in the Premier League (from 4th)".
+// Move is a ticker line like "↑ Arsenal up to 2nd in ... (from 4th)".
 func Move(team, comp string, from, to int) string {
 	arrow, dir := "↑", "up"
 	if to > from {
@@ -194,8 +184,7 @@ const (
 	most = 12
 )
 
-// Add puts lines at the front of the feed, newest news first, and shows
-// the first of them.
+// Add puts lines at the front of the feed and shows the first.
 func (f *Feed) Add(now time.Time, lines ...string) {
 	if len(lines) == 0 {
 		return
@@ -211,8 +200,7 @@ func (f *Feed) Add(now time.Time, lines ...string) {
 	f.shown = 0
 }
 
-// Advance moves on to the next item, dropping stale ones. It reports
-// whether anything is left to show.
+// Advance drops stale items and reports whether anything is left.
 func (f *Feed) Advance(now time.Time) bool {
 	f.items = slices.DeleteFunc(f.items, func(it item) bool { return now.Sub(it.added) > Keep })
 	if len(f.items) == 0 {
@@ -223,8 +211,8 @@ func (f *Feed) Advance(now time.Time) bool {
 	return true
 }
 
-// Current is the item on the line, "" when the feed is empty. With more
-// than one it says where it is: "FT Arsenal 2–1 Chelsea · 1/3".
+// Current is the item on the line with an "i/n" suffix when there are
+// several; "" when empty.
 func (f *Feed) Current() string {
 	if len(f.items) == 0 {
 		return ""
@@ -236,5 +224,5 @@ func (f *Feed) Current() string {
 	return text
 }
 
-// Len is how many items are in the feed.
+// Len is the number of items in the feed.
 func (f *Feed) Len() int { return len(f.items) }

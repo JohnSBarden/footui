@@ -134,13 +134,9 @@ func TestGetPlayerAndPlayers(t *testing.T) {
 
 // --- histories ---
 
-// A club or player's history spans competitions; "most recent first" must
-// mean by season, not by competition ID that happens to prefix the season
-// ID.
+// History must order by season, not by the competition-prefixed season ID.
 func TestHistoriesAreMostRecentFirstAcrossCompetitions(t *testing.T) {
 	s := newTestStore(t)
-	// Premier League 2025 and La Liga 2019: "esp-…" sorts after "eng-…",
-	// so ordering by season_id would put the older La Liga season first.
 	pl := seedCompetitionSeason(t, s, "eng-premier-league", "2025", "club", "Club")
 	ll := seedCompetitionSeason(t, s, "esp-la-liga", "2019", "club", "Club")
 	for _, season := range []struct{ comp, id string }{{"eng-premier-league", pl}, {"esp-la-liga", ll}} {
@@ -233,8 +229,7 @@ func TestLatestSyncRun(t *testing.T) {
 	}
 }
 
-// Two attempts finishing in the same second — a refresh and an immediate
-// retry — must still come back in the order they were recorded.
+// Runs finishing in the same second keep their recorded order.
 func TestLatestSyncRunBreaksSameSecondTiesByInsertionOrder(t *testing.T) {
 	s := newTestStore(t)
 	at := time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC)
@@ -374,9 +369,8 @@ func TestTeamColorsForReturnsOnlyKnownTeams(t *testing.T) {
 	}
 }
 
-// The schema allows NULL in several descriptive columns. footui writes
-// empty strings there, but a row from another writer, an older build, or
-// a future provider may hold NULL, and reading it must not fail the query.
+// NULL in descriptive columns (from older builds or other writers) must
+// read back without failing the query.
 func TestNullDescriptiveColumnsReadAsEmpty(t *testing.T) {
 	s := newTestStore(t)
 	for _, q := range []string{

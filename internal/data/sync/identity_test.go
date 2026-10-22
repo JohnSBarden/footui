@@ -218,11 +218,8 @@ func TestDomesticClubsFollowedBetweenDivisions(t *testing.T) {
 	}
 }
 
-// A club the provider already knows by another of its IDs is another
-// club, however its name reduces: Miami FC is a subset of Inter Miami,
-// and Atlanta United 2 loses its digit to become Atlanta United exactly.
-// The same name under a second ID is the provider listing one club
-// twice, and still joins it.
+// A club the provider knows by another of its IDs is another club, unless
+// it has the very same name (the provider listing one club twice).
 func TestAClubTheProviderKnowsByAnotherIDIsAnotherClub(t *testing.T) {
 	repos := newStore(t)
 	mls := &nativeSource{}
@@ -300,10 +297,7 @@ func TestWomensSidesNeverMergeWithTheMensClub(t *testing.T) {
 	}
 }
 
-// A club's squad is everyone who ever played for it, so a name is not
-// enough. Another of the provider's IDs is another player, unless the
-// name is the same words; a different birth date is another player
-// whoever says so.
+// A name is not enough to match a squad member; see couldBe.
 func TestPlayersAreNotJoinedAcrossIDsOrBirthDates(t *testing.T) {
 	repos := newStore(t)
 	day := func(y int, m time.Month, d int) *time.Time {
@@ -395,9 +389,8 @@ func syncUnderstat(t *testing.T, repos storage.Repositories, src Source) {
 	}
 }
 
-// Download order mustn't matter: a club ESPN cached first (from the
-// Championship) is the same club understat later reports in the Premier
-// League.
+// Download order mustn't matter: a club ESPN cached first is the same club
+// understat later reports.
 func TestUnderstatJoinsClubsAnotherProviderCachedFirst(t *testing.T) {
 	repos := newStore(t)
 	src := &nativeSource{}
@@ -412,8 +405,7 @@ func TestUnderstatJoinsClubsAnotherProviderCachedFirst(t *testing.T) {
 	}
 }
 
-// For everything understat has always fetched, IDs come out exactly as
-// before — existing databases and curated seeds keep lining up.
+// understat IDs stay canonical, so existing databases and seeds line up.
 func TestUnderstatKeepsItsCanonicalIDs(t *testing.T) {
 	repos := newStore(t)
 	src := understatSource([2]string{"eng-arsenal", "Arsenal"}, [2]string{"eng-ipswich", "Ipswich"})

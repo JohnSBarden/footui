@@ -10,11 +10,8 @@ import (
 	"github.com/JohnSBarden/footui/internal/data/models"
 )
 
-// leagueKeys maps our canonical competition IDs to understat.com's own
-// league key (the path segment in /league/{key} and /getLeagueData/{key}/).
-// This is the entire "which leagues does this provider cover" surface —
-// extending coverage to another understat.com league is adding one entry
-// here, nothing else in the package changes.
+// leagueKeys maps canonical competition IDs to understat's league keys.
+// It defines this provider's coverage.
 var leagueKeys = map[string]string{
 	"eng-premier-league": "EPL",
 	"esp-la-liga":        "La liga",
@@ -24,8 +21,7 @@ var leagueKeys = map[string]string{
 	"rus-premier-league": "RFPL",
 }
 
-// countryPrefix maps a covered competition to the country-code prefix used
-// when generating canonical team IDs (e.g. "eng-manchester-city").
+// countryPrefix is the team ID prefix ("eng-manchester-city").
 var countryPrefix = map[string]string{
 	"eng-premier-league": "eng",
 	"esp-la-liga":        "esp",
@@ -35,7 +31,6 @@ var countryPrefix = map[string]string{
 	"rus-premier-league": "rus",
 }
 
-// countryName maps a covered competition to its country, for Team.Country.
 var countryName = map[string]string{
 	"eng-premier-league": "England",
 	"esp-la-liga":        "Spain",
@@ -45,14 +40,11 @@ var countryName = map[string]string{
 	"rus-premier-league": "Russia",
 }
 
-// leagueData is the raw shape of a GET /getLeagueData/{league}/{season}
-// response. Only the fields footui uses are modeled; unrecognized fields
-// are ignored by encoding/json rather than erroring.
+// leagueData is a /getLeagueData/{league}/{season} response.
 type leagueData struct {
 	Teams   map[string]teamEntry `json:"teams"`
 	Players []playerEntry        `json:"players"`
-	// Dates is every match of the season, played or not — understat's
-	// calendar view, and a club's league games.
+	// Dates is every match of the season, played or not.
 	Dates []dateEntry `json:"dates"`
 }
 
@@ -103,16 +95,13 @@ type matchEntry struct {
 	Date        string    `json:"date"`
 }
 
-// ppdaEntry is understat.com's per-match pressing figure: Att is the
-// opponent's passes in their own build-up area, Def is our defensive
-// actions there. The published PPDA statistic is Att/Def.
+// ppdaEntry is a per-match pressing figure; PPDA is Att/Def.
 type ppdaEntry struct {
 	Att int `json:"att"`
 	Def int `json:"def"`
 }
 
-// playerEntry's numeric fields arrive as JSON strings from understat.com,
-// so they're decoded as strings and parsed explicitly in the mapper.
+// playerEntry's numeric fields arrive as JSON strings.
 type playerEntry struct {
 	ID          string `json:"id"`
 	PlayerName  string `json:"player_name"`
@@ -132,11 +121,8 @@ type playerEntry struct {
 	TeamTitle   string `json:"team_title"`
 }
 
-// optionalInt parses one of understat.com's string-encoded numbers,
-// returning nil when the field is absent or unparseable. Nil is the right
-// answer rather than zero: "this provider didn't tell us" and "the player
-// took zero shots" are different facts, and screens render them
-// differently.
+// optionalInt parses a string-encoded number; nil (not zero) when absent
+// or unparseable.
 func optionalInt(raw string) *int {
 	if raw == "" {
 		return nil
@@ -167,24 +153,16 @@ func slugify(s string) string {
 	return strings.Trim(s, "-")
 }
 
-// primaryTeamTitle picks one club from understat.com's team_title field,
-// which is comma-joined ("Bournemouth,Manchester City") for a player who
-// changed clubs mid-season. It returns the last-listed (most recent) club.
-// The season stat line understat.com gives for that player is still a
-// single aggregate across every club they played for — attributing it
-// entirely to the most recent club is an approximation, not a split by
-// club, and is called out in docs/data-model.md.
+// primaryTeamTitle returns the last (most recent) club of a comma-joined
+// team_title. A mid-season mover's single aggregate line is attributed
+// wholly to it (see docs/data-model.md).
 func primaryTeamTitle(teamTitle string) string {
 	parts := strings.Split(teamTitle, ",")
 	return strings.TrimSpace(parts[len(parts)-1])
 }
 
-// teamID generates understat's own ID for a team: "understat:" and the
-// canonical ID footui has always derived from the club's name within its
-// competition's country namespace. The sync layer resolves it like any
-// provider's ID, so a club another provider cached first is matched
-// rather than duplicated, and a club footui hasn't seen keeps exactly the
-// canonical ID it always had.
+// teamID is "understat:" plus the canonical ID derived from the club's
+// name; changing it would change existing clubs' canonical IDs.
 func teamID(compID, teamTitle string) string {
 	prefix := countryPrefix[compID]
 	if prefix == "" {
@@ -193,8 +171,6 @@ func teamID(compID, teamTitle string) string {
 	return "understat:" + prefix + "-" + slugify(teamTitle)
 }
 
-// mapTeamEntities extracts the Team rows (identity, not stats) referenced
-// by a league/season payload.
 func mapTeamEntities(data *leagueData, compID string) []models.Team {
 	country := countryName[compID]
 	out := make([]models.Team, 0, len(data.Teams))
@@ -209,11 +185,8 @@ func mapTeamEntities(data *leagueData, compID string) []models.Team {
 	return out
 }
 
-// mapStandings aggregates each team's per-match history into one
-// TeamSeasonStats row per team, then assigns Position by sorting on points,
-// goal difference, and goals for — understat.com doesn't return a rank
-// directly, so this is footui's own computed ranking (ties beyond these
-// three keys, e.g. head-to-head, aren't modeled).
+// mapStandings aggregates each team's match history. understat has no
+// rank, so Position is computed by points, goal difference, goals for.
 func mapStandings(data *leagueData, compID, seasonID string) []models.TeamSeasonStats {
 	now := time.Now().UTC()
 	stats := make([]models.TeamSeasonStats, 0, len(data.Teams))
@@ -246,10 +219,7 @@ func mapStandings(data *leagueData, compID, seasonID string) []models.TeamSeason
 			xpts += m.XPts
 			deep += m.Deep
 			deepAllowed += m.DeepAllowed
-			// PPDA is a ratio, so a season figure is the ratio of the
-			// summed numerators and denominators — averaging the
-			// per-match ratios would weight a quiet match as heavily as a
-			// frantic one and give a different, wrong answer.
+			// Season PPDA is the ratio of sums, not the mean of ratios.
 			ppdaAtt += m.PPDA.Att
 			ppdaDef += m.PPDA.Def
 			allowedAtt += m.PPDAAllowed.Att
@@ -297,9 +267,8 @@ func mapStandings(data *leagueData, compID, seasonID string) []models.TeamSeason
 	return stats
 }
 
-// mapPlayerEntities extracts the Player rows (identity/bio) referenced by a
-// league/season's roster, separate from their season stat lines.
-// understat.com only gives a position string and no bio fields beyond name.
+// mapPlayerEntities extracts Player rows; understat has no bio beyond name
+// and position.
 func mapPlayerEntities(data *leagueData) []models.Player {
 	out := make([]models.Player, 0, len(data.Players))
 	for _, p := range data.Players {
@@ -352,10 +321,8 @@ func mapPlayers(data *leagueData, compID, seasonID string) []models.PlayerSeason
 	return out
 }
 
-// mapMatches turns the season's calendar into matches under understat's
-// own IDs ("understat:28778"), which the sync layer maps to canonical
-// ones like a team's. A match naming a club the payload has no team for
-// is dropped: there would be no team row to store it against.
+// mapMatches turns the season's calendar into matches. A match naming a
+// club the payload has no team for is dropped.
 func mapMatches(data *leagueData, compID, seasonID string, updated time.Time) []models.Match {
 	known := map[string]bool{}
 	for _, t := range data.Teams {

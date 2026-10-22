@@ -172,7 +172,7 @@ func TestDetailSkipsUncoveredCompetitions(t *testing.T) {
 }
 
 // A season the source has no stats for (ESPN 404s Messi's Champions League
-// seasons) is missing, not a failure: the player's other seasons are fine.
+// seasons) is missing, not a failure.
 func TestDetailSeasonTheSourceDoesNotHaveIsNotAnError(t *testing.T) {
 	repos := seedDetailPlayer(t, "David Raya", "GK")
 	_ = repos.PutExternalRef(context.Background(), "player", "understat-1", "espn", "196176")

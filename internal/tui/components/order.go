@@ -6,10 +6,8 @@ import (
 	"github.com/JohnSBarden/footui/internal/data/models"
 )
 
-// SortCompetitions orders a club's or player's competitions for tabs:
-// domestic before European, then by tier (with tier 0, unknown, last),
-// then by name. A fixed order keeps tabs stable across refreshes rather
-// than following map iteration.
+// SortCompetitions orders competitions for tabs: domestic before European,
+// then by tier (0, unknown, last), then by name.
 func SortCompetitions(comps []models.Competition) {
 	sort.Slice(comps, func(i, j int) bool {
 		if ei, ej := comps[i].Country == "Europe", comps[j].Country == "Europe"; ei != ej {

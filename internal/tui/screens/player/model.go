@@ -1,11 +1,5 @@
-// Package player renders one player's career: a season-by-season stat
-// table sliced by competition, with headline numbers for the selected
-// season.
-//
-// Like the Team screen, competitions are tabs rather than merged rows —
-// a striker's league and cup returns are different numbers and summing
-// them would misrepresent both. Career totals are shown per competition
-// for the same reason.
+// Package player renders one player's career, season by season. Each
+// competition is its own tab and totals never sum across competitions.
 package player
 
 import (
@@ -18,19 +12,15 @@ import (
 	"github.com/JohnSBarden/footui/internal/tui/keys"
 )
 
-// SeasonRow is one line of a player's history: their stats for a season,
-// with the team and season they belong to resolved for display.
+// SeasonRow is one season of a player's history.
 type SeasonRow struct {
 	Stats  models.PlayerSeasonStats
 	Team   models.Team
 	Season models.Season
-	// Detail is the season's clean sheets, saves, tackles and so on, nil
-	// until it has been fetched (or when there's none to fetch).
-	Detail *models.PlayerSeasonDetail
-	// Standouts are this season's numbers unusual for the position.
+	// Detail is nil until fetched, or when there's none.
+	Detail    *models.PlayerSeasonDetail
 	Standouts []playerstats.Standout
-	// XGA is a keeper's expected goals against, estimated from the club's;
-	// nil when there's no estimate.
+	// XGA is a keeper's estimated xGA from the club's; nil when unknown.
 	XGA *float64
 }
 
@@ -39,14 +29,12 @@ type Model struct {
 	deps   core.Deps
 	player models.Player
 
-	// fromTeamID is the club the user drilled in from, used only to pick
-	// the initially selected competition tab.
+	// fromTeamID only picks the initial competition tab.
 	fromTeamID string
 
 	competitions []models.Competition
 	history      map[string][]SeasonRow
-	// colors are the brand colours of every club the player has played
-	// for, keyed by team ID; the header band wears the selected season's.
+	// colors is keyed by team ID; the band wears the selected season's.
 	colors  map[string]models.TeamColors
 	compIdx int
 	cursor  int
@@ -54,11 +42,8 @@ type Model struct {
 	width  int
 	height int
 
-	// group is the player's position, which picks the tiles, chart and
-	// columns; hasDetail is whether any season has detail to show them.
-	group     playerstats.Group
-	hasDetail bool
-	// refreshing is set while the player's detail is queued or fetching.
+	group      playerstats.Group
+	hasDetail  bool
 	refreshing bool
 
 	loading bool
@@ -66,8 +51,7 @@ type Model struct {
 	err     error
 }
 
-// New constructs the Player screen. teamID may be empty (opened from
-// Browse), in which case the first competition tab is selected.
+// New constructs the Player screen. teamID may be empty.
 func New(deps core.Deps, p models.Player, teamID string) *Model {
 	return &Model{
 		deps:       deps,
@@ -95,9 +79,7 @@ func (m *Model) Keys() core.KeyMap {
 	}
 }
 
-// Init implements core.Screen.
-// Opening a player also asks for their season detail to be brought up to
-// date; the refresh is automatic, so a recent copy costs nothing.
+// Init implements core.Screen. It also queues an automatic detail refresh.
 func (m *Model) Init() tea.Cmd {
 	return tea.Batch(m.loadHistory(), core.RequestRefresh(core.RefreshRequest{
 		PlayerID: m.player.ID, Name: m.player.Name, Automatic: true,
@@ -109,8 +91,7 @@ func (m *Model) FavoriteTarget() (core.FavoriteTarget, bool) {
 	return core.FavoriteTarget{Kind: models.FavoritePlayer, ID: m.player.ID, Name: m.player.Name}, true
 }
 
-// RefreshRequest implements core.RefreshRequester: everything the player
-// has stats in, not just the season on screen.
+// RefreshRequest implements core.RefreshRequester for the whole history.
 func (m *Model) RefreshRequest() (core.RefreshRequest, bool) {
 	return core.RefreshRequest{PlayerID: m.player.ID, Name: m.player.Name, History: true}, true
 }
@@ -149,8 +130,7 @@ func (m *Model) SelectedRow() (SeasonRow, bool) {
 	return rows[m.cursor], true
 }
 
-// Career is a player's totals within one competition. Totals are only ever
-// computed within a single competition — see the package comment.
+// Career is a player's totals within one competition.
 type Career struct {
 	Seasons     int
 	Appearances int
@@ -161,15 +141,12 @@ type Career struct {
 	KeyPasses   int
 	XG          float64
 	XA          float64
-	// HasXG reports whether any season contributed expected-goals data, so
-	// a career with none shows "—" rather than a misleading 0.0.
-	HasXG bool
-	// HasShots and HasKeyPasses likewise for those counters.
+	// HasXG, HasShots and HasKeyPasses: any season had data, else show "—".
+	HasXG        bool
 	HasShots     bool
 	HasKeyPasses bool
-	// HasMinutes reports whether every season played has its minutes. An
-	// ESPN line without the player's detail has none, and a total that
-	// silently left those seasons out would undercount.
+	// HasMinutes is false if any season played lacks minutes (ESPN lines
+	// without detail), since the total would undercount.
 	HasMinutes bool
 }
 

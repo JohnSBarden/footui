@@ -26,9 +26,8 @@ type Provider struct {
 // New returns a provider against the real API.
 func New() *Provider { return newWithClient(NewClient()) }
 
-// NewAt returns a provider against another host serving ESPN's paths (a
-// test server), unpaced and with its own rate-limit breaker, so another
-// package's tests can count the requests a refresh makes.
+// NewAt returns an unpaced provider against a test server with ESPN's
+// paths, with its own rate-limit breaker.
 func NewAt(baseURL string) *Provider {
 	return newWithClient(NewClient().withBaseURLs(baseURL+"/site", baseURL+"/core"))
 }
@@ -43,9 +42,8 @@ func (p *Provider) OnRetry(fn func(attempt, of int, err error)) *Provider {
 	return p
 }
 
-// bundle is everything one competition-season refresh needs. The sync
-// layer asks for teams, standings, players, and stats separately; they
-// are fetched together once and served from here.
+// bundle is one competition-season refresh, fetched once and served to
+// the sync layer's separate Teams/Standings/Players calls.
 type bundle struct {
 	teams     []models.Team
 	standings []models.TeamSeasonStats
@@ -90,8 +88,7 @@ func (p *Provider) AllRosterStats(ctx context.Context, comp provider.Competition
 	return b.lines, nil
 }
 
-// TeamColors returns the brand colours ESPN has for the competition's
-// clubs. They fill in for clubs nobody has curated colours for.
+// TeamColors returns ESPN's brand colours for the competition's clubs.
 func (p *Provider) TeamColors(ctx context.Context, comp provider.CompetitionRef, season provider.SeasonRef) ([]models.TeamColors, error) {
 	b, err := p.load(ctx, comp, season)
 	if err != nil {
@@ -118,9 +115,8 @@ func (p *Provider) load(ctx context.Context, comp provider.CompetitionRef, seaso
 	return b, nil
 }
 
-// competitionFor recovers what mapping needs to know about a competition
-// (its country and gender) from the coverage registry: the sync layer
-// passes only an ID and a name.
+// competitionFor looks up the competition's country and gender, which the
+// sync layer doesn't pass.
 func competitionFor(ref provider.CompetitionRef) models.Competition {
 	if c, ok := datasync.FindCompetition(ref.CompetitionID); ok {
 		return c
@@ -128,8 +124,7 @@ func competitionFor(ref provider.CompetitionRef) models.Competition {
 	return models.Competition{ID: ref.CompetitionID, Name: ref.Name, Gender: "men"}
 }
 
-// ErrNoTable means ESPN has no standings for that season: before the
-// competition existed, or a season it never published a table for.
+// ErrNoTable means ESPN has no standings for that season.
 var ErrNoTable = fmt.Errorf("espn: %w", provider.ErrNoTable)
 
 func (p *Provider) fetch(ctx context.Context, ref provider.CompetitionRef, season provider.SeasonRef) (*bundle, error) {
@@ -150,9 +145,7 @@ func (p *Provider) fetch(ctx context.Context, ref provider.CompetitionRef, seaso
 	if len(b.standings) == 0 {
 		return nil, fmt.Errorf("%w (%s %s)", ErrNoTable, slug, year)
 	}
-	// A tournament's table is the whole story: national squads change
-	// from one match to the next, and footui keeps no player stats for
-	// them, so there are no rosters to fetch.
+	// No player stats are kept for national squads.
 	if comp.International() {
 		return b, nil
 	}
@@ -186,9 +179,7 @@ func (p *Provider) fetch(ctx context.Context, ref provider.CompetitionRef, seaso
 			applyTeamStats(row, ts)
 		}
 	}
-	// One club's roster missing leaves a hole; every roster missing means
-	// something is wrong with the whole request, and a table with no
-	// squads behind it shouldn't be reported as a successful refresh.
+	// Every roster missing means the request is broken, not a success.
 	if rosterFailures == len(b.standings) {
 		return nil, fmt.Errorf("espn: no rosters available for %s %s", slug, year)
 	}

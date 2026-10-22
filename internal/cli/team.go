@@ -22,8 +22,7 @@ func newTeamCmd(g *globalFlags) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmdContext(cmd)
 			return g.launchTUI(ctx, func(deps core.Deps) (core.Screen, error) {
-				// A nation named exactly ("spain", "england women") opens
-				// it, even though clubs may contain the name too.
+				// An exact nation name opens it, even if clubs contain the name.
 				if nation, ok := exactNation(ctx, deps.Repos, strings.Join(args, " ")); ok {
 					return tui.NewTeamScreen(deps, nation), nil
 				}
@@ -31,10 +30,8 @@ func newTeamCmd(g *globalFlags) *cobra.Command {
 				if err != nil {
 					return nil, err
 				}
-				// One match opens straight into the club. Zero or several
-				// hand off to Browse, which can show what the alternatives
-				// actually are — better than an error the user has to
-				// translate into another command.
+				// One match opens the club; otherwise hand off to Browse rather
+				// than erroring.
 				if len(matches) == 1 {
 					return tui.NewTeamScreen(deps, matches[0]), nil
 				}

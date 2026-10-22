@@ -18,8 +18,7 @@ const fixtureJSON = `{"teams":{"1":{"id":"1","title":"Arsenal","history":[
 	 "ppda":{"att":100,"def":10},"ppda_allowed":{"att":50,"def":10},"deep":9,"deep_allowed":3,"xpts":2.4}
 ]}},"players":[]}`
 
-// newTestClient points a client at a local server, with throttling off so
-// tests don't pay the politeness delay.
+// newTestClient points an unthrottled client at a local server.
 func newTestClient(t *testing.T, handler http.Handler) (*Client, *httptest.Server) {
 	t.Helper()
 	srv := httptest.NewServer(handler)
@@ -48,8 +47,7 @@ func TestFetchParsesAPayload(t *testing.T) {
 	}
 }
 
-// The provider satisfies several interfaces off one payload; each must not
-// trigger its own round trip.
+// Every interface is served off one payload: one round trip.
 func TestRepeatedFetchesForOneSeasonHitTheNetworkOnce(t *testing.T) {
 	var calls int32
 	c, _ := newTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -99,8 +97,7 @@ func TestTransientFailureIsRetriedThenSucceeds(t *testing.T) {
 	}
 }
 
-// Retrying a 404 just multiplies the wait before the user learns the
-// season isn't there.
+// A 404 is not retried.
 func TestSettledFailureIsNotRetried(t *testing.T) {
 	var calls int32
 	c, _ := newTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -136,8 +133,7 @@ func TestPersistentFailureGivesUpAfterMaxAttempts(t *testing.T) {
 	if !strings.Contains(err.Error(), "giving up") {
 		t.Errorf("error should say it exhausted its attempts: %v", err)
 	}
-	// The final failure is not followed by a retry, so it must not be
-	// announced as one.
+	// The final failure must not be announced as a retry.
 	if retries != maxAttempts-1 {
 		t.Errorf("OnRetry fired %d times for %d attempts, want %d", retries, maxAttempts, maxAttempts-1)
 	}
@@ -169,8 +165,7 @@ func TestDiskCacheAvoidsTheNetworkEntirely(t *testing.T) {
 		t.Fatalf("first fetch made %d requests", got)
 	}
 
-	// A brand-new client shares only the directory, not the in-process
-	// cache, so a second read proves the file was actually used.
+	// A new client shares only the directory, proving the file was used.
 	fresh := NewClient(0)
 	fresh.baseURL = c.baseURL
 	fresh.cacheDir = dir
@@ -213,8 +208,7 @@ func TestCorruptDiskCacheFallsBackToTheNetwork(t *testing.T) {
 	}
 }
 
-// League keys contain spaces ("La liga", "Serie A"), which cannot be used
-// verbatim as path segments.
+// League keys contain spaces ("La liga"), unusable verbatim in paths.
 func TestDiskCachePathNormalizesLeagueKeys(t *testing.T) {
 	c := NewClient(0)
 	c.cacheDir = "/tmp/cache"
@@ -239,8 +233,7 @@ func TestNoCacheDirMeansNoDiskCache(t *testing.T) {
 	}
 }
 
-// An unwritable cache directory must not fail a refresh that otherwise
-// worked — the caller already has the data.
+// An unwritable cache directory must not fail a refresh.
 func TestUnwritableCacheDirDoesNotFailTheFetch(t *testing.T) {
 	c, _ := newTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(fixtureJSON))
@@ -303,9 +296,8 @@ func TestRequestCarriesTheHeadersTheEndpointExpects(t *testing.T) {
 	}
 }
 
-// A request that times out is the most common transient failure there is,
-// and net/http reports it as context.DeadlineExceeded — the same sentinel
-// a user's ctrl+c produces. It must still be retried.
+// net/http reports a timeout as context.DeadlineExceeded, like a ctrl+c;
+// it must still be retried.
 func TestRequestTimeoutIsRetried(t *testing.T) {
 	var calls int32
 	c, _ := newTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -333,8 +325,7 @@ func TestRequestTimeoutIsRetried(t *testing.T) {
 	}
 }
 
-// The user's interrupt looks identical to a timeout from the error alone;
-// the difference is that their context is done.
+// An interrupt is told from a timeout by the done context.
 func TestUserCancellationIsNotRetried(t *testing.T) {
 	var calls int32
 	ctx, cancel := context.WithCancel(context.Background())
@@ -352,9 +343,7 @@ func TestUserCancellationIsNotRetried(t *testing.T) {
 	}
 }
 
-// net/http describes its own timeout as "context deadline exceeded
-// (Client.Timeout exceeded while awaiting headers)", which tells the user
-// nothing about what happened or why. The error they read should.
+// The timeout error must say what happened, unlike net/http's wording.
 func TestTimeoutErrorIsReadable(t *testing.T) {
 	c, _ := newTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(200 * time.Millisecond)

@@ -70,8 +70,6 @@ func TestYearsIncludeAllYears(t *testing.T) {
 	}
 }
 
-// Presets and toggles recompute the record from the matches they keep,
-// and the choice is saved for the nation.
 func TestFilterPresetsAndTogglesRecomputeAndAreSaved(t *testing.T) {
 	m, repos := open(t)
 	m = key(t, m, "right") // All years
@@ -191,8 +189,7 @@ func TestANationWithNoMatchesSaysHowToGetThem(t *testing.T) {
 	}
 }
 
-// Along the top, under the year bar, run the nation's scores in every
-// competition whatever the filter, its next friendly among them.
+// The score strip ignores the filter.
 func TestScoresRunAlongTheTop(t *testing.T) {
 	m, _ := open(t)
 	short := m.Keys().Short

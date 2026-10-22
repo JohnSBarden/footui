@@ -25,12 +25,10 @@ func NewRootCmd() *cobra.Command {
 			"leagues, teams, and players across multiple competitions and seasons.",
 		Args:         cobra.NoArgs,
 		SilenceUsage: true,
-		// Errors are printed once, by Execute below. Without this Cobra
-		// prints them too and every failure appears twice.
+		// Execute prints errors; without this Cobra prints them twice.
 		SilenceErrors: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			// The config commands must work with a broken config file —
-			// they are how it gets fixed — so they resolve on their own.
+			// Config commands must work with a broken config file, to fix it.
 			if cmd.Annotations[skipSettings] != "" {
 				return nil
 			}

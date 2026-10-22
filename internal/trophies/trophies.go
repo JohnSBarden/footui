@@ -1,11 +1,6 @@
-// Package trophies loads footui's hand-curated club honours and applies
-// them to teams already in the cache.
-//
-// Like club colours, honours have no scrapeable structured source, so this
-// is a manual dataset and a deliberately partial one — see the header of
-// seed/trophies.yaml for exactly what it claims to cover. The Team screen
-// labels the panel with that scope so a partial list is never read as an
-// all-time honours count.
+// Package trophies applies hand-curated club honours to cached teams. The
+// dataset is deliberately partial; seed/trophies.yaml's header says what
+// it covers.
 package trophies
 
 import (
@@ -22,26 +17,19 @@ import (
 //go:embed seed/trophies.yaml
 var seedFile []byte
 
-// SeedSource is the provenance recorded on trophies written from this
-// file, so a future automated source can be told apart from the curated set.
+// SeedSource is the provenance recorded on trophies from the seed file.
 const SeedSource = "seed:v1"
 
-// LeagueTitlesFrom is the earliest season the curated league-title lists
-// cover. It is surfaced in the UI: a club's count here is "titles since
-// 2000-01", never an all-time total, and saying so is the difference
-// between a useful partial dataset and a wrong one.
+// LeagueTitlesFrom is the earliest season the league-title lists cover;
+// the UI must show counts as "since" this, never as all-time totals.
 const LeagueTitlesFrom = "2000-01"
 
-// Honour is one line of a club's honours list: a single title, won in the
-// listed seasons.
+// Honour is one title, won in the listed seasons.
 type Honour struct {
 	Title string `yaml:"title"`
-	// Type is one of the models.Trophy trophy types: league_title,
-	// domestic_cup, continental_cup, other.
+	// Type is league_title, domestic_cup, continental_cup or other.
 	Type string `yaml:"type"`
-	// Competition optionally links the honour to an in-scope competition
-	// ID. Continental cups have none, since footui doesn't cover them as
-	// competitions in their own right.
+	// Competition is an optional in-scope competition ID.
 	Competition string   `yaml:"competition"`
 	Seasons     []string `yaml:"seasons"`
 }
@@ -75,18 +63,14 @@ func byTeamID(entries []Entry) map[string]Entry {
 
 // Report describes what a Seed call did.
 type Report struct {
-	// Teams is how many cached clubs got honours.
-	Teams int
-	// Trophies is how many individual honour rows were written.
+	Teams    int
 	Trophies int
 	// Unused counts curated entries that matched no cached team.
 	Unused int
 }
 
-// Seed applies the curated honours to every team currently in the cache.
-// Like the colours seed it is driven by what is cached, so trophy rows can
-// never reference a team that doesn't exist and refreshing a new
-// competition picks up its clubs with no extra step.
+// Seed applies the curated honours to every cached team; it is driven by
+// the cache so rows never reference a missing team.
 func Seed(ctx context.Context, repos storage.Repositories) (Report, error) {
 	var report Report
 
@@ -108,9 +92,7 @@ func Seed(ctx context.Context, repos storage.Repositories) (Report, error) {
 			continue
 		}
 
-		// Replace rather than append: re-running a seed whose data has
-		// been corrected must not leave the old rows behind alongside the
-		// new ones.
+		// Replace, so corrected seed data doesn't leave old rows behind.
 		if err := repos.DeleteTrophiesBySource(ctx, team.ID, SeedSource); err != nil {
 			return report, fmt.Errorf("trophies: clear %s: %w", team.ID, err)
 		}

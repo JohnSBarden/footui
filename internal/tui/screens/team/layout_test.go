@@ -11,7 +11,6 @@ import (
 	"github.com/JohnSBarden/footui/internal/tui/tuitest"
 )
 
-// seedSeasonsAndSquad gives Arsenal three league seasons and a squad.
 func seedSeasonsAndSquad(t *testing.T) storage.Repositories {
 	t.Helper()
 	repos := storagetest.New(t)
@@ -30,8 +29,7 @@ func sized(t *testing.T, repos storage.Repositories, w, h int) core.Screen {
 	return tuitest.Resize(t, s, w, h)
 }
 
-// However big the terminal, the screen draws in the lines it's given: a
-// taller one would have its bottom cut off, footer and all.
+// The screen must never exceed the lines it's given.
 func TestTeamFitsTheTerminal(t *testing.T) {
 	repos := seedSeasonsAndSquad(t)
 	for _, size := range [][2]int{{80, 19}, {100, 25}, {120, 35}, {200, 50}} {
@@ -59,8 +57,6 @@ func TestShortTerminalShowsOneTableAtATime(t *testing.T) {
 	}
 }
 
-// A wide terminal puts the squad beside the seasons rather than under
-// them, so it gets the screen's full height.
 func TestWideTerminalSetsTheSquadBesideTheSeasons(t *testing.T) {
 	out := sized(t, seedSeasonsAndSquad(t), 200, 50).View()
 	beside := false

@@ -10,10 +10,8 @@ import (
 	"github.com/JohnSBarden/footui/internal/data/provider/understat"
 )
 
-// The TUI shows errors on a one-line status bar beneath a screen that
-// already says what was being refreshed, so the wrapped chain the CLI
-// prints ("sync: fetch teams: giving up after 3 attempts: understat: fetch
-// EPL 2026: …") is mostly noise there. The cause is what fits.
+// The TUI's one-line status bar shows only the cause, not the CLI's
+// whole wrapped error chain.
 func TestTUIErrorKeepsTheCauseAndDropsTheChain(t *testing.T) {
 	timeout := &understat.TimeoutError{LeagueKey: "EPL", Season: "2026", Host: "understat.com", After: 15 * time.Second}
 	err := fmt.Errorf("sync: fetch teams: %w", &understat.ExhaustedError{Attempts: 3, Last: timeout})

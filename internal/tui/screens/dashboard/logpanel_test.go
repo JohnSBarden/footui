@@ -15,9 +15,6 @@ import (
 	"github.com/JohnSBarden/footui/internal/tui/styles"
 )
 
-// L opens the log beside the cards: what's downloading and its latest
-// progress, what's waiting, and what happened, newest first. L again, or
-// the header's button, closes it.
 func TestLogPanelShowsTheDownloadState(t *testing.T) {
 	_, deps, _ := seed(t)
 	deps.Log = core.NewLog(func() time.Time { return storagetest.Fixed })
@@ -46,7 +43,6 @@ func TestLogPanelShowsTheDownloadState(t *testing.T) {
 			t.Errorf("line %d wide, past the screen: %q", w, line)
 		}
 	}
-	// The newest entry comes first.
 	if strings.Index(view, "season 2025") > strings.Index(view, "MLS: 30") {
 		t.Error("recent entries should run newest first")
 	}
@@ -69,8 +65,7 @@ func TestLogPanelWhenIdle(t *testing.T) {
 	}
 }
 
-// In colour, the selected card is shaded and a glint runs around its
-// border, frame by frame; without colour nothing animates.
+// Without colour nothing animates.
 func TestSelectedCardGlintsInColour(t *testing.T) {
 	_, deps, _ := seed(t)
 	if load(t, deps, 120).Animating() {

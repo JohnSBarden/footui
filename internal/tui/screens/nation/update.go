@@ -29,16 +29,14 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 		return m, nil
 
 	case core.RefreshedMsg:
-		// Any international refresh may have brought this nation matches:
-		// they are shared by every nation of its gender.
+		// International match lists are shared by every nation.
 		if !msg.International && !m.isOurCompetition(msg.CompetitionID) {
 			return m, nil
 		}
 		return m, m.loadMeta()
 
 	case metaLoadedMsg:
-		// With no years before, "All years" was the only stop, not a
-		// choice: matches arriving for the first time open on the newest.
+		// With no years before, "All years" was not a choice.
 		wasAll := m.loaded && len(m.years) > 0 && m.yearIdx == len(m.years)
 		prev, hadYear := m.year()
 		m.team = msg.team
@@ -49,8 +47,7 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 		for _, c := range msg.allComps {
 			m.compByID[c.ID] = c
 		}
-		// The newest year opens the screen; a reload keeps the year (or
-		// "All years") the user was looking at.
+		// Open on the newest year; a reload keeps the user's choice.
 		m.yearIdx = max(len(m.years)-1, 0)
 		switch {
 		case wasAll || len(m.years) == 0:
@@ -63,8 +60,7 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 		return m, m.loadMatches()
 
 	case matchesLoadedMsg:
-		// A response for a selection the user has already moved past is
-		// dropped.
+		// Drop a response for a selection already moved past.
 		if !slices.Equal(msg.years, m.selectedYears()) || !sameFilter(msg.filter, m.filter) {
 			return m, nil
 		}
@@ -110,8 +106,7 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 		if i, ok := msg.ClickedIndex("year"); ok {
 			return m, m.selectYear(i)
 		}
-		// A click selects a match; clicking the selected one opens or
-		// closes its box score, as enter does.
+		// Clicking the selected match toggles its box score, as enter does.
 		if row, ok := msg.ClickedIndex("row"); ok {
 			if i, ok := m.matchAt(row); ok {
 				m.focus = paneMatches
@@ -125,8 +120,7 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 	return m, nil
 }
 
-// matchAt is the match on a row of the table, which has an open match's
-// box score rows under it; false for a box score row.
+// matchAt skips the open match's box score rows; false on one.
 func (m *Model) matchAt(row int) (int, bool) {
 	r := 0
 	for i, mt := range m.matches {
@@ -186,7 +180,6 @@ func (m *Model) move(delta int) {
 	m.cursor = min(max(m.cursor+delta, headerRow), len(m.matches)-1)
 }
 
-// selectYear moves along the year bar, whose last stop is "All years".
 func (m *Model) selectYear(idx int) tea.Cmd {
 	if idx < 0 || idx > len(m.years) || idx == m.yearIdx {
 		return nil
@@ -218,10 +211,8 @@ func (m *Model) filterKey(k string) tea.Cmd {
 	return nil
 }
 
-// toggled flips one competition in a filter. A preset becomes the
-// explicit list of the competitions it kept, minus (or plus) this one;
-// and a list that comes out equal to a preset becomes that preset, so the
-// filter bar shows the shorthand whenever it applies.
+// toggled expands a preset into an explicit list, and collapses a list
+// equal to a preset back into it.
 func toggled(f models.MatchFilter, comp models.Competition, all []models.Competition) models.MatchFilter {
 	var set []string
 	for _, c := range all {

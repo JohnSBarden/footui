@@ -1,7 +1,4 @@
-// Package tuitest holds helpers for driving screens in tests without a
-// terminal: Bubble Tea's Update/View are ordinary functions, so a screen
-// can be stepped through its load sequence and its rendered output
-// compared directly.
+// Package tuitest drives screens in tests without a terminal.
 package tuitest
 
 import (
@@ -23,23 +20,19 @@ import (
 const maxSteps = 20
 
 func init() {
-	// Golden output must not depend on whether the test runner's stdout
-	// happens to be a terminal, so colour is pinned off for every test in
-	// every package that imports this one.
+	// Pin colour off so golden output doesn't depend on stdout being a
+	// terminal; applies to every importing package.
 	lipgloss.SetColorProfile(termenv.Ascii)
 }
 
-// Settle runs a screen's Init command and feeds the resulting messages back
-// in until no commands remain, leaving the screen in its loaded state.
+// Settle runs s's Init and drives it until no commands remain.
 func Settle(t *testing.T, s core.Screen) core.Screen {
 	t.Helper()
 	return Drive(t, s, s.Init())
 }
 
-// Drive feeds cmd's message back into s, repeating until the screen stops
-// issuing commands. tea.Batch results are expanded and each command run,
-// mirroring what the real Bubble Tea runtime does — a screen whose Init
-// batches a blink with a data load must still end up loaded.
+// Drive feeds cmd's message back into s until it stops issuing commands,
+// expanding tea.Batch as the runtime does. Timers are skipped.
 func Drive(t *testing.T, s core.Screen, cmd tea.Cmd) core.Screen {
 	t.Helper()
 
@@ -56,9 +49,7 @@ func Drive(t *testing.T, s core.Screen, cmd tea.Cmd) core.Screen {
 		}
 
 		if isTimer(next) {
-			// A timer (the text cursor's blink) isn't a data load.
-			// Waiting on it would add half a second per test and tell
-			// us nothing about the screen's behaviour.
+			// A timer (cursor blink) isn't a data load; skip it.
 			continue
 		}
 		msg, ok := runCmd(next)
@@ -80,23 +71,16 @@ func Drive(t *testing.T, s core.Screen, cmd tea.Cmd) core.Screen {
 	return s
 }
 
-// cmdTimeout is how long a command gets to produce its message. Queries
-// against an in-memory database return far inside it, even under the race
-// detector with every package's tests running at once — which is why
-// timers are recognised by what they are (isTimer) rather than by being
-// slow: a short timeout made loads that took a little longer under load
-// look like timers, and tests flaked.
+// cmdTimeout is generous on purpose: timers are recognised by isTimer, not
+// by being slow, since a short timeout flaked under -race.
 const cmdTimeout = 10 * time.Second
 
-// timerFuncs are the functions behind the commands that wait on a clock
-// rather than load anything.
 var timerFuncs = []string{
 	"github.com/charmbracelet/bubbles/cursor.",
 	"github.com/charmbracelet/bubbletea.Tick",
 	"github.com/charmbracelet/bubbletea.Every",
 }
 
-// isTimer reports whether cmd is a timer: a blinking cursor or a tick.
 func isTimer(cmd tea.Cmd) bool {
 	fn := runtime.FuncForPC(reflect.ValueOf(cmd).Pointer())
 	if fn == nil {
@@ -110,7 +94,6 @@ func isTimer(cmd tea.Cmd) bool {
 	return false
 }
 
-// runCmd runs a command, reporting false if it didn't return in time.
 func runCmd(cmd tea.Cmd) (tea.Msg, bool) {
 	done := make(chan tea.Msg, 1)
 	go func() { done <- cmd() }()
@@ -123,24 +106,21 @@ func runCmd(cmd tea.Cmd) (tea.Msg, bool) {
 	}
 }
 
-// Key sends a keystroke to a screen and settles any command it returns.
-// The name is a Bubble Tea key string ("down", "enter", "left").
+// Key sends a Bubble Tea key string ("down", "enter") and settles.
 func Key(t *testing.T, s core.Screen, name string) core.Screen {
 	t.Helper()
 	updated, cmd := s.Update(keyMsg(name))
 	return Drive(t, updated, cmd)
 }
 
-// Resize sends a window-size message, since most screens lay out against
-// the terminal width.
+// Resize sends a window-size message and settles.
 func Resize(t *testing.T, s core.Screen, width, height int) core.Screen {
 	t.Helper()
 	updated, cmd := s.Update(tea.WindowSizeMsg{Width: width, Height: height})
 	return Drive(t, updated, cmd)
 }
 
-// CapturedCmd runs a command and returns the message it produced without
-// feeding it to a screen, for asserting on navigation messages.
+// CapturedCmd runs cmd and returns its message without feeding it back.
 func CapturedCmd(cmd tea.Cmd) tea.Msg {
 	if cmd == nil {
 		return nil
@@ -148,8 +128,7 @@ func CapturedCmd(cmd tea.Cmd) tea.Msg {
 	return cmd()
 }
 
-// keyMsg builds the tea.KeyMsg for a key name. Named keys map to their
-// tea.KeyType; anything else is treated as literal runes.
+// keyMsg treats anything not a named key as literal runes.
 func keyMsg(name string) tea.KeyMsg {
 	named := map[string]tea.KeyType{
 		"up": tea.KeyUp, "down": tea.KeyDown, "left": tea.KeyLeft, "right": tea.KeyRight,
@@ -164,8 +143,7 @@ func keyMsg(name string) tea.KeyMsg {
 	return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(name)}
 }
 
-// Stub is a do-nothing core.Screen standing in for a drill-down target, so
-// navigation can be asserted without depending on another screen package.
+// Stub is a do-nothing core.Screen standing in for a drill-down target.
 type Stub struct{}
 
 func (Stub) Init() tea.Cmd                           { return nil }

@@ -14,42 +14,20 @@ import (
 	"github.com/JohnSBarden/footui/internal/textfold"
 )
 
-// Identity resolution: a provider that doesn't speak footui's canonical
-// IDs returns its own ("espn:359"), and before anything is written each is
-// mapped to the canonical team or player it denotes. Without this, Arsenal
-// in the Champions League (from ESPN) and Arsenal in the Premier League
-// (from understat) would be two clubs, and Saka would have two careers.
+// Identity resolution maps provider IDs ("espn:359") to canonical teams
+// and players before anything is written, so one club from two sources is
+// one club. Every resolution is recorded and never re-guessed.
 //
-// For a team, in order:
-//  1. A mapping recorded on an earlier refresh.
-//  2. A cached club of the same gender whose normalized name matches
-//     exactly ("Paris Saint-Germain" = "Paris Saint Germain", "AS Roma" =
-//     "Roma"), or matches through a short alias table for names that no
-//     rule can equate ("Internazionale" = "Inter"). For a domestic
-//     competition the club must be from the same country, and a unique
-//     word-subset match also counts ("Coventry City" = "Coventry"), which
-//     is what follows a club between divisions. A European competition's
-//     clubs come from everywhere, so there it's exact or alias only:
-//     "Paris Saint-Germain" must never become "Paris FC". A domestic
-//     cup's word-subset match only counts when the words that differ are
-//     club suffixes ("Leeds United" = "Leeds", but "FC United of
-//     Manchester" is not Manchester United). A club the provider already
-//     knows by a different one of its IDs is never a match: the
-//     provider says it's another club ("Miami FC" is not "Inter Miami
-//     CF", "Columbus Crew 2" not "Columbus Crew").
-//  3. Otherwise a new canonical club.
+// A team: a recorded mapping, else a unique cached club of the same gender
+// by normalized name or alias, else a new club. Domestic competitions also
+// require the same country and allow a word-subset match (cups only when
+// the differing words are club suffixes); European ones are exact only.
+// A club the provider knows by another of its IDs is never a match.
 //
-// A player is matched within the squad of the club they were resolved
-// to — exact normalized name, then a unique word-subset ("Gabriel" =
-// "Gabriel Magalhães" only if no other Gabriel played there) — and is
-// otherwise new. Every resolution is recorded, so later refreshes are
-// stable and never re-guess.
+// A player is matched within their resolved club's squad, the same way.
 
-// canonicalLocalIDs are providers whose own IDs are already footui's
-// canonical form. understat was footui's first provider, and its scheme
-// became the canonical one: a club it reports that matches nothing cached
-// keeps that ID, so every existing database and curated seed still lines
-// up.
+// canonicalLocalIDs are providers whose own IDs are already canonical
+// (understat's scheme became canonical; seeds depend on it).
 var canonicalLocalIDs = map[string]bool{"understat": true}
 
 // nativeID reports whether id is a provider's own, and splits it.
@@ -103,7 +81,6 @@ func normalizeClub(name string) string {
 	return n
 }
 
-// normalizePerson reduces a player's name to lowercase, accent-free words.
 func normalizePerson(name string) string {
 	return strings.Join(strings.Fields(nonAlnum.ReplaceAllString(textfold.Fold(name), " ")), " ")
 }
@@ -143,9 +120,8 @@ var clubSuffixes = map[string]bool{
 }
 
 // suffixesOnly reports whether every word one name has and the other
-// lacks is a club suffix. A cup brings in clubs no league table had, and
-// a word-subset alone would make "FC United of Manchester" Manchester
-// United; this keeps a loose match to the differences that don't matter.
+// lacks is a club suffix, so "FC United of Manchester" isn't Manchester
+// United.
 func suffixesOnly(a, b string) bool {
 	count := func(s string) map[string]int {
 		m := map[string]int{}
@@ -197,10 +173,8 @@ func newResolver(ctx context.Context, repos storage.Repositories, comp models.Co
 		teamOf: map[string]string{}, squads: map[string][]models.Player{}, claimed: map[string]bool{}}, nil
 }
 
-// teams resolves every native team, returning the rows to write: the
-// cached row for a club footui already has (so one provider's spelling
-// never overwrites another's), the provider's row under a new canonical
-// ID otherwise.
+// teams resolves every native team. A known club's cached row is returned
+// so one provider's spelling never overwrites another's.
 func (r *resolver) teams(ctx context.Context, teams []models.Team) ([]models.Team, error) {
 	out := make([]models.Team, 0, len(teams))
 	for _, t := range teams {
@@ -266,9 +240,6 @@ func (r *resolver) cachedTeam(id string) (models.Team, bool) {
 }
 
 // match finds the cached club a fetched one denotes, if exactly one fits.
-// A club the provider already knows by another of its IDs is, on the
-// provider's own word, another club, however alike the names: Miami FC
-// is not Inter Miami, nor Atlanta United 2 Atlanta United.
 func (r *resolver) match(ctx context.Context, provider, local string, t models.Team) (models.Team, bool, error) {
 	europe := r.comp.Country == "Europe"
 	name := normalizeClub(t.Name)
@@ -324,10 +295,8 @@ func (r *resolver) unclaimedBy(ctx context.Context, provider, local string, t mo
 	return out, nil
 }
 
-// newTeamID mints a canonical ID for a club footui hasn't seen: the
-// country prefix and a slug of the name, "-women" for a women's side so
-// it can never collide with the men's club of the same name, and "int"
-// for a European club whose country isn't known.
+// newTeamID mints a canonical club ID. "-women" keeps a women's side from
+// colliding with the men's club.
 func (r *resolver) newTeamID(t models.Team) string {
 	prefix := countryPrefixes[t.Country]
 	if prefix == "" {
@@ -348,13 +317,7 @@ func (r *resolver) newTeamID(t models.Team) string {
 }
 
 // nations maps national teams reported under a provider's IDs to
-// canonical ones, returning the rows to write and the mapping.
-//
-// A nation is simpler than a club: it is "nat-{slug}" (with "-women" for a
-// women's side), its name is the same in every competition, and it is
-// only ever matched against other national teams — never a club, so no
-// "Arsenal" can become "England". As with clubs, a recorded mapping wins,
-// then a cached nation of the same gender and name, then a new one.
+// canonical ones. Nations are only matched against nations, by exact name.
 func nations(ctx context.Context, repos storage.Repositories, teams []models.Team) ([]models.Team, map[string]string, error) {
 	mapping := map[string]string{}
 	cached := map[string][]models.Team{}
@@ -418,8 +381,6 @@ func nations(ctx context.Context, repos storage.Repositories, teams []models.Tea
 	return out, mapping, nil
 }
 
-// newNationID mints "nat-{slug}", or "nat-{slug}-women", taking a numbered
-// suffix in the unlikely case another nation already has it.
 func newNationID(t models.Team, taken func(string) (models.Team, bool)) string {
 	base := "nat-" + slug(t.Name)
 	if t.Gender == "women" {
@@ -442,9 +403,8 @@ func (r *resolver) canonicalTeam(id string) string {
 	return id
 }
 
-// players resolves every native player, given the stat lines that say
-// which club each played for, and returns the rows to write plus the
-// native-to-canonical mapping.
+// players resolves every native player against the club its stat line
+// names, returning the rows and the native-to-canonical mapping.
 func (r *resolver) players(ctx context.Context, players []models.Player, lines []models.PlayerSeasonStats) ([]models.Player, map[string]string, error) {
 	clubOf := map[string]string{}
 	for _, l := range lines {
@@ -516,10 +476,8 @@ func (r *resolver) squad(ctx context.Context, club string) ([]models.Player, err
 	return s, nil
 }
 
-// matchPlayer finds a squad member with the same name, or failing that
-// the one squad member whose name is a word-subset of it, among those
-// couldBe allows. A squad is everyone who ever played for the club, so
-// names alone would make 2026's Xavi Espart the Xavi of 2014.
+// matchPlayer finds the squad member p is, among those couldBe allows. A
+// squad is everyone who ever played there, so names alone aren't enough.
 func matchPlayer(p models.Player, squad []models.Player, taken map[string]bool,
 	couldBe func(models.Player) (bool, error)) (models.Player, bool, error) {
 	name := normalizePerson(p.Name)
@@ -566,11 +524,9 @@ func matchPlayer(p models.Player, squad []models.Player, taken map[string]bool,
 }
 
 // couldBe reports whether a squad member whose name matches p could be
-// the same person. Two birth dates that differ say not: three
-// goalkeepers called Daniel have kept FC Dallas's and San Jose's goals.
-// Nor could one the provider already knows by another of its IDs —
-// unless the names are the same words, which is the provider listing one
-// player twice ("Thomas Shavar" and "Shavar Thomas").
+// the same person: not if birth dates differ, nor if the provider knows
+// them by another ID (unless the names are the same words reordered,
+// which is the provider listing one player twice).
 func (r *resolver) couldBe(ctx context.Context, provider, local string, p, s models.Player) (bool, error) {
 	if p.DateOfBirth != nil && s.DateOfBirth != nil && !sameDay(*p.DateOfBirth, *s.DateOfBirth) {
 		return false, nil
@@ -599,8 +555,7 @@ func sameWords(a, b string) bool {
 	return slices.Equal(wa, wb)
 }
 
-// enrich keeps a cached player's identity and fills in only what it was
-// missing — a birth date or nationality another provider didn't supply.
+// enrich keeps a cached player's identity, filling in only missing fields.
 func enrich(existing, fetched models.Player) models.Player {
 	if existing.DateOfBirth == nil {
 		existing.DateOfBirth = fetched.DateOfBirth

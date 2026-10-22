@@ -1,7 +1,5 @@
 // Package styles owns every Lip Gloss style footui renders with. Screens
-// never construct styles inline: they read them off a Theme, so that a
-// club's theme can be swapped in wholesale and a no-color mode can
-// flatten everything in one place.
+// read styles off a Theme rather than building them inline.
 package styles
 
 import (
@@ -10,9 +8,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// Palette is the raw colour set a Theme is derived from. Keeping colours
-// separate from styles is what lets TeamTheme rebuild a full Theme from
-// just a club's brand colours.
+// Palette is the raw colour set a Theme is derived from.
 type Palette struct {
 	Accent    lipgloss.TerminalColor // primary brand/highlight colour
 	OnAccent  lipgloss.TerminalColor // text drawn on top of Accent
@@ -28,10 +24,8 @@ type Palette struct {
 	Highlight lipgloss.TerminalColor // selected-row background
 }
 
-// DefaultPalette is the un-branded palette used before a team's colours are
-// known (Browse, League) and whenever a team has no seeded colours. Its
-// accent is footui's own lime; every text role clears WCAG AA on both a
-// light and a dark terminal.
+// DefaultPalette is the un-branded palette. Every text role clears WCAG
+// AA on both light and dark terminals.
 func DefaultPalette() Palette {
 	return Palette{
 		Accent:    lipgloss.AdaptiveColor{Light: "#4D7C0F", Dark: "#C8F25A"},
@@ -88,20 +82,16 @@ type Theme struct {
 	Panel      lipgloss.Style
 	PanelTitle lipgloss.Style
 
-	// Background is the colour the whole screen is painted in, or nil to
-	// leave the terminal's own background showing — every theme except a
-	// strong club theme.
+	// Background is the whole-screen colour; nil leaves the terminal's own.
 	Background lipgloss.TerminalColor
-	// Stripe is the second mowing shade, alternating with Background every
-	// few columns like a cut pitch; nil paints Background flat.
+	// Stripe is the second mowing shade; nil paints Background flat.
 	Stripe lipgloss.TerminalColor
-	// Shade is the background a selected panel is filled with: the
-	// highlight, except on a strong theme, whose highlight is its text
-	// colour (selection there is drawn inverse).
+	// Shade is a selected panel's fill. Not Highlight: on a strong theme
+	// that is the text colour.
 	Shade lipgloss.TerminalColor
 
-	// NoColor reports whether colour was disabled; screens that would
-	// otherwise convey meaning through colour alone add a text marker.
+	// NoColor reports whether colour was disabled; screens that convey
+	// meaning through colour alone must add a text marker.
 	NoColor bool
 }
 
@@ -141,9 +131,7 @@ func New(p Palette) Theme {
 func Default() Theme { return New(applyAccent(DefaultPalette())) }
 
 // Plain returns a theme with every colour stripped, for NO_COLOR and
-// --no-color. Layout, padding, and bold/italic are kept: they still convey
-// structure on a monochrome terminal, and Lip Gloss drops the attributes
-// the terminal can't render anyway.
+// --no-color. Bold/italic are kept to convey structure.
 func Plain() Theme {
 	t := Theme{NoColor: true}
 	bold := lipgloss.NewStyle().Bold(true)
@@ -160,8 +148,7 @@ func Plain() Theme {
 	t.Empty = lipgloss.NewStyle().Italic(true)
 	t.TableHeader = bold
 	t.TableCell = plain
-	// Without colour, the selected row is marked by reverse video — the one
-	// highlight every terminal renders regardless of colour support.
+	// Reverse video renders on every terminal, colour or not.
 	t.TableSelected = reverse
 	t.Accent = bold
 	t.Muted = plain
@@ -180,9 +167,8 @@ func Plain() Theme {
 	return t
 }
 
-// Resolve picks the theme to start the app with. An explicit --no-color
-// flag wins; otherwise the NO_COLOR convention (any non-empty value) is
-// honoured. See https://no-color.org.
+// Resolve picks the startup theme, honouring --no-color and NO_COLOR
+// (any non-empty value; https://no-color.org).
 func Resolve(noColorFlag bool) Theme {
 	if noColorFlag || os.Getenv("NO_COLOR") != "" {
 		return Plain()
@@ -190,19 +176,15 @@ func Resolve(noColorFlag bool) Theme {
 	return Default()
 }
 
-// The pitch is footui's own strong-mode look, used to paint the screens
-// that belong to no club (Browse, a league table, the catalog), so
-// switching modes visibly changes every screen: the kickabout's two
-// mowing greens, with the lime accent on top.
+// The pitch is the strong-mode look for screens no club owns: the
+// kickabout's two greens with lime on top.
 const (
 	grassDark  = "#2F6B3A"
 	grassLight = "#367A41"
 	baseLime   = "#C8F25A"
 )
 
-// BaseFor is the theme for screens with no club colours of their own, in
-// the given mode: the terminal's background in weak mode, the pitch in
-// strong mode. No colour still means no colour.
+// BaseFor is the theme for screens with no club colours of their own.
 func BaseFor(mode Mode, noColorFlag bool) Theme {
 	t := Resolve(noColorFlag)
 	if t.NoColor || mode != Strong {

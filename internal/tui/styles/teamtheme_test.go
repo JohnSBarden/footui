@@ -32,8 +32,7 @@ func TestContrastRatioMatchesTheWCAGExtremes(t *testing.T) {
 	}
 }
 
-// The point of the whole file: a club colour must end up readable on
-// whichever terminal background the user has.
+// A club colour must end up readable on either terminal background.
 func TestBrandColorsBecomeReadableOnBothBackgrounds(t *testing.T) {
 	// Real brand colours chosen to be hard cases at each end.
 	cases := map[string]string{
@@ -61,8 +60,7 @@ func TestBrandColorsBecomeReadableOnBothBackgrounds(t *testing.T) {
 	}
 }
 
-// Adjusting must move lightness only: a club's hue is the part that makes
-// the colour recognizably theirs.
+// Adjusting must move lightness only, keeping the club's hue.
 func TestAdjustingPreservesHue(t *testing.T) {
 	chelsea := hex(t, "#034694")
 	wantHue, _, _ := chelsea.Hsl()
@@ -121,8 +119,7 @@ func TestTeamPaletteUsesTheBrandColor(t *testing.T) {
 	}
 }
 
-// Plain() exists so NO_COLOR users still get structure; it must not leak
-// any club colour.
+// Plain() must not leak any club colour.
 func TestPlainThemeCarriesNoColor(t *testing.T) {
 	if !Plain().NoColor {
 		t.Error("Plain() should report NoColor")

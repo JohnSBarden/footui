@@ -9,8 +9,7 @@ import (
 	"github.com/JohnSBarden/footui/internal/storage/storagetest"
 )
 
-// Nations from the directory are searchable before any match is fetched,
-// labelled as national teams, with the side's gender to tell them apart.
+// Nations are searchable before any match is fetched.
 func TestNationsAreLabelledNationalTeams(t *testing.T) {
 	repos := storagetest.New(t)
 	for _, n := range []models.Team{

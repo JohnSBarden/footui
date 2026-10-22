@@ -26,8 +26,7 @@ func TestSeedFileParsesAndIsWellFormed(t *testing.T) {
 		if e.ID == "" || e.Name == "" || e.Primary == "" {
 			t.Errorf("entry %+v is missing a required field", e)
 		}
-		// Every ID and alias must be unique, or one club would silently
-		// shadow another's colours depending on file order.
+		// A duplicate ID or alias would shadow another club's colours.
 		for _, id := range append([]string{e.ID}, e.Aliases...) {
 			if prev, dup := seen[id]; dup {
 				t.Errorf("id/alias %q used by both %q and %q", id, prev, e.Name)
@@ -37,8 +36,7 @@ func TestSeedFileParsesAndIsWellFormed(t *testing.T) {
 	}
 }
 
-// Colors that don't parse would silently fall back to the neutral theme,
-// so a typo in the seed file must fail here rather than at render time.
+// A colour typo must fail here, not silently fall back at render time.
 func TestEverySeededColorIsUsable(t *testing.T) {
 	entries, err := colors.Load()
 	if err != nil {
@@ -90,9 +88,7 @@ func TestSeedAppliesColorsToCachedTeams(t *testing.T) {
 	}
 }
 
-// Seeding is driven by the cache, not the file: an entry for a club footui
-// has never seen must not write a team_colors row referencing a
-// non-existent team.
+// An entry for an uncached club must not write a team_colors row.
 func TestSeedIgnoresEntriesForUncachedTeams(t *testing.T) {
 	repos := storagetest.New(t)
 	seedTeams(t, repos, models.Team{ID: "eng-arsenal", Name: "Arsenal", Gender: "men"})
@@ -109,8 +105,7 @@ func TestSeedIgnoresEntriesForUncachedTeams(t *testing.T) {
 	}
 }
 
-// An uncurated club is a normal state and must be reported, not hidden —
-// that list is how someone knows what to add to the seed file.
+// Uncurated clubs must be reported, not hidden.
 func TestSeedReportsUncoloredTeams(t *testing.T) {
 	repos := storagetest.New(t)
 	seedTeams(t, repos,

@@ -8,9 +8,8 @@ import (
 	"github.com/JohnSBarden/footui/internal/data/models"
 )
 
-// statSlugs are the leagues understat syncs, whose players' season detail
-// (clean sheets, tackles) still comes from ESPN. They aren't in
-// leagueSlugs, which is the routing table for what ESPN syncs.
+// statSlugs are understat's leagues, whose player season detail still
+// comes from ESPN. Kept out of leagueSlugs, which routes ESPN syncs.
 var statSlugs = map[string]string{
 	"eng-premier-league": "eng.1",
 	"esp-la-liga":        "esp.1",
@@ -20,8 +19,6 @@ var statSlugs = map[string]string{
 	"rus-premier-league": "rus.1",
 }
 
-// slugFor is the ESPN league for a competition's player detail: a
-// league ESPN syncs, or one of understat's.
 func slugFor(competitionID string) (string, bool) {
 	if s, ok := statSlugs[competitionID]; ok {
 		return s, true
@@ -49,8 +46,7 @@ var leagueSlugs = map[string]string{
 	"eur-conference-league":       "uefa.europa.conf",
 	"eur-womens-champions-league": "uefa.wchampions",
 
-	// Domestic cups, a club's matches only. Each was checked against
-	// ESPN on 2026-10-14.
+	// Domestic cups, a club's matches only.
 	"eng-fa-cup":          "eng.fa",
 	"eng-league-cup":      "eng.league_cup",
 	"esp-copa-del-rey":    "esp.copa_del_rey",
@@ -59,9 +55,8 @@ var leagueSlugs = map[string]string{
 	"fra-coupe-de-france": "fra.coupe_de_france",
 	"usa-open-cup":        "usa.open",
 
-	// International. Each was checked against ESPN; the women's Nations
-	// League is "uefa.w.nations" and the Asian Cup "afc.asian.cup" (the
-	// obvious spellings return 400).
+	// International. "uefa.w.nations" and "afc.asian.cup" are right; the
+	// obvious spellings return 400.
 	"world-cup":               "fifa.world",
 	"euro":                    "uefa.euro",
 	"copa-america":            "conmebol.america",
@@ -83,19 +78,14 @@ var leagueSlugs = map[string]string{
 	"int-friendly-women":      "fifa.friendly.w",
 }
 
-// directorySlugs are where each gender's national teams are listed. The
-// men's friendlies list every nation; the women's lists only some (no
-// England, no Netherlands), so the Women's World Cup and the UEFA Women's
-// Nations League are merged in.
+// directorySlugs list each gender's national teams. The women's
+// friendlies miss some nations (England), so two more are merged in.
 var directorySlugs = map[string][]string{
 	"men":   {"fifa.friendly"},
 	"women": {"fifa.friendly.w", "fifa.wwc", "uefa.w.nations"},
 }
 
-// Provider-native IDs. They are not canonical: the sync layer resolves
-// them to footui's own team and player IDs (and records the mapping), so
-// ESPN's Arsenal in the Champions League is the same team understat's
-// Arsenal is in the Premier League.
+// Provider-native IDs; the sync layer resolves them to canonical ones.
 const (
 	ProviderName = "espn"
 	idPrefix     = ProviderName + ":"
@@ -161,7 +151,6 @@ type categories struct {
 	} `json:"splits"`
 }
 
-// all flattens every category's stats into one list.
 func (c categories) all() statList {
 	var out statList
 	for _, cat := range c.Splits.Categories {
@@ -185,17 +174,12 @@ type rosterResponse struct {
 
 // --- mapping ---
 
-// mapStandings turns a standings payload into one row per club. A
-// competition with groups (MLS's conferences, an old Champions League
-// group stage) ranks clubs within their group, and that rank is kept as
-// the position: it is what the table on ESPN says.
+// mapStandings turns a standings payload into one row per club.
 func mapStandings(resp standingsResponse, comp models.Competition, seasonID string, updated time.Time) ([]models.Team, []models.TeamSeasonStats) {
 	var teams []models.Team
 	var rows []models.TeamSeasonStats
-	// A tournament's groups are its table: each keeps its label and its
-	// own ranking. A club competition's (MLS conferences, an old
-	// Champions League group stage) keep their labels too, but are ranked
-	// as one table, which is what the screen opens on.
+	// A tournament's groups keep their own ranking; a club competition's
+	// groups (MLS conferences) keep labels but are ranked as one table.
 	groups := len(resp.Children) > 1
 	for _, group := range resp.Children {
 		for _, e := range group.Standings.Entries {
@@ -229,11 +213,8 @@ func mapStandings(resp standingsResponse, comp models.Competition, seasonID stri
 	return teams, rows
 }
 
-// rankOverall replaces per-group ranks with one table across every group,
-// by points, then goal difference, then goals scored. footui shows one
-// table per competition-season; two conferences each numbered from 1
-// would interleave in it ("1, 1, 2, 2 …") and read as nonsense. For MLS
-// this is the Supporters' Shield table.
+// rankOverall replaces per-group ranks with one table across all groups,
+// so two conferences don't interleave as "1, 1, 2, 2".
 func rankOverall(rows []models.TeamSeasonStats) {
 	sort.SliceStable(rows, func(i, j int) bool {
 		a, b := rows[i], rows[j]
@@ -251,9 +232,8 @@ func rankOverall(rows []models.TeamSeasonStats) {
 	}
 }
 
-// mapTeam builds a Team. Domestic competitions give a club its country;
-// a European competition's clubs come from everywhere, so their country
-// is left for identity resolution to supply from the club already cached.
+// mapTeam builds a Team. A European competition's clubs get no country;
+// identity resolution supplies it.
 func mapTeam(t wireTeam, comp models.Competition) models.Team {
 	if comp.International() {
 		return nationalTeam(t.ID, t.DisplayName, t.ShortDisplayName, comp.Gender)
@@ -265,7 +245,6 @@ func mapTeam(t wireTeam, comp models.Competition) models.Team {
 	return team
 }
 
-// mapColors extracts brand colours for clubs that have them.
 func mapColors(resp teamsResponse) []models.TeamColors {
 	var out []models.TeamColors
 	for _, s := range resp.Sports {
@@ -297,9 +276,8 @@ func isHex(s string) bool {
 	return true
 }
 
-// mapRoster turns one club's roster into players and their stat lines.
-// ESPN lists the whole registered squad; only players who actually
-// appeared are kept, matching what understat supplies.
+// mapRoster turns one club's roster into players and stat lines. ESPN
+// lists the whole squad; only players who appeared are kept.
 func mapRoster(resp rosterResponse, comp models.Competition, espnTeamID, seasonID string, updated time.Time) ([]models.Player, []models.PlayerSeasonStats) {
 	var players []models.Player
 	var lines []models.PlayerSeasonStats
@@ -349,14 +327,9 @@ func position(abbr string) string {
 	return abbr
 }
 
-// applyTeamStats fills the columns understat never had — possession,
-// corners, fouls, cards, shots — from a club's season statistics.
-//
-// ESPN's figures here are uneven: a season can report 0% possession, or
-// thousands of corners. Every value is checked against what is possible
-// for the number of matches played, and anything implausible is left
-// unset rather than shown, since a missing number is honest and a wrong
-// one isn't.
+// applyTeamStats fills possession, corners, fouls, cards and shots from a
+// club's season statistics. ESPN's figures can be absurd (0% possession,
+// thousands of corners), so implausible values are left unset.
 func applyTeamStats(row *models.TeamSeasonStats, c categories) {
 	st := c.all()
 	mp := row.MatchesPlayed

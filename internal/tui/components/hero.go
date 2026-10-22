@@ -11,8 +11,7 @@ import (
 // beside the title; narrower, it moves underneath.
 const heroMinWidth = 80
 
-// heroMinTitle is the least of the title a row keeps before it gives up
-// its right-hand text instead.
+// heroMinTitle is the title width kept before dropping the right text.
 const heroMinTitle = 12
 
 // HeroOpts configures Hero.
@@ -25,9 +24,7 @@ type HeroOpts struct {
 	NoColor    bool
 }
 
-// Hero is a club or player screen's header: a band in the club's colour
-// with the name on the left and a summary on the right, over a thin rule
-// in the secondary colour.
+// Hero is a club or player screen's header band and rule.
 func Hero(o HeroOpts) string {
 	left := []string{o.Fill.Bold(true).Render(o.Title), o.Fill.Render(o.Meta)}
 	right := o.Right

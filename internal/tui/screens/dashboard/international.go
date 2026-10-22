@@ -11,12 +11,10 @@ import (
 	"github.com/JohnSBarden/footui/internal/tui/core"
 )
 
-// recentResults is how many results a nation card lists.
 const recentResults = 3
 
-// loadTournament builds a starred international competition's card from
-// its newest season: during the group stage, the group of a starred
-// nation (or the first); once the knockouts have begun, the latest round.
+// loadTournament shows a starred nation's group (or the first) during the
+// group stage, then the latest round.
 func loadTournament(deps core.Deps, comp models.Competition) (Card, error) {
 	c := Card{Kind: models.FavoriteCompetition, ID: comp.ID, Group: GroupTournaments, Competition: comp}
 	seasons, err := deps.Repos.ListSeasons(deps.Ctx, comp.ID)
@@ -66,8 +64,7 @@ func loadTournament(deps core.Deps, comp models.Competition) (Card, error) {
 			}
 		}
 	case len(matches) > 0:
-		// The round of the latest result, or of the first fixture when
-		// nothing has been played.
+		// Latest result's round, else the first fixture's.
 		latest := -1
 		for i, mt := range matches {
 			if mt.Finished() {
@@ -96,8 +93,7 @@ func loadTournament(deps core.Deps, comp models.Competition) (Card, error) {
 	return c, nil
 }
 
-// loadNation builds a starred nation's card from its matches under the
-// filter saved on its screen, so the card and the screen agree.
+// loadNation uses the filter saved on the nation's screen so both agree.
 func loadNation(deps core.Deps, team models.Team) (Card, error) {
 	c := Card{Kind: models.FavoriteTeam, ID: team.ID, Group: GroupNations, Team: team}
 	filter, err := deps.Repos.GetTeamMatchFilter(deps.Ctx, team.ID)
@@ -137,7 +133,6 @@ func loadNation(deps core.Deps, team models.Team) (Card, error) {
 	return c, nil
 }
 
-// team names a side in a card's match lines.
 func (c Card) team(id string) models.Team {
 	if t, ok := c.Teams[id]; ok {
 		return t
@@ -152,8 +147,6 @@ func (c Card) comp(id string) string {
 	return id
 }
 
-// inFlight reports whether a card's numbers are being refreshed now, or
-// waiting to be.
 func (m *Model) inFlight(c Card) (running, waiting bool) {
 	keys := []string{}
 	if c.Competition.ID != "" {
@@ -208,7 +201,6 @@ func (m *Model) tournamentLines(c Card, inner int) []string {
 	return lines
 }
 
-// filterLabel says which of a nation's matches its card counts.
 func filterLabel(f models.MatchFilter) string {
 	switch {
 	case f.IsAll():
@@ -233,7 +225,6 @@ func (m *Model) nationLines(c Card, inner int) []string {
 	if s.Played == 0 && c.Next == nil {
 		return append(lines, th.Empty.Render(components.Truncate("No matches cached — press r.", inner)))
 	}
-	// The record, and its form at the right, as on a club card.
 	record := th.Accent.Bold(true).Render(components.Truncate(fmt.Sprintf("P%d W%d D%d L%d", s.Played, s.Won, s.Drawn, s.Lost), inner))
 	if form := components.FormChips(th, s.Form); form != "" {
 		if gap := inner - lipgloss.Width(record) - lipgloss.Width(form); gap >= 2 {

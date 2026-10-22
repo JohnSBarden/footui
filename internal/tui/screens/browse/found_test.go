@@ -15,7 +15,6 @@ import (
 	"github.com/JohnSBarden/footui/internal/tui/tuitest"
 )
 
-// fakePlayers is a data source's player search.
 type fakePlayers struct {
 	found  []models.FoundPlayer
 	career []models.CareerSeason
@@ -155,7 +154,6 @@ func TestAFoundPlayerMissingFromTheSquadsIsReported(t *testing.T) {
 	}
 }
 
-// refreshRequests runs cmd and collects the refresh requests it makes.
 func refreshRequests(cmd tea.Cmd) []core.RefreshRequest {
 	var out []core.RefreshRequest
 	var walk func(tea.Cmd)

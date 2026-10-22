@@ -14,26 +14,20 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// File is the user's settings file. Every field is optional; a nil field
-// means "not set here", so the caller can tell an explicit value from an
-// absent one and fall through to the default.
+// File is the user's settings file. A nil field means "not set here".
 type File struct {
-	// Theme is the club theme mode, "weak" or "strong".
+	// Theme is "weak" or "strong".
 	Theme *string `yaml:"theme"`
-	// Accent is footui's own highlight colour: "lime", "terminal", or a
-	// colour as #rrggbb.
+	// Accent is "lime", "terminal", or #rrggbb.
 	Accent *string `yaml:"accent"`
-	// StaleAfter is how old a followed league's current season may get
-	// before opening the interface refreshes it. "0" disables.
+	// StaleAfter: "0" disables the launch refresh.
 	StaleAfter *Duration `yaml:"stale_after"`
 	// DB overrides the database path. A leading ~/ is expanded.
-	DB *string `yaml:"db"`
-	// NoColor disables colour, as --no-color does.
-	NoColor *bool `yaml:"no_color"`
+	DB      *string `yaml:"db"`
+	NoColor *bool   `yaml:"no_color"`
 }
 
-// Duration is a time.Duration written the way Go parses them ("6h",
-// "90m", "0").
+// Duration is a time.Duration in Go syntax ("6h", "90m", "0").
 type Duration time.Duration
 
 // UnmarshalYAML implements yaml.Unmarshaler.
@@ -64,13 +58,9 @@ func DefaultPath() string {
 	return filepath.Join(configHome, "footui", "config.yaml")
 }
 
-// Load reads the settings file at path. A missing file is not an error —
-// it is the normal state for anyone who hasn't run `footui config init` —
-// and yields an empty File.
-//
-// Unknown keys are an error. A misspelt setting that silently did nothing
-// would be worse than refusing to start: the user would think their
-// change had taken.
+// Load reads the settings file at path; a missing file yields an empty
+// File. Unknown keys are an error so a misspelt setting isn't silently
+// ignored.
 func Load(path string) (File, error) {
 	var f File
 	data, err := os.ReadFile(path)
@@ -104,7 +94,7 @@ func expandHome(p string) string {
 }
 
 // Template is what `footui config init` writes: every setting, commented
-// out at its default, so the file documents itself.
+// out at its default.
 const Template = `# footui settings. Every line is optional; a flag on the command line
 # always wins over what's here, and an environment variable (where one
 # exists) wins over this file.
@@ -132,8 +122,7 @@ const Template = `# footui settings. Every line is optional; a flag on the comma
 # no_color: false
 `
 
-// WriteTemplate creates the settings file at path from Template, refusing
-// to overwrite one that exists.
+// WriteTemplate writes Template to path, refusing to overwrite.
 func WriteTemplate(path string) error {
 	if _, err := os.Stat(path); err == nil {
 		return fmt.Errorf("%s already exists — edit it, or remove it first", path)
@@ -144,11 +133,9 @@ func WriteTemplate(path string) error {
 	return os.WriteFile(path, []byte(Template), 0o600)
 }
 
-// SetTheme records theme as the theme setting in the file at path,
-// creating the file from Template if there is none. It edits the one line
-// rather than re-encoding the file, so the user's comments and layout
-// survive: an existing theme line is replaced, a commented-out one is
-// uncommented, and failing both the setting is appended.
+// SetTheme saves theme to the file at path (created from Template if
+// missing). It edits the one line rather than re-encoding, so the user's
+// comments and layout survive.
 func SetTheme(path, theme string) error {
 	data, err := os.ReadFile(path)
 	if errors.Is(err, fs.ErrNotExist) {

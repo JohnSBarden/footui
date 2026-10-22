@@ -14,9 +14,8 @@ import (
 	"github.com/JohnSBarden/footui/internal/tui/tuitest"
 )
 
-// intlCatalog lists one club league, a tournament, a qualifier by year,
-// and the men's national teams line, with Arcadia's matches stored and
-// the 2025 match lists of both competitions fetched.
+// intlCatalog: a club league, a tournament, a by-year qualifier and the
+// men's national teams line, with 2025's match lists fetched.
 func intlCatalog(t *testing.T) *Model {
 	t.Helper()
 	repos := storagetest.New(t)
@@ -61,8 +60,6 @@ func TestInternationalEntriesSitUnderTheirOwnHeading(t *testing.T) {
 	}
 }
 
-// A year of match lists counts as cached once every list it needs was
-// fetched — for the national teams line, every competition that year.
 func TestYearlyEntriesAreCachedByTheirMatchLists(t *testing.T) {
 	m := intlCatalog(t)
 	byID := map[string]League{}

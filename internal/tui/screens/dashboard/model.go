@@ -1,12 +1,5 @@
-// Package dashboard is the landing page once anything is favourited: a
-// card per favourite, each showing where it stands this season, and each
-// drilling into the screen Browse would open.
-//
-// Cards run in a fixed order — leagues, tournaments, clubs, nations,
-// players — and within each kind by when they were starred, flowing
-// together into columns; each card's badge says what kind it is.
-// Search is one key away (/), so the dashboard replaces the bare search
-// box without hiding it.
+// Package dashboard is the landing page once anything is favourited: one
+// card per favourite, grouped by kind, each in starred order.
 package dashboard
 
 import (
@@ -28,9 +21,7 @@ import (
 // Title is the dashboard's breadcrumb title.
 const Title = "Dashboard"
 
-// tableRows is how many standings rows a tournament card shows;
-// leagueRows how many a league's card, twice the size of the others,
-// does.
+// Standings rows on a tournament card and on a (double-size) league card.
 const (
 	tableRows  = 5
 	leagueRows = 15
@@ -65,73 +56,59 @@ const (
 	GroupPlayers
 )
 
-// Card is one favourite's card. Kind and Group select which of the
-// fields below mean anything.
+// Card is one favourite's card. Kind and Group decide which fields apply.
 type Card struct {
 	Kind  models.FavoriteKind
 	Group Group
 	ID    string
-	// Missing is set when the favourite's entity isn't cached (it was
-	// starred, then its data deleted with the database file, say). The
-	// card stays, so it can still be un-starred.
+	// Missing: the entity isn't cached. The card stays so it can be
+	// un-starred.
 	Missing bool
 
-	// Competition and Season are where the card's numbers come from: the
-	// league itself, or the competition the club or player was last seen
-	// in. Season is zero when nothing is cached for it.
+	// Competition and Season are where the numbers come from. Season is
+	// zero when nothing is cached.
 	Competition models.Competition
 	Season      models.Season
-	// LastSync is the latest refresh of that competition-season, nil if
-	// it was never refreshed.
+	// LastSync is nil if never refreshed.
 	LastSync *models.SyncRun
 
 	// League cards.
 	Table []StandingRow
-	// Teams in this league the user has starred that fell outside the top
-	// rows, shown beneath them so a favourite club is always visible.
+	// Starred teams below the top rows, so a favourite is always visible.
 	Starred []StandingRow
 
-	// Club cards. Summary (below) carries the club's form over its last
-	// games in every competition.
+	// Club cards; Summary (below) carries the form.
 	Team      models.Team
 	TeamStats *models.TeamSeasonStats
 
 	// Player cards. Team is the club the line is for.
 	Player      models.Player
 	PlayerStats *models.PlayerSeasonStats
-	// Position is the player's group; Detail that season's clean sheets,
-	// tackles and so on (nil until fetched); XGA a keeper's estimated
-	// expected goals against; Standouts the season's numbers unusual for
-	// the position.
+	// Detail is nil until fetched; XGA is a keeper's estimate.
 	Position  playerstats.Group
 	Detail    *models.PlayerSeasonDetail
 	XGA       *float64
 	Standouts []playerstats.Standout
 
-	// Tournament cards show a group's table (GroupLabel, in Table) during
-	// the group stage, and the latest round's results after it.
+	// Tournament cards: a group's table during the group stage, then the
+	// latest round's results.
 	GroupLabel string
 	RoundLabel string
 	Results    []models.Match
 
-	// Nation cards (Team is the nation), under its saved filter: the last
-	// few results, the next fixture, and its record.
+	// Nation cards (Team is the nation), under its saved filter.
 	Filter  models.MatchFilter
 	Recent  []models.Match
 	Next    *models.Match
 	Summary models.MatchSummary
-	// Updated is when the newest of a nation's matches was fetched.
 	Updated time.Time
 
-	// Teams and Comps name the sides and competitions in match lines.
 	Teams map[string]models.Team
 	Comps map[string]models.Competition
 
-	// Colors are the brand colours of the clubs on the card, keyed by
-	// team ID, for its dots and scarf. A club without any is absent.
+	// Colors is keyed by team ID; clubs without colours are absent.
 	Colors map[string]models.TeamColors
-	// LeagueSize is how many teams are in a club card's table, so the
-	// card can tell the bottom three; zero when unknown.
+	// LeagueSize finds the bottom three; zero when unknown.
 	LeagueSize int
 }
 
@@ -155,22 +132,16 @@ type Model struct {
 
 	cards  []Card
 	cursor int
-	// strip is the scores along the top: the favourites' latest games
-	// and next ones.
-	strip scorestrip.Strip
+	strip  scorestrip.Strip
 
-	// active and pending are what is being refreshed and waiting to be,
-	// keyed like core.RefreshRequest.Key, so a card can say its numbers
-	// are on their way.
+	// active and pending are keyed like core.RefreshRequest.Key.
 	active  map[string]bool
 	pending map[string]bool
-	// queue is the same, as the requests themselves, for the log panel.
+	// queue holds the same requests, for the log panel.
 	queue core.RefreshQueueMsg
 
-	// showLog is set while the log panel is open beside the cards.
 	showLog bool
-	// frame counts animation frames since the cursor last moved, for the
-	// selected card's glint.
+	// frame counts animation frames since the cursor last moved.
 	frame int
 
 	width  int
@@ -195,8 +166,7 @@ func (m *Model) Keys() core.KeyMap {
 	}
 }
 
-// Animating implements core.Animated: the selected card's outline moves
-// while there is one, in a terminal with colour.
+// Animating implements core.Animated.
 func (m *Model) Animating() bool {
 	return !m.deps.Theme.NoColor && !m.loading && m.err == nil && len(m.cards) > 0
 }
@@ -215,8 +185,7 @@ func (m *Model) Selected() (Card, bool) {
 	return m.cards[m.cursor], true
 }
 
-// FavoriteTarget implements core.Favoritable: the selected card, so a
-// favourite can be removed without leaving the dashboard.
+// FavoriteTarget implements core.Favoritable: the selected card.
 func (m *Model) FavoriteTarget() (core.FavoriteTarget, bool) {
 	c, ok := m.Selected()
 	if !ok {
@@ -250,8 +219,8 @@ type cardsLoadedMsg struct {
 	strip scorestrip.Strip
 }
 
-// load builds every card. A favourite whose entity is gone becomes a
-// Missing card rather than an error.
+// load turns a favourite whose entity is gone into a Missing card, not an
+// error.
 func (m *Model) load() tea.Cmd {
 	deps := m.deps
 	return func() tea.Msg {
@@ -269,8 +238,7 @@ func (m *Model) load() tea.Cmd {
 			}
 			cards = append(cards, c)
 		}
-		// ListFavorites is oldest first; a stable sort keeps that order
-		// within each group.
+		// Stable: keeps ListFavorites' oldest-first order within groups.
 		sort.SliceStable(cards, func(i, j int) bool { return cards[i].Group < cards[j].Group })
 		colors, err := deps.Repos.TeamColorsFor(deps.Ctx, clubIDs(cards))
 		if err != nil {
@@ -283,10 +251,8 @@ func (m *Model) load() tea.Cmd {
 	}
 }
 
-// loadStrip is the scores along the top: each starred club's and
-// nation's latest games and next, a starred player's club's, and each
-// starred league's and tournament's latest round and next. It is a
-// nicety, so a failure leaves it empty rather than failing the screen.
+// loadStrip leaves the strip empty on failure rather than failing the
+// screen.
 func loadStrip(deps core.Deps, cards []Card) scorestrip.Strip {
 	t := now()
 	var teamIDs []string
@@ -319,8 +285,6 @@ func loadStrip(deps core.Deps, cards []Card) scorestrip.Strip {
 	return strip
 }
 
-// clubIDs are the clubs whose colours the cards draw: each club card's
-// own, a player's club, and every club on a league card.
 func clubIDs(cards []Card) []string {
 	var ids []string
 	for _, c := range cards {
@@ -353,7 +317,6 @@ func loadCard(deps core.Deps, f models.Favorite) (Card, error) {
 	}
 }
 
-// missingGroup is where a card whose entity isn't cached goes.
 func missingGroup(k models.FavoriteKind) Group {
 	switch k {
 	case models.FavoriteCompetition:
@@ -418,7 +381,6 @@ func loadTeam(deps core.Deps, id string) (Card, error) {
 		return loadNation(deps, team)
 	}
 	c.Team = team
-	// The club's form, from its last games in every competition.
 	if recent, err := deps.Repos.RecentMatches(deps.Ctx, id, 5); err == nil {
 		c.Summary = models.SummarizeMatches(id, recent)
 	}
@@ -434,9 +396,8 @@ func loadTeam(deps core.Deps, id string) (Card, error) {
 	if err != nil {
 		return c, err
 	}
-	// The latest season, and within it the league (a row with a table
-	// position) over a cup: "3rd in the Premier League" is the headline,
-	// not a Champions League group.
+	// Latest season; within it prefer the league (has a position) over a
+	// cup.
 	best := -1
 	for i, h := range history {
 		if best < 0 {
@@ -487,8 +448,7 @@ func loadPlayer(deps core.Deps, id string) (Card, error) {
 	if err != nil {
 		return c, err
 	}
-	// The latest season, and within it the line with the most minutes:
-	// the club and competition they mostly played in.
+	// Latest season; within it the line with the most minutes.
 	best := 0
 	for i, h := range history {
 		bl, hl := seasons[history[best].SeasonID].Label, seasons[h.SeasonID].Label
@@ -514,9 +474,7 @@ func loadPlayer(deps core.Deps, id string) (Card, error) {
 	return c, nil
 }
 
-// lastSync is the latest refresh of one competition-season, nil when it
-// was never refreshed or the log can't be read — freshness is a nicety
-// and never fails a card.
+// lastSync returns nil on any error; freshness never fails a card.
 func lastSync(deps core.Deps, compID, seasonID string) *models.SyncRun {
 	run, err := deps.Repos.LatestSyncRun(deps.Ctx, compID, seasonID)
 	if err != nil {

@@ -10,8 +10,7 @@ import (
 func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 	switch msg := msg.(type) {
 	case core.ThemeChangedMsg:
-		// This screen draws its own content, so it adopts the new theme
-		// rather than leaving text styled for the old background.
+		// Restyle content drawn for the old background.
 		m.deps.Theme = msg.Theme
 		return m, nil
 
@@ -121,8 +120,7 @@ func (m *Model) moveCursor(delta int) {
 	m.cursor = min(max(m.cursor+delta, 0), len(rows)-1)
 }
 
-// selectCompetition switches tabs, resetting the cursor since season
-// indices don't correspond across competitions.
+// selectCompetition resets the cursor: rows don't line up across tabs.
 func (m *Model) selectCompetition(idx int) {
 	if idx < 0 || idx >= len(m.competitions) || idx == m.compIdx {
 		return
@@ -131,9 +129,7 @@ func (m *Model) selectCompetition(idx int) {
 	m.cursor = 0
 }
 
-// openTeam drills into the club the selected season was played for — the
-// natural next step from a player's line, and the way back into a squad
-// the user may not have come from.
+// openTeam drills into the selected season's club.
 func (m *Model) openTeam() tea.Cmd {
 	row, ok := m.SelectedRow()
 	if !ok {

@@ -11,8 +11,6 @@ import (
 	"github.com/JohnSBarden/footui/internal/tui/keys"
 )
 
-// favoriteTarget reports what the favourite key would star from the
-// current screen, if anything.
 func (a *App) favoriteTarget() (core.FavoriteTarget, bool) {
 	if f, ok := a.current().(core.Favoritable); ok {
 		return f.FavoriteTarget()
@@ -20,8 +18,6 @@ func (a *App) favoriteTarget() (core.FavoriteTarget, bool) {
 	return core.FavoriteTarget{}, false
 }
 
-// favoriteBinding is the favourite key the footer should advertise, or
-// false when there's nothing to favourite here.
 func (a *App) favoriteBinding() (key.Binding, bool) {
 	if _, ok := a.favoriteTarget(); !ok {
 		return key.Binding{}, false
@@ -32,7 +28,6 @@ func (a *App) favoriteBinding() (key.Binding, bool) {
 	return keys.Favorite, true
 }
 
-// toggleFavorite handles the favourite key.
 func (a *App) toggleFavorite() tea.Cmd {
 	target, ok := a.favoriteTarget()
 	if !ok {
@@ -45,9 +40,7 @@ func (a *App) toggleFavorite() tea.Cmd {
 	return core.ToggleFavorite(a.deps, target, time.Now)
 }
 
-// favoriteToggled applies a persisted toggle: the shared set changes only
-// once the database has, so a failed write never shows a star that won't
-// be there next launch.
+// favoriteToggled changes the shared set only once the database has.
 func (a *App) favoriteToggled(msg core.FavoriteToggledMsg) tea.Cmd {
 	if msg.Err != nil {
 		a.status = "couldn't save the favourite: " + msg.Err.Error()
@@ -61,9 +54,7 @@ func (a *App) favoriteToggled(msg core.FavoriteToggledMsg) tea.Cmd {
 	}
 	changed := a.broadcast(core.FavoritesChangedMsg{})
 	if msg.On && msg.Target.Kind == models.FavoriteTeam && a.deps.Refresh != nil {
-		// A nation is followed through its matches, which aren't fetched
-		// until something asks: starring it asks. It costs nothing when
-		// another nation of its gender already brought them in.
+		// Starring a nation fetches its matches, which nothing else asks for.
 		if t, err := a.deps.Repos.GetTeam(a.deps.Ctx, msg.Target.ID); err == nil && t.National {
 			status := a.status
 			cmd := a.enqueue(core.RefreshRequest{TeamID: t.ID, Name: t.Label()})

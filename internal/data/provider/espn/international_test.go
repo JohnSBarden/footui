@@ -16,8 +16,7 @@ import (
 
 var worldCup = provider.CompetitionRef{CompetitionID: "world-cup", Name: "FIFA World Cup"}
 
-// intlServer serves the international fixtures — hand-written in ESPN's
-// shape, with fictional nations — and counts requests.
+// intlServer serves the international fixtures and counts requests.
 func intlServer(t *testing.T) (*Provider, *int32) {
 	t.Helper()
 	var requests int32
@@ -103,16 +102,14 @@ func TestCompetitionMatchesMapsAYearInOneRequest(t *testing.T) {
 	if c := matchByID(t, matches, "espn:3006"); c.Status != models.MatchCancelled || c.HomeScore != nil {
 		t.Errorf("cancelled %+v", c)
 	}
-	// Played in January 2030, filed under the 2029 edition: the season is
-	// the edition, not the year fetched.
+	// Played in January 2030, filed under the 2029 edition.
 	if late := matchByID(t, matches, "espn:3007"); late.SeasonID != "world-cup:2029" {
 		t.Errorf("edition %s, want world-cup:2029", late.SeasonID)
 	}
 }
 
-// A domestic cup's scoreboard is clubs, not nations: they get their
-// country from the cup, and a ground is neutral only when ESPN says so —
-// a club's "location" is its name, so the venue's country proves nothing.
+// A domestic cup's clubs get the cup's country, and a ground is neutral
+// only when ESPN says so: a club's "location" is its name.
 func TestACupScoreboardIsClubs(t *testing.T) {
 	var requests int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -154,8 +151,7 @@ func TestACupScoreboardIsClubs(t *testing.T) {
 	}
 }
 
-// 0% possession is unknown, more shots on target than shots is
-// impossible, and a side reporting nothing but zeroes reported nothing.
+// Impossible figures are dropped; all zeros is no stats.
 func TestMatchStatsDropTheImplausible(t *testing.T) {
 	p, _ := intlServer(t)
 	matches, _, _ := p.CompetitionMatches(ctxBkgnd, worldCup, 2030)
@@ -175,9 +171,7 @@ func TestMatchStatsDropTheImplausible(t *testing.T) {
 	}
 }
 
-// ESPN truncates a scoreboard at its limit without saying so. A response
-// exactly that full is refetched month by month; a month that is full
-// too means the year can't be fetched whole, and says so.
+// A full year is refetched by month; a full month reports ErrIncomplete.
 func TestAFullScoreboardIsRefetchedMonthByMonth(t *testing.T) {
 	event := func(id int, month int) string {
 		return fmt.Sprintf(`{"id":"%d","date":"2030-%02d-10T19:00Z","season":{"year":2030},"competitions":[{"status":{"type":{"name":"STATUS_FULL_TIME"}},`+
@@ -232,9 +226,8 @@ func TestNationalTeamsComeFromTheFriendliesDirectory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// The friendlies' list lacks Carpania; the World Cup's has it, and
-	// Borduria once, though both list her. The Nations League's list 404s,
-	// which costs only what it would have added.
+	// Carpania comes only from the World Cup list; Borduria is deduped; the
+	// Nations League list 404s harmlessly.
 	if len(women) != 3 || women[0].Name != "Arcadia" || women[0].Gender != "women" || women[2].Name != "Carpania" {
 		t.Errorf("women %+v: merged by ID, and the team carries the gender, so the name is the country's", women)
 	}
@@ -244,7 +237,7 @@ func TestNationalTeamsComeFromTheFriendliesDirectory(t *testing.T) {
 }
 
 // A tournament's table keeps its groups, each ranked within itself, and
-// costs one request: there are no rosters to fetch for national teams.
+// costs one request: no rosters for national teams.
 func TestTournamentStandingsKeepGroups(t *testing.T) {
 	p, requests := intlServer(t)
 	rows, err := p.Standings(ctxBkgnd, worldCup, provider.SeasonRef{SeasonID: "world-cup:2030", Label: "2030"})

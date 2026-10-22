@@ -16,9 +16,8 @@ import (
 	"github.com/JohnSBarden/footui/internal/data/models"
 )
 
-// updateFixture regenerates the frozen database fixture. Run it only when
-// adding a new fixture for a new schema version — never to make a failing
-// upgrade test pass, which would defeat the point of having one.
+// updateFixture is only for adding a fixture for a new schema version —
+// never to make a failing upgrade test pass.
 var updateFixture = flag.Bool("update-fixture", false, "write testdata/footui-<schema>.db from the current schema")
 
 func migrationNames(t *testing.T) []string {
@@ -45,9 +44,7 @@ func rawOpen(t *testing.T, path string) *sql.DB {
 	return db
 }
 
-// Every schema a release could have left behind must open with the
-// current build, keep its rows, and come out fully usable — including the
-// search columns a later migration added and Open backfills.
+// Every older schema must open, keep its rows, and come out fully usable.
 func TestEveryOlderSchemaUpgradesWithItsData(t *testing.T) {
 	names := migrationNames(t)
 	for _, last := range names[:len(names)-1] {
@@ -81,13 +78,11 @@ func TestEveryOlderSchemaUpgradesWithItsData(t *testing.T) {
 			if err != nil || comp.Name != "La Liga" {
 				t.Errorf("competition lost: %+v, %v", comp, err)
 			}
-			// Accent-insensitive search only works once 0004's columns are
-			// backfilled for rows written before it existed.
+			// Needs 0004's folded columns backfilled.
 			teams, err := s.FindTeamsByName(ctx, "atletico")
 			if err != nil || len(teams) != 1 {
 				t.Errorf("search on an upgraded row found %v, %v", teams, err)
 			}
-			// And it accepts writes the new schema allows.
 			if err := s.RecordSyncRun(ctx, models.SyncRun{Provider: "test", CompetitionID: "esp-la-liga",
 				SeasonID: "esp-la-liga:2025", StartedAt: time.Now(), FinishedAt: time.Now(),
 				Status: models.SyncStatusOK}); err != nil {
@@ -97,17 +92,14 @@ func TestEveryOlderSchemaUpgradesWithItsData(t *testing.T) {
 	}
 }
 
-// fixtureName is the frozen database for the current schema.
 func fixtureName(t *testing.T) string {
 	names := migrationNames(t)
 	latest := strings.TrimSuffix(names[len(names)-1], ".sql")
 	return filepath.Join("testdata", "footui-"+latest[:4]+".db")
 }
 
-// The fixtures in testdata are real database files as a past build wrote
-// them, committed and never regenerated. Every one must keep opening with
-// every later build: this is the test behind "a database from 1.0 opens
-// in 1.x". A new schema version adds a new fixture alongside the old ones.
+// Fixtures in testdata are committed and never regenerated; each must keep
+// opening with every later build. A new schema adds a new fixture.
 func TestFrozenFixturesOpenAndRead(t *testing.T) {
 	if *updateFixture {
 		writeFixture(t, fixtureName(t))
@@ -159,8 +151,7 @@ func copyFile(t *testing.T, src string) string {
 
 var fixtureTime = time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC)
 
-// writeFixture builds the fixture through the repository, the way the
-// app writes data, then compacts it into a single self-contained file.
+// writeFixture writes through the repository, then VACUUMs into one file.
 func writeFixture(t *testing.T, path string) {
 	t.Helper()
 	tmp := filepath.Join(t.TempDir(), "build.db")
@@ -197,8 +188,7 @@ func writeFixture(t *testing.T, path string) {
 	// From schema 0007: favourites.
 	mustNoErr(t, s.AddFavorite(ctx, models.Favorite{Kind: models.FavoriteTeam, ID: "eng-arsenal", AddedAt: fixtureTime}))
 
-	// From schema 0008: national teams, a tournament with a group table, a
-	// match with stats, a saved filter, and a year run.
+	// From schema 0008: national teams, tournaments, matches.
 	mustNoErr(t, s.UpsertCompetition(ctx, models.Competition{ID: "world-cup", Name: "FIFA World Cup", ShortName: "WC",
 		Country: "International", Gender: "men", Format: "cup", CalendarYear: true, Category: models.CategoryTournament}))
 	mustNoErr(t, s.UpsertSeason(ctx, models.Season{ID: "world-cup:2026", CompetitionID: "world-cup", Label: "2026"}))
@@ -217,8 +207,7 @@ func writeFixture(t *testing.T, path string) {
 	mustNoErr(t, s.RecordSyncRun(ctx, models.SyncRun{Provider: "espn", CompetitionID: "world-cup", Year: 2026,
 		StartedAt: fixtureTime, FinishedAt: fixtureTime, Status: models.SyncStatusOK, RowsUpserted: 1}))
 
-	// From schema 0009: a club's league match with xG, and a cup tie
-	// against a club that has nothing but matches.
+	// From schema 0009: club league and cup matches.
 	mustNoErr(t, s.UpsertCompetition(ctx, models.Competition{ID: "eng-fa-cup", Name: "FA Cup", ShortName: "FAC",
 		Country: "England", Gender: "men", Format: "cup", Category: models.CategoryCup}))
 	mustNoErr(t, s.UpsertSeason(ctx, models.Season{ID: "eng-fa-cup:2025", CompetitionID: "eng-fa-cup", Label: "2025"}))
@@ -277,12 +266,11 @@ func checkFixture(t *testing.T, s *Store) {
 		t.Errorf("sync log %+v, %v", run, err)
 	}
 
-	// Competitions from before 0005 upgrade to split-year seasons.
 	pl, _ := s.GetCompetition(ctx, "eng-premier-league")
 	if pl.CalendarYear {
 		t.Error("a pre-0005 competition must default to split-year seasons")
 	}
-	// Fixtures from 0005 on carry a calendar-year competition.
+	// The blocks below only apply to fixtures new enough to carry the rows.
 	if mls, err := s.GetCompetition(ctx, "usa-mls"); err == nil {
 		seasons, _ := s.ListSeasons(ctx, "usa-mls")
 		if !mls.CalendarYear || len(seasons) != 1 || !seasons[0].CalendarYear {
@@ -290,8 +278,6 @@ func checkFixture(t *testing.T, s *Store) {
 		}
 	}
 
-	// Every fixture can hold favourites once upgraded; those from 0007 on
-	// carry one, which must survive.
 	favs, err := s.ListFavorites(ctx)
 	if err != nil {
 		t.Fatalf("favorites: %v", err)
@@ -301,11 +287,9 @@ func checkFixture(t *testing.T, s *Store) {
 	}
 	mustNoErr(t, s.AddFavorite(ctx, models.Favorite{Kind: models.FavoritePlayer, ID: "p-saka", AddedAt: fixtureTime.Add(time.Hour)}))
 
-	// Clubs from before 0008 are clubs, and their competitions club ones.
 	if arsenal, _ := s.GetTeam(ctx, "eng-arsenal"); arsenal.National || pl.International() {
 		t.Error("pre-0008 rows must default to clubs and club competitions")
 	}
-	// Fixtures from 0008 on carry a nation, a group table and a match.
 	if wc, err := s.GetCompetition(ctx, "world-cup"); err == nil {
 		if wc.Category != models.CategoryTournament || wc.ShortName != "WC" {
 			t.Errorf("tournament %+v", wc)
@@ -325,8 +309,6 @@ func checkFixture(t *testing.T, s *Store) {
 			t.Errorf("year run %+v, %v", run, err)
 		}
 	}
-	// Fixtures from 0009 on carry a club's cup match and a league match
-	// with xG.
 	if cup, err := s.GetCompetition(ctx, "eng-fa-cup"); err == nil {
 		if !cup.Cup() || cup.International() {
 			t.Errorf("cup %+v", cup)
@@ -348,8 +330,8 @@ func checkFixture(t *testing.T, s *Store) {
 		HomeStats: &models.MatchTeamStats{XG: new(0.4)}, Source: "understat", UpdatedAt: fixtureTime}}))
 }
 
-// A database folded by the old rules (which left Ø alone) is refolded on
-// upgrade, so search finds names it used to miss.
+// Names folded by the old rules (which left Ø alone) are refolded on
+// upgrade.
 func TestOldFoldsAreRedoneOnUpgrade(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "old.db")
 	db := rawOpen(t, path)

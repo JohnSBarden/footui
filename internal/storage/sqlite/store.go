@@ -14,9 +14,7 @@ import (
 	"github.com/JohnSBarden/footui/internal/textfold"
 )
 
-// Store implements storage.Repositories against a SQLite database. It is
-// the only package that issues SQL — the sync layer and CLI/TUI reach it
-// exclusively through the storage.Repositories interface.
+// Store implements storage.Repositories against a SQLite database.
 type Store struct {
 	db *sql.DB
 }
@@ -56,8 +54,7 @@ func scanNullInt(dst **int, v sql.NullInt64) {
 	}
 }
 
-// nullString maps "" to SQL NULL, keeping "no secondary colour recorded"
-// distinct from an empty string in the column.
+// nullString maps "" to SQL NULL.
 func nullString(s string) sql.NullString {
 	if s == "" {
 		return sql.NullString{}
@@ -79,9 +76,8 @@ func timePtrToNullString(t *time.Time) sql.NullString {
 	return sql.NullString{String: t.Format("2006-01-02"), Valid: true}
 }
 
-// inClause builds the placeholder list and argument slice for an
-// `IN (...)` filter. Callers must guard against an empty id list before
-// calling: `IN ()` is not valid SQL.
+// inClause builds an `IN (...)` placeholder list. Callers must guard
+// against empty ids: `IN ()` is not valid SQL.
 func inClause(ids []string) (string, []any) {
 	args := make([]any, len(ids))
 	for i, id := range ids {
@@ -90,9 +86,8 @@ func inClause(ids []string) (string, []any) {
 	return strings.TrimSuffix(strings.Repeat("?,", len(ids)), ","), args
 }
 
-// The sqlite driver stores time.Time as TEXT but doesn't scan TEXT back
-// into *time.Time on read, so timestamps are formatted/parsed explicitly
-// as RFC3339 on the way in and out rather than passed as time.Time values.
+// The sqlite driver won't scan TEXT back into time.Time, so timestamps are
+// stored and parsed as RFC3339 strings explicitly.
 func formatTime(t time.Time) string {
 	return t.UTC().Format(time.RFC3339)
 }
@@ -101,10 +96,8 @@ func parseTime(s string) (time.Time, error) {
 	return time.Parse(time.RFC3339, s)
 }
 
-// parseDatePtr converts a nullable DATE column back to *time.Time,
-// mirroring timePtrToNullString on the write side. An unparseable value is
-// treated as absent: season start/end dates are cosmetic, and a malformed
-// one shouldn't fail an otherwise good query.
+// parseDatePtr treats an unparseable date as absent rather than failing
+// the query; these dates are cosmetic.
 func parseDatePtr(v sql.NullString) *time.Time {
 	if !v.Valid {
 		return nil
@@ -231,9 +224,8 @@ func (s *Store) UpsertSeason(ctx context.Context, se models.Season) error {
 	return nil
 }
 
-// ListSeasons returns a competition's seasons most recent first. Season
-// labels are start years ("2025"), which sort correctly as text, so
-// ordering by label descending is the same as ordering by recency.
+// ListSeasons orders by label: labels are start years, which sort
+// correctly as text.
 func (s *Store) ListSeasons(ctx context.Context, competitionID string) ([]models.Season, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT se.id, se.competition_id, se.label, se.start_date, se.end_date,
@@ -353,11 +345,8 @@ func scanTeam(sc interface{ Scan(...any) error }) (models.Team, error) {
 	return t, err
 }
 
-// GetTeams resolves a batch of team IDs in one query. IDs with no cached
-// team row are absent from the returned map rather than an error —
-// a stats row can outlive the team row it references only if the database
-// was hand-edited, and a screen should render "unknown team" instead of
-// failing the whole view.
+// GetTeams omits unknown IDs rather than erroring, so a screen can show
+// "unknown team" instead of failing.
 func (s *Store) GetTeams(ctx context.Context, ids []string) (map[string]models.Team, error) {
 	out := make(map[string]models.Team, len(ids))
 	if len(ids) == 0 {
@@ -406,9 +395,7 @@ func (s *Store) ListTeams(ctx context.Context) ([]models.Team, error) {
 // --- SyncLogRepo ---
 
 func (s *Store) RecordSyncRun(ctx context.Context, r models.SyncRun) error {
-	// A run is either one season of a competition or one calendar year of
-	// its matches; the two are kept apart so a year's fetch never passes
-	// for a season's freshness.
+	// Kept apart so a year's fetch never passes for a season's freshness.
 	entity := "competition_season"
 	if r.Year != 0 {
 		entity = "competition_year"
@@ -628,18 +615,14 @@ func (s *Store) UpsertTeamSeasonStats(ctx context.Context, st models.TeamSeasonS
 	return s.upsertTeamSeasonStatExtras(ctx, st)
 }
 
-// upsertTeamSeasonStatExtras persists the long-tail key/value stats. Keys
-// absent from the incoming map are left alone rather than deleted, so a
-// provider that supplies only some of them doesn't wipe another
-// provider's contributions for the same team-season.
+// upsertTeamSeasonStatExtras leaves absent keys alone, so one provider
+// doesn't wipe another's extras for the same team-season.
 func (s *Store) upsertTeamSeasonStatExtras(ctx context.Context, st models.TeamSeasonStats) error {
 	if len(st.Extras) == 0 {
 		return nil
 	}
 
-	// Iterating a map yields keys in random order; sorting keeps the
-	// statement sequence deterministic, which matters when reading a
-	// query log while debugging.
+	// Sorted for a deterministic statement order.
 	keys := make([]string, 0, len(st.Extras))
 	for k := range st.Extras {
 		keys = append(keys, k)
@@ -915,9 +898,8 @@ func (s *Store) RosterForTeamSeason(ctx context.Context, teamID, competitionID, 
 	return scanPlayerSeasonStats(rows)
 }
 
-// PlayerHistory returns every season line for a player. Ordering by season
-// then competition keeps a player who appeared in two competitions in the
-// same season adjacent rather than interleaved with other seasons.
+// PlayerHistory orders by season label then competition, keeping a
+// season's lines adjacent.
 func (s *Store) PlayerHistory(ctx context.Context, playerID string) ([]models.PlayerSeasonStats, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT `+playerStatsColumns+`

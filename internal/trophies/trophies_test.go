@@ -40,8 +40,7 @@ func TestSeedFileParsesAndIsWellFormed(t *testing.T) {
 			if h.Title == "" {
 				t.Errorf("%s has an honour with no title", e.ID)
 			}
-			// An unknown type would sort into the wrong group and never
-			// be caught at runtime.
+			// An unknown type would sort into the wrong group unnoticed.
 			if !validTypes[h.Type] {
 				t.Errorf("%s: %q has unknown trophy type %q", e.ID, h.Title, h.Type)
 			}
@@ -93,8 +92,7 @@ func TestSeedAppliesHonoursToCachedTeams(t *testing.T) {
 	}
 }
 
-// Re-seeding corrected data must replace the old rows, not stack a second
-// copy on top of them.
+// Re-seeding must replace the old rows, not duplicate them.
 func TestSeedIsIdempotent(t *testing.T) {
 	repos := storagetest.New(t)
 	seedTeams(t, repos, "eng-liverpool")

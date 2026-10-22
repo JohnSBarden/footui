@@ -16,8 +16,7 @@ import (
 func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 	switch msg := msg.(type) {
 	case core.ThemeChangedMsg:
-		// This screen draws its own content, so it adopts the new theme
-		// rather than leaving text styled for the old background.
+		// Restyle content drawn for the old background.
 		m.deps.Theme = msg.Theme
 		return m, nil
 
@@ -26,7 +25,6 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 		return m, nil
 
 	case core.RefreshedMsg:
-		// Whatever the query, the index it searches just changed.
 		m.loading = true
 		return m, tea.Batch(m.search(m.query), m.locateAwaited(false))
 
@@ -69,9 +67,7 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 		return m, m.downloadCareer(msg)
 
 	case core.RefreshQueueMsg:
-		// Once the downloads have started and the queue drains, a player
-		// still not found won't be: the source's squads for those seasons
-		// didn't have them.
+		// Queue drained after downloads started: a miss is final.
 		busy := msg.Active != nil || len(msg.Pending) > 0
 		if m.awaiting != nil && busy {
 			m.awaitStarted = true
@@ -147,9 +143,7 @@ func (m *Model) handleKey(msg tea.KeyMsg) (core.Screen, tea.Cmd) {
 		return m, m.open()
 	}
 
-	// Everything else is text entry. The query is re-run only when the
-	// text actually changed, so arrow keys inside the input don't trigger
-	// redundant queries.
+	// Re-run only when the text changed, not on cursor movement.
 	before := m.input.Value()
 	updated, inputCmd := m.input.Update(msg)
 	m.input = updated
@@ -161,8 +155,7 @@ func (m *Model) handleKey(msg tea.KeyMsg) (core.Screen, tea.Cmd) {
 	return m, inputCmd
 }
 
-// handleListKey handles keys while the results list has focus. The search
-// box isn't listening, so vim-style movement is safe here.
+// handleListKey: the box isn't listening, so vim-style keys are safe.
 func (m *Model) handleListKey(msg tea.KeyMsg) (core.Screen, tea.Cmd) {
 	switch msg.String() {
 	case "up", "k", "ctrl+p":
@@ -192,7 +185,6 @@ func (m *Model) moveCursor(delta int) {
 	m.cursor = min(max(m.cursor+delta, 0), len(m.results)-1)
 }
 
-// open drills into whatever the selected result points at.
 func (m *Model) open() tea.Cmd {
 	result, ok := m.SelectedResult()
 	if !ok {
@@ -210,9 +202,7 @@ func (m *Model) open() tea.Cmd {
 		if m.deps.Nav.Team == nil {
 			return nil
 		}
-		// Browse has no competition/season context to pass on; the Team
-		// screen defaults to the most recent season of the club's own
-		// league.
+		// No context: Team defaults to its league's latest season.
 		return core.Push(m.deps.Nav.Team(m.deps, result.Team, "", ""))
 
 	case KindFound:
@@ -235,8 +225,6 @@ func (m *Model) open() tea.Cmd {
 	}
 }
 
-// newQuery starts a search for query, forgetting the last one's results
-// from the data source.
 func (m *Model) newQuery(query string) {
 	m.query = query
 	m.loading = true
@@ -245,21 +233,18 @@ func (m *Model) newQuery(query string) {
 	m.searchingFurther = false
 }
 
-// maxCareerSeasons caps how much of a career one enter downloads: the
-// most recent seasons are what a search for a player is usually after,
-// and each season is a whole league's download.
+// maxCareerSeasons caps one enter's download; each season is a whole
+// league.
 const maxCareerSeasons = 12
 
-// careerMsg is a found player's career, looked up to download it.
 type careerMsg struct {
 	player  models.FoundPlayer
 	seasons []models.CareerSeason
 	err     error
 }
 
-// downloadCareer queues the seasons of a found player's career that
-// footui covers and has player stats for — club leagues and Europe, not
-// cups or internationals — newest first, skipping the cached ones.
+// downloadCareer queues uncached club-league and European seasons, newest
+// first; cups and internationals have no player stats.
 func (m *Model) downloadCareer(msg careerMsg) tea.Cmd {
 	if msg.err != nil {
 		return core.Status("couldn't look up " + msg.player.Name + ": " + msg.err.Error())
@@ -301,7 +286,6 @@ func (m *Model) downloadCareer(msg careerMsg) tea.Cmd {
 	)
 }
 
-// cached reports whether a competition-season is already in the cache.
 func (m *Model) cached(s models.CareerSeason) bool {
 	seasons, err := m.deps.Repos.ListSeasons(m.deps.Ctx, s.CompetitionID)
 	if err != nil {
@@ -310,16 +294,12 @@ func (m *Model) cached(s models.CareerSeason) bool {
 	return slices.ContainsFunc(seasons, func(c models.Season) bool { return c.Label == s.Year })
 }
 
-// locatedMsg is the awaited player, now cached.
 type locatedMsg struct{ player models.Player }
 
-// notLocatedMsg is the awaited player still missing after every download.
 type notLocatedMsg struct{ player models.FoundPlayer }
 
-// locateAwaited looks for the player whose career is downloading: by the
-// source's ID once a sync has linked it, otherwise by their exact name.
-// final is the last look, once the downloads are done, which reports a
-// miss rather than staying quiet.
+// locateAwaited matches by source ID once linked, else exact name. final
+// reports a miss rather than staying quiet.
 func (m *Model) locateAwaited(final bool) tea.Cmd {
 	if m.awaiting == nil {
 		return nil

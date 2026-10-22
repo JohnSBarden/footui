@@ -9,20 +9,16 @@ import (
 	"github.com/JohnSBarden/footui/internal/tui/components"
 )
 
-// Card geometry. Cards share the screen's width in equal columns at least
-// minCardWidth wide, and are as tall as what they hold. A league's card
-// spans two columns and is leagueHeight tall — twice a typical card each
-// way — so its table has room.
+// Card geometry. A league card spans two columns and is leagueHeight tall
+// so its table has room.
 const (
 	minCardWidth = 36
 	cardGap      = 1
 	leagueHeight = 20
-	// headerLines is the dashboard's own title and the blank line under it.
+	// headerLines is the title plus the blank line under it.
 	headerLines = 2
 )
 
-// slot is where one card sits: its column, how many columns it spans,
-// and the lines it covers.
 type slot struct {
 	card, col, span, top, height int
 	lines                        []string
@@ -30,14 +26,12 @@ type slot struct {
 
 func (s slot) bottom() int { return s.top + s.height }
 
-// columns is how many columns fit side by side, and how wide each is.
 func (m *Model) columns() (cols, width int) {
 	cols = max((m.cardsWidth()+cardGap)/(minCardWidth+cardGap), 1)
 	width = (m.cardsWidth() - cardGap*(cols-1)) / cols
 	return cols, max(width, 12)
 }
 
-// span is how many columns a card takes.
 func (m *Model) span(c Card, cols int) int {
 	if cols >= 2 && c.Group == GroupLeagues && !c.Missing {
 		return 2
@@ -45,9 +39,8 @@ func (m *Model) span(c Card, cols int) int {
 	return 1
 }
 
-// layout flows the cards, in order, into the columns: each goes wherever
-// it can sit highest, leftmost on a tie, so the cards pack together
-// instead of lining up in rows with gaps under the short ones.
+// layout places each card wherever it sits highest (leftmost on a tie),
+// packing them instead of aligning rows.
 func (m *Model) layout() []slot {
 	cols, width := m.columns()
 	heights := make([]int, cols)
@@ -55,8 +48,8 @@ func (m *Model) layout() []slot {
 	for i, c := range m.cards {
 		span := m.span(c, cols)
 		w := width*span + cardGap*(span-1)
-		// The whole card is one clickable region: its markers land on
-		// its top-left and bottom-right corners, wherever it is placed.
+		// Zone the whole card before placing it, so its markers land on
+		// its corners.
 		lines := strings.Split(components.Zone("card:"+strconv.Itoa(i), m.renderCard(c, i == m.cursor, w)), "\n")
 		best, top := 0, -1
 		for col := 0; col+span <= cols; col++ {
@@ -76,8 +69,6 @@ func (m *Model) layout() []slot {
 	return slots
 }
 
-// cardsView draws the packed cards, scrolled so the selected one is on
-// screen.
 func (m *Model) cardsView() string {
 	cols, width := m.columns()
 	slots := m.layout()
@@ -128,8 +119,7 @@ func (m *Model) cardsView() string {
 	return strings.Join(out, "\n")
 }
 
-// stripLines are the lines the scores along the top take, with the blank
-// line under them.
+// stripLines includes the blank line under the strip.
 func (m *Model) stripLines() int {
 	if m.strip.Empty() {
 		return 0
@@ -146,9 +136,8 @@ func slotOf(slots []slot, card int) (slot, bool) {
 	return slot{}, false
 }
 
-// move shifts the cursor to the nearest card in a direction, by where the
-// cards sit on screen: up and down stay in the selected card's columns,
-// left and right prefer the card beside it, level with it.
+// move goes by screen position: up/down stay in the card's columns,
+// left/right prefer a card level with it.
 func (m *Model) move(dy, dx int) {
 	slots := m.layout()
 	cur, ok := slotOf(slots, m.cursor)

@@ -11,11 +11,8 @@ import (
 	"github.com/JohnSBarden/footui/internal/data/provider"
 )
 
-// Griezmann's log, trimmed: Liga 2 with Real Sociedad, La Liga twice in
-// 2021 (Barcelona, then Atlético), the Champions League and MLS, among a
-// Copa del Rey, a France friendly and the Leagues Cup. The Leagues Cup
-// has no competition here and is left out; the cup and the friendly do,
-// and the sync layer decides they aren't tables to fetch.
+// Griezmann's log, trimmed. La Liga 2021 appears twice (a mid-season
+// move); the Leagues Cup has no competition here and is left out.
 func TestAthleteCareer(t *testing.T) {
 	got, err := athleteServer(t).AthleteCareer(ctxBkgnd, "140416")
 	if err != nil {
@@ -35,8 +32,7 @@ func TestAthleteCareer(t *testing.T) {
 	}
 }
 
-// athleteServer serves the core API's per-athlete statistics and one
-// club roster from testdata.
+// athleteServer serves per-athlete statistics and one roster from testdata.
 func athleteServer(t *testing.T) *Provider {
 	t.Helper()
 	routes := map[string]string{
@@ -100,8 +96,8 @@ func TestAthleteSeasonDefender(t *testing.T) {
 	}
 }
 
-// ESPN's older seasons carry zeros for the defensive stats it didn't
-// record, and the club's saves against every player. Neither is a stat.
+// ESPN's older seasons carry zeros for unrecorded defensive stats, and the
+// club's saves against every player. Neither is a stat.
 func TestAthleteSeasonZeroDefenceIsNotRecorded(t *testing.T) {
 	d, err := athleteServer(t).AthleteSeason(ctxBkgnd, "eng-premier-league", 2023, "236322", false)
 	if err != nil {
@@ -121,10 +117,8 @@ func TestAthleteSeasonZeroDefenceIsNotRecorded(t *testing.T) {
 	}
 }
 
-// Some older seasons aren't zero but a token handful — Gabriel's 2024-25
-// is 1 tackle, 1 interception and 7 clearances in 2365 minutes. That's
-// as unrecorded as zero, and must not read as a defender who never
-// defended.
+// Some older seasons carry a token handful (Gabriel's 2024-25: 9 actions
+// in 2365 minutes), which is as unrecorded as zero.
 func TestImplausibleDefenceIsNotRecorded(t *testing.T) {
 	cases := []struct {
 		name               string

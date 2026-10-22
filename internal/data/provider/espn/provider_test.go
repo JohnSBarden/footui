@@ -21,11 +21,8 @@ var (
 	ctxBkgnd = context.Background()
 )
 
-// fixtureServer serves the payloads in testdata for the URLs the provider
-// builds, and 404s anything else (including rosters and stats for the
-// clubs that have none there, which the provider must tolerate). The
-// payloads are hand-written in ESPN's shape, with fictional clubs and
-// players, and carry only the fields the provider reads.
+// fixtureServer serves testdata for the provider's URLs and 404s anything
+// else, including some clubs' rosters and stats, which must be tolerated.
 func fixtureServer(t *testing.T) (*Provider, *int32) {
 	t.Helper()
 	var requests int32
@@ -99,9 +96,8 @@ func find(t *testing.T, rows []models.TeamSeasonStats, id string) models.TeamSea
 	return models.TeamSeasonStats{}
 }
 
-// The fixture's Lakeshore season reports 0% possession and 1,856 corners
-// in 34 matches, as real ESPN seasons sometimes do. Neither can be true,
-// so neither is stored; the plausible figures beside them are.
+// Lakeshore reports 0% possession and 1,856 corners, as real ESPN seasons
+// sometimes do; neither is stored, the plausible figures are.
 func TestTeamStatsKeepThePlausibleAndDropTheImpossible(t *testing.T) {
 	p, _ := fixtureServer(t)
 	rows, _ := p.Standings(ctxBkgnd, mls, mls2025)

@@ -1,8 +1,5 @@
-// Package playerstats judges a player by their position: which of the
-// four groups they're in, which of their numbers are unusual for it, and
-// how a keeper did against the goals they were expected to concede. It is
-// pure logic over cached rows, shared by the player page and the
-// dashboard's player cards.
+// Package playerstats judges a player by position: their group, their
+// standout numbers, and a keeper's expected goals conceded.
 package playerstats
 
 import (
@@ -36,12 +33,10 @@ func (g Group) Singular() string {
 // Plural names the group's players: "top 9% of defenders".
 func (g Group) Plural() string { return g.Singular() + "s" }
 
-// GroupOf picks a player's group. detailPos, the single position letter
-// of their season detail ("G", "D", "M", "F"), wins when there is one.
-// understatCode lists every position played, alphabetically ("D M S"),
-// so with more than one the numbers decide: a
-// player who scores more than they assist and has played up front is a
-// forward; otherwise midfield wins if listed, else the first listed.
+// GroupOf picks a player's group. detailPos ("G", "D", "M", "F") wins when
+// set. understatCode lists every position played, alphabetically ("D M
+// S"); with several, a scorer listed up front is a forward, else midfield
+// if listed, else the first.
 func GroupOf(detailPos, understatCode string, lines []models.PlayerSeasonStats) Group {
 	switch detailPos {
 	case "G":
@@ -94,8 +89,8 @@ func GroupOf(detailPos, understatCode string, lines []models.PlayerSeasonStats) 
 	return MID
 }
 
-// Listed is every group an understat position code lists ("F M S" is
-// midfield and forward), in GK, DEF, MID, FWD order.
+// Listed is every group an understat position code lists, in GK, DEF,
+// MID, FWD order.
 func Listed(understatCode string) []Group {
 	codes := strings.Fields(understatCode)
 	var out []Group
@@ -119,19 +114,15 @@ type Standout struct {
 }
 
 const (
-	// minMinutes is the playing time below which per-90 rates are noise,
-	// for the player and for everyone they're compared with.
+	// minMinutes is the playing time below which per-90 rates are noise.
 	minMinutes = 900
-	// minBaseline is the fewest comparable players a percentage means
-	// anything against.
-	minBaseline = 10
-	// standoutPct is how high up their group a player must be.
+	// minBaseline is the fewest comparable players for a percentage.
+	minBaseline  = 10
 	standoutPct  = 10
 	maxStandouts = 2
 )
 
-// statDef reads one candidate stat off a line; ok is false when the line
-// doesn't have it (no xG for an ESPN league).
+// statDef reads one stat off a line; ok is false when the line lacks it.
 type statDef struct {
 	name string
 	get  func(models.PlayerSeasonStats) (float64, bool)
@@ -146,18 +137,15 @@ var candidates = []statDef{
 	{"key passes", func(l models.PlayerSeasonStats) (float64, bool) { return derefInt(l.KeyPasses) }},
 }
 
-// own are the stats a group's own tiles already lead with, which can't
-// stand out for it: a forward's goals are the point of a forward.
+// own are the stats a group's tiles already lead with, so never standouts.
 var own = map[Group][]string{
 	MID: {"goals", "assists", "key passes"},
 	FWD: {"goals", "assists", "shots"},
 }
 
-// Standouts are the line's numbers in the top 10% of its group, per 90,
-// among the baseline's players with at least 900 minutes: at most two,
-// the most unusual first. baseline is every line in the same
-// competition-season (the player's included); groups gives each
-// baseline player's group.
+// Standouts are the line's per-90 numbers in the top 10% of its group
+// among baseline players with 900+ minutes, at most two, most unusual
+// first. baseline is the whole competition-season, player included.
 func Standouts(line models.PlayerSeasonStats, g Group, baseline []models.PlayerSeasonStats, groups map[string]Group) []Standout {
 	if line.Minutes < minMinutes {
 		return nil
@@ -224,10 +212,8 @@ func SeasonStandouts(ctx context.Context, repos storage.Repositories, line model
 	if err != nil {
 		return nil, err
 	}
-	// Everyone who has played the position is in the comparison, not just
-	// those it's their main one: a creative winger listed "F M S" counts
-	// among the forwards a forward is measured against, or the forwards
-	// left would flatter anyone who creates.
+	// Anyone who has played the position is compared, not just those it's
+	// their main one, or the forwards left would flatter any creator.
 	groups := make(map[string]Group, len(players))
 	for id, p := range players {
 		groups[id] = GroupOf("", p.Position, byPlayer[id])
@@ -239,10 +225,9 @@ func SeasonStandouts(ctx context.Context, repos storage.Repositories, line model
 	return Standouts(line, g, lines, groups), nil
 }
 
-// ScrubUnrecorded blanks a season the source barely recorded: one with
-// appearances but no minutes (ESPN's MLS 2011 has 29 apps, 0 minutes, and
-// so 0 goals conceded), whose zeros aren't stats. Appearances stay. A
-// pass rate of zero is never real either.
+// ScrubUnrecorded blanks a season with appearances but no minutes (ESPN's
+// MLS 2011), whose zeros aren't stats. Appearances stay. A zero pass rate
+// is never real either.
 func ScrubUnrecorded(d *models.PlayerSeasonDetail) {
 	if d.PassPct != nil && *d.PassPct == 0 {
 		d.PassPct = nil
@@ -254,17 +239,12 @@ func ScrubUnrecorded(d *models.PlayerSeasonDetail) {
 	d.Tackles, d.Interceptions, d.Clearances, d.PassPct = nil, nil, nil, nil
 }
 
-// sparseShare is how far below a player's own best defensive rate a
-// season must fall to count as barely recorded rather than quiet.
+// sparseShare of a player's best defensive rate marks a season unrecorded.
 const sparseShare = 0.25
 
-// ClearSparseDefence blanks the tackles, interceptions and clearances of
-// seasons the source barely recorded. ESPN's older seasons often carry a
-// token handful (Rice's 2024-25: 18 in 2876 minutes, against 185 the next
-// season), which reads as a player who stopped defending. A season under
-// a quarter of the player's own best rate, both over 900 minutes, is
-// treated as not recorded. A player quiet every season keeps his
-// numbers: it's the drop against himself that gives a season away.
+// ClearSparseDefence blanks the defensive numbers of seasons ESPN barely
+// recorded (older seasons often carry a token handful): those under
+// sparseShare of the player's own best rate, judged against himself.
 func ClearSparseDefence(details []*models.PlayerSeasonDetail) {
 	rate := func(d *models.PlayerSeasonDetail) (float64, bool) {
 		if d.Minutes == nil || *d.Minutes < minMinutes || d.Tackles == nil || d.Interceptions == nil || d.Clearances == nil {
@@ -285,10 +265,9 @@ func ClearSparseDefence(details []*models.PlayerSeasonDetail) {
 	}
 }
 
-// KeeperExpected estimates the goals a keeper was expected to concede: his
-// club's xGA, scaled by his share of its minutes. No source has xG faced
-// per keeper, so this is labelled an estimate wherever it's shown. ok is
-// false without the club's xGA or matches.
+// KeeperExpected estimates a keeper's expected goals conceded: club xGA
+// scaled by his share of minutes. No source has per-keeper xG faced, so
+// it is shown as an estimate.
 func KeeperExpected(minutes int, team models.TeamSeasonStats) (float64, bool) {
 	if team.XGA == nil || team.MatchesPlayed == 0 {
 		return 0, false

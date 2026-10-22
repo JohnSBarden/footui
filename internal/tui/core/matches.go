@@ -2,9 +2,7 @@ package core
 
 import "github.com/JohnSBarden/footui/internal/data/models"
 
-// MatchNames resolves the teams and competitions a list of matches refers
-// to, in two queries, so a match list can name every opponent and
-// competition without a query per row.
+// MatchNames resolves the matches' teams and competitions in two queries.
 func MatchNames(deps Deps, matches []models.Match) (map[string]models.Team, map[string]models.Competition, error) {
 	var teamIDs, compIDs []string
 	seenTeam, seenComp := map[string]bool{}, map[string]bool{}
@@ -28,8 +26,7 @@ func MatchNames(deps Deps, matches []models.Match) (map[string]models.Team, map[
 	if err != nil {
 		return nil, nil, err
 	}
-	// A league cached before it had a short name gets it from the catalog,
-	// so the column reads "PL" rather than "Premi…" until it is refreshed.
+	// A league cached without a short name gets it from the catalog.
 	for id, c := range comps {
 		if c.ShortName != "" {
 			continue

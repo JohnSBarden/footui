@@ -29,9 +29,8 @@ func (s *Store) ExternalRef(ctx context.Context, entityType, provider, providerI
 
 func (s *Store) ProviderID(ctx context.Context, entityType, canonicalID, provider string) (string, error) {
 	var id string
-	// Two provider IDs can resolve to one entity (a provider that
-	// re-numbered a player); either reaches the same stats, so the
-	// choice only has to be stable.
+	// Several provider IDs may resolve to one entity; the choice only
+	// has to be stable.
 	err := s.db.QueryRowContext(ctx, `
 		SELECT provider_id FROM external_ref
 		WHERE entity_type = ? AND canonical_id = ? AND provider = ?

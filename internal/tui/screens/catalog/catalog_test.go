@@ -61,7 +61,6 @@ func press(m *Model, k string) tea.Cmd {
 	return cmd
 }
 
-// requests runs cmd and returns any refresh requests it produced.
 func requests(cmd tea.Cmd) []core.RefreshRequest {
 	if cmd == nil {
 		return nil

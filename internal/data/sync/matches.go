@@ -12,22 +12,14 @@ import (
 	"github.com/JohnSBarden/footui/internal/storage"
 )
 
-// International football is synced by the unit: one calendar year of one
-// competition's matches, which a single request fetches for every nation
-// at once. A nation's matches are the units of every international
-// competition of its gender for the years wanted — so the first nation
-// followed costs a request per competition per year, and every nation
-// after it costs nothing, because the units are shared.
-//
-// Politeness is the point of the rules below. A unit for a year that has
-// ended, fetched after it ended, never changes and is never fetched again.
-// The current year's units are fetched again only when stale and a stored
-// match has kicked off since (or a week has passed, to learn of fixtures
-// announced since) — outside international windows, that is nothing.
+// International football is synced by the unit: one competition-year,
+// fetched for every nation in one request and shared between nations.
+// For politeness, a year fetched after it ended is never fetched again; a
+// current-year unit only when stale and a match has kicked off since, or
+// weekly to pick up new fixtures.
 
 // MatchSource is the slice of the provider contract international sync
-// needs: the yearly match lists, the directory of nations, and tournament
-// group tables.
+// needs.
 type MatchSource interface {
 	provider.MatchesProvider
 	provider.NationalTeamsProvider
@@ -53,23 +45,21 @@ const (
 	// Americas ends after midnight UTC.
 	yearGrace = 24 * time.Hour
 	// weeklyCheck is how old a current-year unit may get before it is
-	// fetched again regardless, so fixtures announced after the last
-	// fetch are learned of.
+	// fetched again regardless.
 	weeklyCheck = 7 * 24 * time.Hour
 	// inPlayWindow is how long before the last fetch a match may have
 	// kicked off and still have been in progress then.
 	inPlayWindow = 3 * time.Hour
 )
 
-// MatchSyncer runs international refreshes against a MatchSource and a
-// storage.Repositories.
+// MatchSyncer runs international refreshes.
 type MatchSyncer struct {
 	source       MatchSource
 	repos        storage.Repositories
 	providerName string
 	// StaleAfter is how old a current-year unit must be before it is
 	// worth fetching again. Zero leaves only the kicked-off and weekly
-	// rules, which is what an explicit refresh uses.
+	// rules.
 	StaleAfter time.Duration
 	// MaxConsecutiveFailures works as on Syncer.
 	MaxConsecutiveFailures int
@@ -96,9 +86,8 @@ func (s *MatchSyncer) now() time.Time {
 }
 
 // NationUnits are the units a nation of one gender plays in over the given
-// calendar years: every international competition of that gender with
-// matches that year. A tournament is only asked about in the year of an
-// edition, or the year after one (Euro 2020 was played in 2021).
+// years. A tournament counts in an edition's year or the year after (Euro
+// 2020 was played in 2021).
 func NationUnits(gender string, years []int) []Unit {
 	var out []Unit
 	for _, y := range years {
@@ -112,8 +101,6 @@ func NationUnits(gender string, years []int) []Unit {
 	return out
 }
 
-// playedIn reports whether a competition can have matches in a calendar
-// year.
 func (c Coverage) playedIn(year int) bool {
 	if c.Editions == nil {
 		return true
@@ -138,14 +125,12 @@ func RecentYears(now time.Time, n int) []int {
 	return out
 }
 
-// UnitDue reports whether a unit needs fetching, and why. See the package
-// comment above for the rules.
+// UnitDue reports whether a unit needs fetching, and why.
 func (s *MatchSyncer) UnitDue(ctx context.Context, u Unit) (string, bool) {
 	return UnitDue(ctx, s.repos, u, s.now(), s.StaleAfter)
 }
 
-// UnitDue is MatchSyncer.UnitDue for callers without a syncer: the stale
-// check on open asks it of the units a favourite nation needs.
+// UnitDue is MatchSyncer.UnitDue for callers without a syncer.
 func UnitDue(ctx context.Context, repos storage.Repositories, u Unit, now time.Time, staleAfter time.Duration) (string, bool) {
 	run, err := repos.LatestYearRun(ctx, u.Competition.ID, u.Year)
 	if err != nil {
@@ -179,10 +164,8 @@ func UnitDue(ctx context.Context, repos storage.Repositories, u Unit, now time.T
 	return "", false
 }
 
-// SyncUnits fetches every unit that is due, leaving the rest alone, and
-// reports each as it finishes. As with clubs, one unit failing doesn't
-// stop the others, three in a row gives up on the rest, and being
-// rate-limited stops at once.
+// SyncUnits fetches every unit that is due. Failures are handled as in
+// Syncer.SyncJobs.
 func (s *MatchSyncer) SyncUnits(ctx context.Context, units []Unit, progress Progress) []UnitResult {
 	results := make([]UnitResult, 0, len(units))
 	record := func(u UnitResult) {
@@ -234,12 +217,10 @@ func (s *MatchSyncer) SyncUnits(ctx context.Context, units []Unit, progress Prog
 	return results
 }
 
-// yearSeason is a season-shaped label for a calendar year, for display.
 func yearSeason(year int) models.Season {
 	return models.Season{Label: strconv.Itoa(year), CalendarYear: true}
 }
 
-// syncUnit fetches one unit and stores it, logging the attempt either way.
 func (s *MatchSyncer) syncUnit(ctx context.Context, u Unit) (Result, error) {
 	started := s.now()
 	res, err := s.fetchUnit(ctx, u)
@@ -263,8 +244,7 @@ func (s *MatchSyncer) fetchUnit(ctx context.Context, u Unit) (Result, error) {
 		return res, fmt.Errorf("sync: fetch matches: %w", fetchErr)
 	}
 	if len(matches) == 0 {
-		// Nothing played that year: worth logging (so it isn't asked
-		// again), not worth a competition row with nothing in it.
+		// Logged so it isn't asked again, but no empty competition row.
 		return res, fetchErr
 	}
 
@@ -304,9 +284,8 @@ func (s *MatchSyncer) fetchUnit(ctx context.Context, u Unit) (Result, error) {
 			}
 		}
 		if !comp.International() {
-			// A club's season lines come from its league tables. A cup
-			// tie or a European qualifier would otherwise give it an
-			// empty line among its seasons.
+			// Club season links come from league tables only, or a cup
+			// tie would add an empty season line.
 			continue
 		}
 		for _, team := range []string{m.HomeTeamID, m.AwayTeamID} {
@@ -326,8 +305,8 @@ func (s *MatchSyncer) fetchUnit(ctx context.Context, u Unit) (Result, error) {
 	return res, fetchErr
 }
 
-// resolveTeams maps a unit's teams to canonical ones: nations among
-// nations, clubs among clubs, never one for the other.
+// resolveTeams maps a unit's teams to canonical ones, never a nation to a
+// club.
 func (s *MatchSyncer) resolveTeams(ctx context.Context, comp models.Competition, teams []models.Team) ([]models.Team, map[string]string, error) {
 	if comp.International() {
 		rows, ids, err := nations(ctx, s.repos, teams)
@@ -348,8 +327,7 @@ func (s *MatchSyncer) resolveTeams(ctx context.Context, comp models.Competition,
 }
 
 // canonicalMatchID maps a provider's match ID to a canonical one, recorded
-// in external_ref like a team's, so a match fetched again — rescheduled,
-// or now with a result — updates the same row.
+// so a refetched match updates the same row.
 func canonicalMatchID(ctx context.Context, repos storage.Repositories, native string) (string, error) {
 	prov, local, ok := nativeID(native)
 	if !ok {
@@ -370,9 +348,8 @@ func (s *MatchSyncer) SyncNations(ctx context.Context, gender string, years []in
 	return s.SyncUnits(ctx, NationUnits(gender, years), progress)
 }
 
-// SeedNationalTeams stores the directory of one gender's national teams,
-// so every nation can be found in search before any of its matches are
-// fetched. It returns how many there are.
+// SeedNationalTeams stores one gender's national teams so they are
+// searchable, and returns how many there are.
 func (s *MatchSyncer) SeedNationalTeams(ctx context.Context, gender string) (int, error) {
 	teams, err := s.source.NationalTeams(ctx, gender)
 	if err != nil {
@@ -390,15 +367,10 @@ func (s *MatchSyncer) SeedNationalTeams(ctx context.Context, gender string) (int
 	return len(rows), nil
 }
 
-// SyncEdition refreshes one season of an international competition as the
-// catalog and the League screen ask for it: a tournament edition, or a
-// year of a qualifier or nations league. Its matches come from the shared
-// units; its group tables, where it has them, from one standings request
-// each.
-//
-// A tournament edition is fetched from its named year, and the year after
-// only when that year held no final — Euro 2020, played in 2021; AFCON
-// 2025, which ended in January.
+// SyncEdition refreshes one season of an international competition: its
+// matches from the shared units, then its group tables. The year after an
+// edition is fetched too when its named year held no final (Euro 2020,
+// AFCON 2025).
 func (s *MatchSyncer) SyncEdition(ctx context.Context, comp models.Competition, season string, progress Progress) []UnitResult {
 	year, err := strconv.Atoi(season)
 	if err != nil {
@@ -504,9 +476,8 @@ func (s *MatchSyncer) editionsPlayedIn(ctx context.Context, comp models.Competit
 	return out, nil
 }
 
-// syncTable fetches and stores one edition's group tables, logging the
-// attempt as the edition's. An edition with no table (a knockout-only
-// finals) is a success with nothing in it, so it isn't asked again.
+// syncTable fetches one edition's group tables. No table is a success, so
+// it isn't asked again.
 func (s *MatchSyncer) syncTable(ctx context.Context, comp models.Competition, season models.Season) (Result, error) {
 	started := s.now()
 	res, err := s.fetchTable(ctx, comp, season)

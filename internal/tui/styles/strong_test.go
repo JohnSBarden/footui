@@ -27,8 +27,7 @@ func stripes(t *testing.T, th Theme) []colorful.Color {
 	return []colorful.Color{concrete(t, th.Background), concrete(t, th.Stripe)}
 }
 
-// Every curated club must come out readable when its own primary is the
-// background — the property that makes a strong theme usable at all.
+// Every curated club must be readable on its own primary.
 func TestStrongThemeIsReadableForEveryCuratedClub(t *testing.T) {
 	entries, err := colors.Load()
 	if err != nil {
@@ -61,9 +60,8 @@ func TestStrongThemeIsReadableForEveryCuratedClub(t *testing.T) {
 				t.Errorf("%s: accent contrast %.2f on %s, want ≥ %.1f", e.ID, r, bg.Hex(), want)
 			}
 		}
-		// Green/red keep their hue, so on a club whose primary is itself
-		// green or red the reachable contrast is lower; large-text AA is
-		// the floor.
+		// Green/red keep their hue, so on a green or red primary
+		// large-text AA is the floor.
 		for _, bg := range stripes(t, th) {
 			for name, c := range map[string]lipgloss.TerminalColor{
 				"positive": th.Palette.Positive, "negative": th.Palette.Negative,
@@ -180,10 +178,8 @@ func TestPaintLeavesTransparentThemesAlone(t *testing.T) {
 	}
 }
 
-// Styles that draw their own background (key caps, tab pills, the title
-// bar, the selected row) must read against it. The palette-level check
-// above can't see these: a keycap once drew text on a background of that
-// same text colour, and every key in the footer vanished.
+// Styles that draw their own background (keycaps, tab pills, title,
+// selected row) must read against it; the palette check can't see these.
 func TestStrongThemeFilledStylesAreReadable(t *testing.T) {
 	entries, err := colors.Load()
 	if err != nil {

@@ -15,15 +15,11 @@ import (
 	"github.com/JohnSBarden/footui/internal/textfold"
 )
 
-// International football is fetched a competition-year at a time: one
-// scoreboard request returns every match of, say, the 2025 friendlies —
-// every nation's — with each side's possession, shots, corners and fouls.
-// Per-match summaries carry more, but at 440 KB each they are far too
-// heavy to fetch for hundreds of matches.
+// International football is fetched a competition-year per scoreboard
+// request. Per-match summaries (440 KB each) are too heavy to use.
 
-// scoreboardLimit is how many events one scoreboard request asks for.
-// ESPN's default is small and truncates silently; the busiest year of
-// friendlies is about 300 matches.
+// scoreboardLimit: ESPN's default is small and truncates silently; the
+// busiest year of friendlies is about 300 matches.
 const scoreboardLimit = 1000
 
 // --- wire types ---
@@ -77,8 +73,8 @@ type scoreboardCompetitor struct {
 	} `json:"statistics"`
 }
 
-// flexNum is a number ESPN sends either as a JSON number or as a string
-// ("2"); Valid is false when it was absent or unreadable.
+// flexNum is a number ESPN sends as either a number or a string; Valid is
+// false when absent or unreadable.
 type flexNum struct {
 	Value float64
 	Valid bool
@@ -104,11 +100,9 @@ var (
 
 // --- fetching ---
 
-// CompetitionMatches implements provider.MatchesProvider: one request for
-// the year, or, when that comes back exactly full — ESPN truncates
-// without saying so — twelve month-sized ones. If even a month is full,
-// what was fetched is returned with provider.ErrIncomplete, so it can be
-// stored without being taken for the whole year.
+// CompetitionMatches implements provider.MatchesProvider. A full year
+// response may be silently truncated, so it falls back to monthly
+// requests; a full month returns provider.ErrIncomplete with what it got.
 func (p *Provider) CompetitionMatches(ctx context.Context, ref provider.CompetitionRef, year int) ([]models.Match, []models.Team, error) {
 	slug, ok := leagueSlugs[ref.CompetitionID]
 	if !ok {
@@ -156,9 +150,8 @@ func (p *Provider) scoreboard(ctx context.Context, slug, dates string) ([]scoreb
 	return resp.Events, nil
 }
 
-// NationalTeams implements provider.NationalTeamsProvider, from the team
-// lists in directorySlugs, merged by ESPN ID. Only the first list is
-// required; the others fill gaps, and one failing costs only its gaps.
+// NationalTeams implements provider.NationalTeamsProvider. Only the first
+// directorySlugs list is required; the rest just fill gaps.
 func (p *Provider) NationalTeams(ctx context.Context, gender string) ([]models.Team, error) {
 	slugs, ok := directorySlugs[gender]
 	if !ok {
@@ -190,17 +183,16 @@ func (p *Provider) NationalTeams(ctx context.Context, gender string) ([]models.T
 
 // --- mapping ---
 
-// nationalTeam builds a national team under ESPN's ID. Gender is carried
-// by the team (and its canonical ID), so a women's side's name is its
-// country's, not "England Women".
+// nationalTeam builds a national team. Gender is carried by the team, so
+// " Women" is trimmed from the name.
 func nationalTeam(espnID, name, short, gender string) models.Team {
 	trim := func(s string) string { return strings.TrimSpace(strings.TrimSuffix(s, " Women")) }
 	return models.Team{ID: teamID(espnID), Name: trim(name), ShortName: trim(short), Gender: gender, National: true}
 }
 
-// mapScoreboard turns a year's events into matches, and the teams that
-// played them. Each match's season is the edition ESPN files it under,
-// which for a tournament held over New Year is the year it began.
+// mapScoreboard turns a year's events into matches and teams. A match's
+// season is ESPN's edition, which for a tournament over New Year is the
+// year it began.
 func mapScoreboard(events []scoreboardEvent, comp models.Competition, updated time.Time) ([]models.Match, []models.Team) {
 	var matches []models.Match
 	var teams []models.Team
@@ -285,8 +277,8 @@ func parseKickoff(values ...string) (time.Time, bool) {
 	return time.Time{}, false
 }
 
-// matchStatus maps ESPN's status to footui's. Anything ESPN marks
-// completed without a status footui knows is a finished match.
+// matchStatus maps ESPN's status to footui's; an unknown completed status
+// is full time.
 func matchStatus(name, state string, completed bool) string {
 	switch name {
 	case "STATUS_FULL_TIME", "STATUS_FINAL":
@@ -325,7 +317,6 @@ func score(n flexNum) *int {
 	return &v
 }
 
-// roundNames are the round slugs ESPN uses, as footui shows them.
 var roundNames = map[string]string{
 	"group-stage":     "Group stage",
 	"league-stage":    "League stage",
@@ -338,8 +329,8 @@ var roundNames = map[string]string{
 	"final":           "Final",
 }
 
-// roundLabel is the match's round: its group when it has one, otherwise
-// its stage. A friendly's "stage" is the year, which says nothing.
+// roundLabel is the match's group, else its stage. A friendly's stage is
+// the year, so it's dropped.
 func roundLabel(slug, group string) string {
 	if g := groupLabel(group); g != "" {
 		return g
@@ -357,8 +348,8 @@ func roundLabel(slug, group string) string {
 	return strings.Join(words, " ")
 }
 
-// groupLabel tidies a group name: ESPN's qualifier groups can read "2026
-// FIFA World Cup¤ CAF Qualifying - Group E", which is "Group E".
+// groupLabel tidies ESPN's "2026 FIFA World Cup¤ CAF Qualifying - Group E"
+// to "Group E".
 func groupLabel(name string) string {
 	name = strings.TrimSpace(strings.ReplaceAll(name, "¤", ""))
 	if i := strings.LastIndex(name, " - "); i >= 0 {
@@ -367,9 +358,8 @@ func groupLabel(name string) string {
 	return name
 }
 
-// neutralGround reports a match played in a country neither side is
-// from. The scoreboard has no neutral flag of its own, but it has the
-// venue's country.
+// neutralGround reports a match in a country neither side is from, for
+// when the scoreboard has no neutral flag.
 func neutralGround(venueCountry string, home, away *scoreboardCompetitor) bool {
 	v := textfold.Fold(venueCountry)
 	if v == "" {
@@ -383,11 +373,8 @@ func neutralGround(venueCountry string, home, away *scoreboardCompetitor) bool {
 	return true
 }
 
-// matchStats reads one side's numbers. As with club seasons, anything
-// impossible is dropped rather than shown: possession outside (0, 100),
-// more shots on target than shots, more of anything than a match holds.
-// A side whose every figure is zero has no stats, not a match where
-// nothing happened.
+// matchStats reads one side's numbers, dropping impossible values. All
+// zeros means no stats, not a match where nothing happened.
 func matchStats(c *scoreboardCompetitor) *models.MatchTeamStats {
 	get := func(name string) (float64, bool) {
 		for _, s := range c.Statistics {

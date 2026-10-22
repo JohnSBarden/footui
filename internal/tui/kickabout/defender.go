@@ -7,23 +7,20 @@ import (
 
 const (
 	minDefenders, maxDefenders = 3, 5
-	// defSpeed is a defender's pace in rows a tick, doubled across like
-	// the player's. A held key repeats about fps times a second, a row a
-	// press, so this is a third of the player's pace.
+	// defSpeed is rows a tick (doubled across), a third of the player's
+	// key-repeat pace.
 	defSpeed = 1.0 / 3
-	// restTicks is how long a defender stands after winning the ball,
-	// which is also how long the ball can roll out of it.
+	// restTicks is how long a defender stands after winning the ball, which
+	// is also how long the ball can roll out of it.
 	restTicks = fps
-	// shuffle is how far towards the ball a defender not pressing it
-	// strays from home.
+	// shuffle is how far a non-pressing defender strays from home.
 	shuffle = 0.35
 )
 
 // standIns are defenders for a screen without enough words to pick from.
 var standIns = []string{"Maldini", "Baresi", "Puyol", "Cannavaro", "Kanté", "Ramos", "Terry", "Rodri"}
 
-// Defender is a word from the screen come alive: it covers its runes from
-// Pos along one row.
+// Defender is a screen word come alive, covering its runes from Pos.
 type Defender struct {
 	Name      string
 	Pos, Home Vec
@@ -33,7 +30,6 @@ type Defender struct {
 
 func (d Defender) width() int { return len([]rune(d.Name)) }
 
-// centre is the middle of the word.
 func (d Defender) centre() Vec { return Vec{d.Pos.X + float64(d.width())/2, d.Pos.Y} }
 
 // Covers reports whether the word is on (x, y).
@@ -53,9 +49,8 @@ func (d Defender) near(o Defender, gap int) bool {
 	return a < b+o.width()+gap && b < a+d.width()+gap
 }
 
-// pickDefenders lifts a few of the field's words off it to defend, keeping
-// them clear of the kick-off spot, the goal, the score bar and each other,
-// and makes up the numbers with stand-ins when the screen is too bare.
+// pickDefenders lifts a few words off the field, clear of the kick-off,
+// goal, score bar and each other, padding with stand-ins.
 func pickDefenders(f Field, kickOff Vec, rng *rand.Rand) []Defender {
 	n := minDefenders + rng.IntN(maxDefenders-minDefenders+1)
 	var ds []Defender
@@ -94,9 +89,8 @@ func pickDefenders(f Field, kickOff Vec, rng *rand.Rand) []Defender {
 	return ds
 }
 
-// moveDefenders runs each defender a tick: whoever is nearest the ball
-// presses it, and the rest shuffle across from home towards it, never
-// onto one another or into the score bar or the goal.
+// moveDefenders: the nearest presses the ball, the rest shuffle from home
+// towards it, never onto one another, the score bar or the goal.
 func moveDefenders(ds []Defender, ball Vec, f Field) {
 	press, best := -1, math.Inf(1)
 	for i, d := range ds {
@@ -138,8 +132,6 @@ func moveDefenders(ds []Defender, ball Vec, f Field) {
 	}
 }
 
-// toward is where d's word gets to this tick running its centre at
-// target, as far as defSpeed lets it.
 func toward(d Defender, target Vec) Vec {
 	c := d.centre()
 	dist := apart(c, target)
@@ -150,5 +142,5 @@ func toward(d Defender, target Vec) Vec {
 	return Vec{d.Pos.X + (target.X-c.X)*step, d.Pos.Y + (target.Y-c.Y)*step}
 }
 
-// apart is the distance from a to b in rows, counting two columns as one.
+// apart is the distance in rows, counting two columns as one.
 func apart(a, b Vec) float64 { return math.Hypot((b.X-a.X)/2, b.Y-a.Y) }

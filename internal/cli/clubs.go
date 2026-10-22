@@ -12,10 +12,8 @@ import (
 	"github.com/JohnSBarden/footui/internal/tui/core"
 )
 
-// runClub fetches what a club's recent games need: its understat league
-// seasons that are due (one request each, through the club syncer), then
-// the ESPN units it plays in. staleAfter holds the current season and
-// year to the stale threshold; zero fetches whatever has changed.
+// runClub fetches a club's due understat league seasons, then its ESPN
+// units. Zero staleAfter fetches whatever has changed.
 func runClub(ctx context.Context, store storage.Repositories, club models.Team, staleAfter time.Duration,
 	ev refreshEvents) ([]sync.UnitResult, error) {
 
@@ -37,9 +35,7 @@ func runClub(ctx context.Context, store storage.Repositories, club models.Team, 
 	return append(results, ms.SyncUnits(ctx, plan.Units, ev.unitFunc())...), nil
 }
 
-// clubDue reports whether a club's recent games need anything fetched,
-// and why, by the same rules runClub fetches by — so asking costs no
-// request, and a club whose games are current asks nothing of anyone.
+// clubDue applies runClub's rules without making a request.
 func clubDue(ctx context.Context, repos storage.Repositories, club models.Team, now time.Time,
 	staleAfter time.Duration) (string, bool) {
 
@@ -64,9 +60,8 @@ func clubDue(ctx context.Context, repos storage.Repositories, club models.Team, 
 	return "", false
 }
 
-// clubRefreshes is the stale check for starred clubs' recent games: one
-// request per club with anything due. Their league tables are followed by
-// the competition rule; this covers their cups and European games.
+// clubRefreshes covers starred clubs' cups and European games; their
+// league tables are followed by the competition rule.
 func clubRefreshes(ctx context.Context, repos storage.Repositories, now time.Time, maxAge time.Duration) []core.RefreshRequest {
 	favs, err := repos.ListFavorites(ctx)
 	if err != nil {
@@ -88,9 +83,8 @@ func clubRefreshes(ctx context.Context, repos storage.Repositories, now time.Tim
 	return out
 }
 
-// exactClub finds the one cached club a query names exactly, so `footui
-// refresh --team arsenal` means Arsenal. National teams are left to the
-// nation lookup.
+// exactClub finds the one cached club a query names exactly; national
+// teams are left to the nation lookup.
 func exactClub(ctx context.Context, repos storage.Repositories, query string) (models.Team, bool) {
 	teams, err := repos.FindTeamsByName(ctx, query)
 	if err != nil {

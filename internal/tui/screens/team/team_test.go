@@ -31,9 +31,8 @@ func settled(t *testing.T, deps core.Deps, competitionID, seasonID string) core.
 	return tuitest.Resize(t, s, 110, 44)
 }
 
-// seedTwoCompetitions gives Arsenal the same 2025 season in two different
-// competitions with deliberately different numbers, which is what the
-// no-blending assertions rely on.
+// seedTwoCompetitions uses deliberately different numbers per competition
+// for the no-blending assertions.
 func seedTwoCompetitions(t *testing.T) storage.Repositories {
 	t.Helper()
 	repos := storagetest.New(t)
@@ -52,8 +51,7 @@ func TestTeamStatsAreNotBlendedAcrossCompetitions(t *testing.T) {
 	s := settled(t, newDeps(repos), "eng-premier-league", "eng-premier-league:2025")
 
 	league := s.View()
-	// The Premier League tab must show only the league's 38 games and 85
-	// points, never 51 games or 111 points.
+	// Only the league's 38 games / 85 points, never the 51 / 111 sum.
 	if !strings.Contains(league, "85") || !strings.Contains(league, "38") {
 		t.Errorf("Premier League tab missing its own figures\n---\n%s", league)
 	}
@@ -61,7 +59,6 @@ func TestTeamStatsAreNotBlendedAcrossCompetitions(t *testing.T) {
 		t.Errorf("figures were blended across competitions\n---\n%s", league)
 	}
 
-	// Switching tabs must show the other competition's distinct numbers.
 	s = tuitest.Key(t, s, "right")
 	cup := s.View()
 	if !strings.Contains(cup, "26") || !strings.Contains(cup, "13 played") {
@@ -106,8 +103,7 @@ func TestDefaultsToFirstCompetitionWhenOpenedWithoutContext(t *testing.T) {
 	if !ok {
 		t.Fatal("no competition selected")
 	}
-	// The domestic league leads: a continental cup has no tier, and
-	// unknown tiers sort after real ones.
+	// A continental cup has no tier; unknown tiers sort last.
 	if comp.Name != "Premier League" {
 		t.Errorf("defaulted to %q, want the domestic league as the first tab", comp.Name)
 	}
@@ -185,8 +181,7 @@ func TestTabDoesNotFocusAnEmptySquad(t *testing.T) {
 	s := settled(t, deps, "eng-premier-league", "eng-premier-league:2025")
 	s = tuitest.Key(t, s, "tab")
 
-	// Focus should have stayed on Seasons, so enter opens the league
-	// table rather than a player that doesn't exist.
+	// Focus stayed on Seasons, so enter opens the league table.
 	_, cmd := s.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	if _, ok := tuitest.CapturedCmd(cmd).(core.PushMsg); !ok {
 		t.Fatal("expected enter to push a screen")
@@ -221,8 +216,7 @@ func TestStatCardsShowExpectedGoalsGap(t *testing.T) {
 func TestAdvancedTeamStatsRenderAsCards(t *testing.T) {
 	repos := seedTwoCompetitions(t)
 	ctx := context.Background()
-	// Arsenal took 85 points against 79.9 expected: a season that
-	// outperformed its chances by 5.1.
+	// 85 points against 79.9 expected: +5.1.
 	if err := repos.UpsertTeamSeasonStats(ctx, models.TeamSeasonStats{
 		TeamID: arsenal.ID, CompetitionID: "eng-premier-league", SeasonID: "eng-premier-league:2025",
 		MatchesPlayed: 38, Wins: 26, Draws: 7, Losses: 5, GoalsFor: 71, GoalsAgainst: 27,
@@ -247,8 +241,6 @@ func TestAdvancedTeamStatsRenderAsCards(t *testing.T) {
 	}
 }
 
-// A provider with no long-tail stats must produce no cards at all, rather
-// than a row of cards reading zero.
 func TestNoAdvancedStatsMeansNoAdvancedCards(t *testing.T) {
 	repos := seedTwoCompetitions(t) // seeded without extras
 	out := settled(t, newDeps(repos), "eng-premier-league", "eng-premier-league:2025").View()
@@ -286,8 +278,7 @@ func TestSquadShowsShotsAndKeyPasses(t *testing.T) {
 	}
 }
 
-// A competition without xG or minutes (ESPN's) shows what it does have —
-// possession and shots — instead of columns of dashes and zeros.
+// Without xG or minutes (ESPN), possession and shots are shown instead.
 func TestColumnsFollowTheData(t *testing.T) {
 	repos := storagetest.New(t)
 	storagetest.SeedCompetition(t, repos, storagetest.PremierLeague(), "2025", []storagetest.TeamRow{
@@ -370,7 +361,6 @@ func TestStrongModePaintsTheClubAndTogglesBack(t *testing.T) {
 	}
 }
 
-// Uncurated clubs are the common case and must render normally.
 func TestClubWithoutColorsStaysOnTheNeutralTheme(t *testing.T) {
 	deps := newDeps(seedTwoCompetitions(t))
 	deps.Theme = styles.Default()
@@ -384,7 +374,6 @@ func TestClubWithoutColorsStaysOnTheNeutralTheme(t *testing.T) {
 	}
 }
 
-// NO_COLOR means no colour; a club's branding is not an exception.
 func TestNoColorSuppressesClubBranding(t *testing.T) {
 	repos := seedTwoCompetitions(t)
 	if err := repos.UpsertTeamColors(context.Background(), models.TeamColors{
@@ -401,8 +390,6 @@ func TestNoColorSuppressesClubBranding(t *testing.T) {
 	}
 }
 
-// Branding belongs to the screen it's on: a player who turned out for
-// three clubs should not be rendered in one club's colours.
 func TestClubBrandingDoesNotLeakIntoPushedScreens(t *testing.T) {
 	repos := seedTwoCompetitions(t)
 	ctx := context.Background()
@@ -461,7 +448,6 @@ func TestHonoursPanelAggregatesRepeatedTitles(t *testing.T) {
 	if !strings.Contains(out, "HONOURS") || !strings.Contains(out, "◆◆◆ Premier League ×3") {
 		t.Fatalf("expected an honours panel\n---\n%s", out)
 	}
-	// Three stored rows read as one line with a count, not three lines.
 	if !strings.Contains(out, "Premier League ×3") {
 		t.Errorf("expected repeated titles aggregated with a count\n---\n%s", out)
 	}
@@ -470,8 +456,6 @@ func TestHonoursPanelAggregatesRepeatedTitles(t *testing.T) {
 	}
 }
 
-// The curated league-title lists start at a fixed season, so a count on
-// screen must never be readable as an all-time total.
 func TestHonoursPanelStatesItsCoverageLimit(t *testing.T) {
 	repos := seedTwoCompetitions(t)
 	seedHonours(t, repos, arsenal.ID,
@@ -500,8 +484,8 @@ func TestContinentalHonoursAreListedFirst(t *testing.T) {
 	}
 }
 
-// honoursPanel isolates the honours section, since competition names also
-// appear in the tab bar higher up the view.
+// honoursPanel isolates the section; competition names also appear in
+// the tab bar.
 func honoursPanel(t *testing.T, view string) string {
 	t.Helper()
 	i := strings.Index(view, "HONOURS")
@@ -511,8 +495,6 @@ func honoursPanel(t *testing.T, view string) string {
 	return view[i:]
 }
 
-// An empty panel would imply the club has won nothing, which is a
-// different and probably false claim from "not in the curated dataset".
 func TestUncuratedClubShowsNoHonoursPanelAtAll(t *testing.T) {
 	out := settled(t, newDeps(seedTwoCompetitions(t)), "eng-premier-league", "eng-premier-league:2025").View()
 
@@ -542,8 +524,7 @@ func TestLongHonoursListsAreSummarized(t *testing.T) {
 	}
 }
 
-// Same rule as the League table: a narrow terminal gives up detail, never
-// identity. Two squad members with similar names must stay distinguishable.
+// A narrow terminal gives up detail, never identity.
 func TestNarrowTerminalsKeepPlayerNamesIntact(t *testing.T) {
 	repos := seedTwoCompetitions(t)
 	storagetest.SeedRoster(t, repos, arsenal.ID, "eng-premier-league", "eng-premier-league:2025",
@@ -561,7 +542,6 @@ func TestNarrowTerminalsKeepPlayerNamesIntact(t *testing.T) {
 				t.Errorf("width %d truncated %q\n---\n%s", width, name, out)
 			}
 		}
-		// The columns the table exists for are never sacrificed.
 		for _, col := range []string{"Apps", "Mins", "G", "A"} {
 			if !strings.Contains(out, col) {
 				t.Errorf("width %d dropped the core column %q\n---\n%s", width, col, out)
@@ -586,8 +566,6 @@ func TestTeamScreenShowsWhenTheSeasonWasLastRefreshed(t *testing.T) {
 	}
 }
 
-// Freshness is per competition-season, so switching tabs must not carry
-// the previous tab's timestamp across.
 func TestFreshnessFollowsTheSelectedCompetition(t *testing.T) {
 	repos := seedTwoCompetitions(t)
 	ctx := context.Background()
@@ -619,8 +597,6 @@ func TestRefreshTargetIsTheSelectedCompetitionTab(t *testing.T) {
 	}
 }
 
-// With nothing cached there is no tab to read, but a team opened from a
-// league still knows which one it came from.
 func TestRefreshTargetFallsBackToTheOriginCompetition(t *testing.T) {
 	s := settled(t, newDeps(storagetest.New(t)), "esp-la-liga", "")
 	got, ok := s.(core.Refreshable).RefreshTarget()

@@ -11,10 +11,7 @@ import (
 	"github.com/JohnSBarden/footui/internal/storage/sqlite"
 )
 
-// fakeSource is a hand-written stand-in for a real provider (per the
-// design doc's testing approach: interfaces here are small enough that a
-// mocking framework isn't needed), so SyncCompetitionSeason can be tested
-// without a network call.
+// fakeSource is a hand-written stand-in for a real provider.
 type fakeSource struct{}
 
 func (fakeSource) Standings(ctx context.Context, comp provider.CompetitionRef, season provider.SeasonRef) ([]models.TeamSeasonStats, error) {

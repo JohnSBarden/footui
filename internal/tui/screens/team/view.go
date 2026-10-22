@@ -13,24 +13,17 @@ import (
 	"github.com/JohnSBarden/footui/internal/tui/styles"
 )
 
-// Layout. The screen is drawn top down, each part measured as it's drawn,
-// and the tables get whatever is left: guessing at the height of the parts
-// above them goes stale as soon as one of them grows a line.
+// Layout: parts are measured as drawn and the tables get what's left;
+// don't hard-code the heights above them.
 const (
-	// minTablesLines is the least room the tables keep below the stat
-	// cards; the cards give up their boxes, then their later stats, first.
+	// minTablesLines is reserved for the tables below the stat cards.
 	minTablesLines = 9
-	// minStripBody is the room the screen must keep below the scores
-	// along the top for them to be drawn. On a short terminal they'd
-	// leave the club's own tables a few rows.
+	// minStripBody must remain below the score strip for it to be drawn.
 	minStripBody = 14
-	// minPaneRows is the fewest rows a table is worth showing beside the
-	// other; with less room than both need, only the focused one is drawn.
+	// minPaneRows: below this per table, only the focused one is drawn.
 	minPaneRows = 3
-	// paneGap is the space between the two columns of a wide terminal.
-	paneGap = 4
-	// squadMinWidth is the narrowest the squad column gets beside the
-	// seasons: wide enough for its base columns and expected goals.
+	paneGap     = 4
+	// squadMinWidth fits the squad's base columns plus xG side by side.
 	squadMinWidth = 80
 )
 
@@ -59,8 +52,7 @@ func (m *Model) View() string {
 	}
 	parts = append(parts, m.recentStrip())
 	if len(m.competitions) == 0 {
-		// A club known only from its games — a cup opponent — has no
-		// table to show beneath them.
+		// Known only from its games (e.g. a cup opponent): no tables.
 		return strings.Join(parts, "\n\n")
 	}
 
@@ -74,8 +66,6 @@ func (m *Model) View() string {
 	return strings.Join(parts, "\n\n")
 }
 
-// showStrip says whether the scores along the top fit: they're drawn only
-// when the rest of the screen keeps minStripBody lines beneath them.
 func (m *Model) showStrip() bool {
 	if m.strip.Empty() {
 		return false
@@ -85,14 +75,9 @@ func (m *Model) showStrip() bool {
 	return m.height-above >= minStripBody
 }
 
-// tables lays out the seasons, the squad and the honours in lines lines:
-// side by side when the terminal is wide enough for the squad to keep its
-// columns beside the seasons, stacked otherwise.
 func (m *Model) tables(lines int) string {
 	seasonsWidth := components.ColumnsWidth(m.seasonColumns(m.width))
 	if squadWidth := m.width - seasonsWidth - paneGap; squadWidth >= squadMinWidth {
-		// The seasons keep the columns the full width gave them; the
-		// column is cut to exactly their width.
 		left := m.seasonsTable(components.TableRows(lines-1, len(m.CurrentRows())), m.width)
 		if panel := m.honoursPanel(); panel != "" && components.Lines(left)+1+components.Lines(panel) <= lines {
 			left += "\n\n" + panel
@@ -106,8 +91,7 @@ func (m *Model) tables(lines int) string {
 	if need(min(seasons, minPaneRows))+1+need(min(squad, minPaneRows)) > lines {
 		return m.focusedPane(lines)
 	}
-	// The seasons get the rows they have, up to a third of the room; the
-	// squad, the longer list, gets the rest.
+	// Seasons get up to a third of the room; the squad gets the rest.
 	seasonLines := min(need(seasons), max(lines/3, need(minPaneRows)))
 	top := m.seasonsTable(components.TableRows(seasonLines-1, seasons), m.width)
 	squadLines := lines - components.Lines(top) - 1
@@ -118,8 +102,6 @@ func (m *Model) tables(lines int) string {
 	return out
 }
 
-// focusedPane draws only the table with the cursor, for a terminal too
-// short for both, under a title naming the other so tab's job is plain.
 func (m *Model) focusedPane(lines int) string {
 	th := m.theme
 	label := func(text string, on bool) string {
@@ -174,8 +156,6 @@ func (m *Model) header() string {
 	return hero + "\n" + components.Tabs(th, tabs, m.compIdx)
 }
 
-// heroRight is the band's summary: the position in the season in view, in
-// block digits, beside the season, the points and the last few finishes.
 func (m *Model) heroRight() []string {
 	row, ok := m.CurrentSeasonRow()
 	if !ok || row.Stats.Position == nil {
@@ -199,11 +179,9 @@ func (m *Model) heroRight() []string {
 	return out
 }
 
-// finishesShown is how many seasons the band's "finished" line covers.
 const finishesShown = 3
 
-// finishes is the club's last few final positions in this competition,
-// oldest first: "15 ▸ 3 ▸ 13".
+// finishes is oldest first: "15 ▸ 3 ▸ 13".
 func (m *Model) finishes() string {
 	rows := m.CurrentRows() // newest first
 	var pos []string
@@ -218,10 +196,7 @@ func (m *Model) finishes() string {
 	return "finished " + strings.Join(pos, " ▸ ")
 }
 
-// freshnessText says when the selected competition-season was last
-// refreshed, unstyled, for the band's meta line. A failed attempt is
-// reported as a failure rather than as age: "we tried and it broke" is
-// what the user needs to act on.
+// freshnessText reports a failed refresh as a failure, not as age.
 func (m *Model) freshnessText() string {
 	if m.lastSync == nil {
 		return ""
@@ -236,10 +211,7 @@ func (m *Model) freshnessText() string {
 	return "updated " + ago
 }
 
-// stats summarize the selected season, most telling first: a short
-// terminal keeps the first of them. Every figure comes from that one
-// (competition, season) row — nothing here is aggregated across
-// competitions.
+// stats are ordered most telling first; a short terminal keeps the first.
 func (m *Model) stats() []components.Stat {
 	row, ok := m.CurrentSeasonRow()
 	if !ok {
@@ -256,9 +228,6 @@ func (m *Model) stats() []components.Stat {
 	}
 
 	if s.XG != nil {
-		// The gap between actual and expected goals is the single most
-		// informative derived number on the screen, so it gets a card of
-		// its own rather than being left for the reader to subtract.
 		delta := float64(s.GoalsFor) - *s.XG
 		style := m.deltaStyle(delta)
 		stats = append(stats, components.Stat{
@@ -283,15 +252,11 @@ func (m *Model) stats() []components.Stat {
 	return append(stats, m.extraCards(s)...)
 }
 
-// extraCards renders the long-tail stats a provider supplied. Each is
-// conditional: understat.com has these, a future provider might not, and
-// an absent stat should leave no card rather than an empty one.
+// extraCards omits a card entirely when its stat is absent.
 func (m *Model) extraCards(s models.TeamSeasonStats) []components.Stat {
 	var out []components.Stat
 
 	if xpts, ok := m.extras[models.StatExpectedPoints]; ok {
-		// Points minus expected points is the clearest single measure of
-		// whether a season flattered a team or robbed it.
 		delta := float64(s.Points) - xpts
 		style := m.deltaStyle(delta)
 		out = append(out, components.Stat{
@@ -302,9 +267,7 @@ func (m *Model) extraCards(s models.TeamSeasonStats) []components.Stat {
 	}
 
 	if ppda, ok := m.extras[models.StatPPDA]; ok {
-		// PPDA is inverted: fewer opponent passes per defensive action
-		// means a more aggressive press, so the hint says which end is
-		// which rather than leaving the reader to guess.
+		// PPDA is inverted: lower means a harder press.
 		out = append(out, components.Stat{
 			Label: "PPDA", Value: strconv.FormatFloat(ppda, 'f', 1, 64),
 			Hint: "lower = press",
@@ -332,9 +295,7 @@ func (m *Model) extraCards(s models.TeamSeasonStats) []components.Stat {
 	return out
 }
 
-// verdict says in a word which way expected beat actual. gap is expected
-// minus actual: above is what it says when the chances were better than
-// the result, below when the result was better than the chances.
+// verdict: gap is expected minus actual; above labels gap > 0, below < 0.
 func verdict(gap float64, above, below string) string {
 	switch {
 	case gap > 0.5:
@@ -345,8 +306,6 @@ func verdict(gap float64, above, below string) string {
 	return "on par"
 }
 
-// seasonsTable is the seasons pane: its title over the table, showing at
-// most rows seasons.
 func (m *Model) seasonsTable(rows, width int) string {
 	return m.paneTitle("Seasons", m.focus == paneSeasons) + "\n" + m.seasonsBody(rows, width)
 }
@@ -421,17 +380,14 @@ func (m *Model) seasonColumns(width int) []components.Column {
 	return components.FitColumns(width, base, 0, groups)
 }
 
-// extraGroup is a set of optional columns that are shown or dropped
-// together, with the cells each row contributes to them.
+// extraGroup is optional columns shown or dropped together.
 type extraGroup[T any] struct {
 	columns []components.Column
 	cells   func(T) []components.Cell
 }
 
-// seasonGroups picks the optional season columns this competition's data
-// can fill, as the League screen does: expected goals where there are
-// any, otherwise possession and shots. A column with no values in it is
-// never shown — a column of dashes is width spent on nothing.
+// seasonGroups matches the League screen: xG if any, else possession and
+// shots. Columns with no values are never shown.
 func (m *Model) seasonGroups() []extraGroup[models.TeamSeasonStats] {
 	rows := m.CurrentRows()
 	has := func(f func(models.TeamSeasonStats) bool) bool {
@@ -480,8 +436,6 @@ func (m *Model) seasonGroups() []extraGroup[models.TeamSeasonStats] {
 	return groups
 }
 
-// squadSeason names the season the squad is from, " — 2025-26", or
-// nothing before one is selected.
 func (m *Model) squadSeason() string {
 	if row, ok := m.CurrentSeasonRow(); ok {
 		return " — " + components.SeasonName(row.Season)
@@ -489,8 +443,6 @@ func (m *Model) squadSeason() string {
 	return ""
 }
 
-// squadTable is the squad pane: its title over the table, showing at
-// most rows players.
 func (m *Model) squadTable(rows, width int) string {
 	return m.paneTitle("Squad"+m.squadSeason(), m.focus == paneSquad) + "\n" + m.squadBody(rows, width)
 }
@@ -547,13 +499,10 @@ func (m *Model) squadBody(maxRows, width int) string {
 	})
 }
 
-// squadBarMax caps each half of a squad row's goals-and-assists bar, so a
-// prolific scorer's row doesn't push the column wide.
+// squadBarMax caps each half of the G·A bar so the column stays narrow.
 const squadBarMax = 5
 
-// playerColWidth is wide enough for the long names in these leagues
-// ("Martín Zubimendi", "Alexander Isak") to stay distinguishable. It never
-// shrinks — see components.FitColumns.
+// playerColWidth never shrinks — see components.FitColumns.
 const playerColWidth = 22
 
 func (m *Model) squadColumns(width int) []components.Column {
@@ -578,15 +527,12 @@ func (m *Model) squadColumns(width int) []components.Column {
 	return components.FitColumns(width, base, 0, groups)
 }
 
-// squadHasMinutes reports whether anyone in the squad has minutes played;
-// some providers have none, and a column of zeros says nothing.
+// squadHasMinutes: some providers have no minutes at all.
 func (m *Model) squadHasMinutes() bool {
 	return slices.ContainsFunc(m.roster, func(r RosterRow) bool { return r.Stats.Minutes > 0 })
 }
 
-// squadGroups picks the optional squad columns the data can fill. Goals
-// and assists are the squad table's point; expected goals, shots and key
-// passes are the detail a narrow terminal gives up, in that order.
+// squadGroups are dropped in order (xG, then shots/KP) as width shrinks.
 func (m *Model) squadGroups() []extraGroup[models.PlayerSeasonStats] {
 	has := func(f func(models.PlayerSeasonStats) bool) bool {
 		return slices.ContainsFunc(m.roster, func(r RosterRow) bool { return f(r.Stats) })
@@ -623,8 +569,7 @@ func (m *Model) squadGroups() []extraGroup[models.PlayerSeasonStats] {
 	return groups
 }
 
-// paneTitle marks which table the cursor is in. The arrow marker means the
-// focused pane is still identifiable without colour.
+// paneTitle's arrow keeps focus visible without colour.
 func (m *Model) paneTitle(label string, focused bool) string {
 	th := m.theme
 	if focused {
@@ -646,9 +591,8 @@ func (m *Model) deltaStyle(v float64) lipgloss.Style {
 
 func (m *Model) emptyState() string {
 	th := m.theme
-	// Each line is styled separately and joined afterwards: a newline
-	// inside a single Render call makes Lip Gloss pad every line to the
-	// width of the longest, which leaves the shorter one visibly indented.
+	// Style lines separately: Lip Gloss pads multi-line renders to the
+	// longest line.
 	lines := []string{th.Empty.Render("No cached seasons for " + m.team.Name + "."), ""}
 	if compID, ok := m.RefreshTarget(); ok {
 		lines = append(lines,
@@ -658,8 +602,7 @@ func (m *Model) emptyState() string {
 				th.Muted.Render("  from a shell."),
 		)
 	} else {
-		// Opened by name with no history: there is no competition to
-		// refresh from here, so only the CLI form is offered.
+		// No competition to refresh from here; offer only the CLI form.
 		lines = append(lines,
 			th.Muted.Render("Run  ")+
 				th.Accent.Render("footui refresh")+

@@ -14,9 +14,7 @@ import (
 	"github.com/JohnSBarden/footui/internal/tui/styles"
 )
 
-// Being rate-limited drops everything queued behind the refused request,
-// and says why, rather than letting each queued request be refused in
-// turn.
+// Being rate-limited drops the queue and says why.
 func TestARateLimitDropsTheQueue(t *testing.T) {
 	r := &fakeRefresher{summary: "ok", errFor: map[string]error{"world-cup": fmt.Errorf("x: %w", core.ErrRateLimited)}}
 	app := newAppWithRefresh(newFake("Catalog"), r)
@@ -63,8 +61,7 @@ func TestNationRequestsMergeByWhatTheyFetch(t *testing.T) {
 	}
 }
 
-// Starring a nation fetches its matches (free when another nation of its
-// gender already did); starring a club fetches nothing, as before.
+// Starring a nation fetches its matches; starring a club fetches nothing.
 func TestStarringANationQueuesItsMatches(t *testing.T) {
 	app, repos, screen := favApp(t, false)
 	r := &fakeRefresher{summary: "already up to date"}
@@ -100,8 +97,7 @@ func TestTheTeamRouteOpensANationForANationalTeam(t *testing.T) {
 	}
 }
 
-// requesterScreen hands the app a whole refresh request, as the nation
-// screen does.
+// requesterScreen hands the app a whole refresh request.
 type requesterScreen struct {
 	fakeScreen
 	req core.RefreshRequest

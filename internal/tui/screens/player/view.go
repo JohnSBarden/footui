@@ -15,19 +15,15 @@ import (
 	"github.com/JohnSBarden/footui/internal/tui/styles"
 )
 
-// Layout. As on the club screen, everything but the season table is
-// drawn and measured first, and the table gets what's left.
+// Layout: everything but the season table is measured first; the table
+// gets what's left.
 const (
-	// minTableLines is the least room the season table keeps under the
-	// stat cards; the cards lose their boxes, then their later stats, first.
+	// minTableLines is kept under the stat cards; the cards shrink first.
 	minTableLines = 8
-	// minTableRows is the fewest seasons the table shows before the lines
-	// beneath it give up their room.
+	// minTableRows is shown before the lines beneath give up their room.
 	minTableRows = 3
-	// paneGap is the space between the two columns of a wide terminal.
-	paneGap = 4
-	// minSideWidth is the narrowest the stat cards' column gets beside
-	// the table: room for three cards abreast.
+	paneGap      = 4
+	// minSideWidth fits three stat cards abreast.
 	minSideWidth = 48
 )
 
@@ -52,8 +48,7 @@ func (m *Model) View() string {
 		callout = m.callout(row)
 	}
 
-	// Wide: the seasons on the left, the selected one's numbers beside
-	// them, where the eye goes after picking a row.
+	// Wide: seasons left, the selected season's numbers beside them.
 	tableWidth := components.ColumnsWidth(m.tableColumns(m.width))
 	if side := m.width - tableWidth - paneGap; side >= minSideWidth && len(stats) > 0 {
 		right := components.StatCards(th, stats, side)
@@ -79,10 +74,8 @@ func (m *Model) View() string {
 	return b.String()
 }
 
-// seasonsColumn is the season table with its notes, the career totals
-// and the detail's freshness, in at most lines lines and width columns.
-// The table's rows come first: short of room for them, the career line
-// shrinks to one line, then goes, and then the table's notes go too.
+// seasonsColumn gives the table's rows priority: short of room, the career
+// line shrinks, then goes, then the table's notes go.
 func (m *Model) seasonsColumn(lines, width int) string {
 	full := m.careerLines(width)
 	if st := m.detailStatus(); st != "" {
@@ -164,11 +157,9 @@ func (m *Model) header() string {
 	return line + "\n" + components.Tabs(th, tabs, m.compIdx)
 }
 
-// positionBadge names the positions in an understat code ("F M S" is
-// forward, midfield and substitute): every one played, since understat
-// lists them alphabetically rather than by how often, so none can be
-// called the main one. S is dropped, being no position. Another
-// provider's wording passes through in capitals.
+// positionBadge names every position in an understat code ("F M S"):
+// understat lists them alphabetically, so none is the main one. S (sub)
+// is dropped; other providers' wording passes through in capitals.
 func positionBadge(code string) string {
 	names := map[string]string{"F": "FWD", "M": "MID", "D": "DEF", "GK": "GK"}
 	var out []string
@@ -185,15 +176,11 @@ func positionBadge(code string) string {
 	return strings.Join(out, "·")
 }
 
-// chartSeasons is how many seasons the band's chart covers.
 const chartSeasons = 3
 
-// chartBarWidth is the length of the chart's longest bar.
 const chartBarWidth = 12
 
-// chart sets the player's output against what was expected, a season a
-// row, oldest first: goals against xG for a forward, assists against xA
-// for everyone else. A competition without expected numbers gets none.
+// chart plots goals vs xG (forwards) or assists vs xA, oldest first.
 func (m *Model) chart() []string {
 	rows := m.CurrentRows() // newest first
 	if m.hasDetail {
@@ -204,8 +191,7 @@ func (m *Model) chart() []string {
 			}
 		}
 	}
-	// Without detail, what the player produces decides the chart: a
-	// scorer's goals, a creator's assists. With it, the position does.
+	// Without detail, output picks the chart; with it, the position does.
 	goals, assists := 0, 0
 	for _, r := range rows {
 		goals += r.Stats.Goals
@@ -246,8 +232,7 @@ func (m *Model) chart() []string {
 		out = append(out, fmt.Sprintf("%-7s %s %3d / %.1f", p.season,
 			bar+strings.Repeat(" ", chartBarWidth-lipgloss.Width(bar)), int(p.actual), p.expected))
 	}
-	// The band right-aligns each line, so they're padded to one width to
-	// keep the chart's columns straight.
+	// The band right-aligns each line; pad so columns stay straight.
 	width := 0
 	for _, l := range out {
 		width = max(width, lipgloss.Width(l))
@@ -258,10 +243,8 @@ func (m *Model) chart() []string {
 	return out
 }
 
-// stats summarize the selected season, with per-90 rates alongside the
-// raw totals: 12 goals means something different in 900 minutes than in
-// 3000, and the rate is what makes two seasons comparable. They're listed
-// most telling first, since a short terminal keeps only the first.
+// stats are listed most telling first: a short terminal keeps only the
+// first.
 func (m *Model) stats() []components.Stat {
 	row, ok := m.SelectedRow()
 	if !ok {
@@ -280,8 +263,6 @@ func (m *Model) stats() []components.Stat {
 	}
 
 	if s.XG != nil {
-		// Goals minus xG says whether a season's return was finishing or
-		// chance volume — the question a goal tally alone can't answer.
 		delta := float64(s.Goals) - *s.XG
 		style := m.deltaStyle(delta)
 		stats = append(stats, components.Stat{
@@ -315,9 +296,7 @@ func (m *Model) stats() []components.Stat {
 	return stats
 }
 
-// per90Hint renders a count as a per-90-minutes rate, or empty when there
-// aren't enough minutes for the rate to mean anything. Under ~90 minutes a
-// single goal implies absurd rates, which would be noise, not insight.
+// per90Hint is empty under ~90 minutes, where rates are noise.
 func per90Hint(count, minutes int) string {
 	if minutes < 90 {
 		return ""
@@ -326,8 +305,6 @@ func per90Hint(count, minutes int) string {
 	return strconv.FormatFloat(rate, 'f', 2, 64) + "/90"
 }
 
-// seasonsTable is the season-by-season table under its label, with the
-// notes on its marks when withNotes, in at most lines lines.
 func (m *Model) seasonsTable(lines int, withNotes bool) string {
 	th := m.deps.Theme
 	rows := m.CurrentRows()
@@ -349,14 +326,11 @@ func (m *Model) seasonsTable(lines int, withNotes bool) string {
 	return out
 }
 
-// tableColumns are the season table's columns at width.
 func (m *Model) tableColumns(width int) []components.Column {
 	cols, _, _ := m.tableParts(m.CurrentRows(), width)
 	return cols
 }
 
-// tableParts builds the season table at width: its columns, its rows cut
-// to them, and the notes explaining its marks.
 func (m *Model) tableParts(rows []SeasonRow, width int) ([]components.Column, [][]components.Cell, []string) {
 	th := m.deps.Theme
 	if base, extra, cells, ok := m.positionTable(rows); ok {
@@ -398,9 +372,8 @@ func (m *Model) tableParts(rows []SeasonRow, width int) ([]components.Column, []
 	return cols, cells, notes
 }
 
-// wantTeamCol keeps club names distinguishable — "Manchester United" and
-// "Manchester City" must never both render as "Manchester …". It never
-// shrinks; see components.FitColumns.
+// wantTeamCol keeps "Manchester United" and "Manchester City" apart. It
+// never shrinks; see components.FitColumns.
 const wantTeamCol = 22
 
 func (m *Model) columns(width int) []components.Column {
@@ -425,8 +398,7 @@ func (m *Model) columns(width int) []components.Column {
 	})
 }
 
-// careerLines total the selected competition, wrapped to width. They are
-// rendered below the table rather than as a final row so they can't be
+// careerLines sit below the table, not as a row, so they can't be
 // mistaken for a season.
 func (m *Model) careerLines(width int) []string {
 	th := m.deps.Theme
@@ -456,8 +428,7 @@ func (m *Model) careerLines(width int) []string {
 			strconv.FormatFloat(c.XA, 'f', 1, 64)+" xA")
 	}
 
-	// Wrapped between figures, never inside one, and each line cut to
-	// the width in case a single figure is wider still.
+	// Wrap between figures; still cut each line in case one is too wide.
 	lines := []string{th.PanelTitle.Render("Career in " + comp.Name + ": ")}
 	for i, p := range parts {
 		last := len(lines) - 1

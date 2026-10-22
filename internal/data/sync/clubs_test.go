@@ -85,9 +85,8 @@ func unitNames(units []sync.Unit) []string {
 	return out
 }
 
-// A Premier League club's recent games: its league seasons, which come
-// from understat with the league, and the shared ESPN lists of England's
-// cups and Europe's competitions for this year and last.
+// A Premier League club: understat league seasons plus ESPN cup and
+// European units.
 func TestAClubsPlanIsItsLeagueEuropeAndItsCountrysCups(t *testing.T) {
 	now := oct2026
 	_, repos := newMatchSyncer(t, newFakeClubs(), &now)
@@ -105,8 +104,7 @@ func TestAClubsPlanIsItsLeagueEuropeAndItsCountrysCups(t *testing.T) {
 	if got := unitNames(plan.Units); !slices.Equal(got, want) {
 		t.Errorf("units\n got %v\nwant %v", got, want)
 	}
-	// 2024-25 ended in 2025, so it holds games from last year too; 2023-24
-	// would not have. None has matches stored yet, so each is due.
+	// 2024-25 reaches into last year; 2023-24 doesn't.
 	if len(plan.Leagues) != 1 || plan.Leagues[0].Competition.ID != "eng-premier-league" ||
 		!slices.Equal(plan.Leagues[0].Seasons, []string{"2026", "2025", "2024"}) {
 		t.Errorf("league seasons %+v", plan.Leagues)
@@ -198,8 +196,8 @@ func TestASecondClubOfTheSameCountryCostsNothing(t *testing.T) {
 	}
 }
 
-// A cup brings clubs no league table had. One whose name contains a big
-// club's is a different club unless only suffixes differ.
+// In a cup, a name containing a big club's is a different club unless
+// only suffixes differ.
 func TestCupClubsMatchCachedOnesOnlyBySuffix(t *testing.T) {
 	now := oct2026
 	src := newFakeClubs()

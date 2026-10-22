@@ -14,8 +14,7 @@ import (
 	"github.com/JohnSBarden/footui/internal/tui/keys"
 )
 
-// refreshEvent is one thing a running refresh has to say: a progress line
-// while it runs, or (done) its outcome.
+// refreshEvent is a progress line, or (done) the outcome.
 type refreshEvent struct {
 	progress string
 	done     bool
@@ -23,18 +22,15 @@ type refreshEvent struct {
 	err      error
 }
 
-// refreshMsg delivers one refreshEvent to the app together with the
-// channel it came from, so the app can wait for the next one. This is the
-// standard Bubble Tea shape for a long-running job that reports as it
-// goes: each message re-arms a command that blocks on the channel.
+// refreshMsg carries its channel so the app can re-arm a command that
+// blocks on the next event.
 type refreshMsg struct {
 	event  refreshEvent
 	events <-chan refreshEvent
 }
 
-// runRefresh starts req and returns its first event. The goroutine is
-// started inside the command rather than in Update so a test can call the
-// command synchronously and drive the chain by hand.
+// runRefresh starts the goroutine inside the command, not in Update, so a
+// test can drive the chain synchronously.
 func runRefresh(ctx context.Context, refresh core.Refresher, req core.RefreshRequest) tea.Cmd {
 	return func() tea.Msg {
 		events := make(chan refreshEvent, 16)
@@ -59,8 +55,7 @@ func awaitRefresh(events <-chan refreshEvent) tea.Cmd {
 	}
 }
 
-// refreshTarget reports what a refresh from the current screen would
-// fetch, if anything: a whole request (a nation's), or a competition.
+// refreshTarget reports what a refresh from the current screen would fetch.
 func (a *App) refreshTarget() (core.RefreshRequest, bool) {
 	if r, ok := a.current().(core.RefreshRequester); ok {
 		if req, ok := r.RefreshRequest(); ok {
@@ -75,8 +70,7 @@ func (a *App) refreshTarget() (core.RefreshRequest, bool) {
 	return core.RefreshRequest{}, false
 }
 
-// refreshBinding is the refresh key the footer should advertise for the
-// current screen, or false when a refresh from here would do nothing.
+// refreshBinding is false when a refresh from here would do nothing.
 func (a *App) refreshBinding() (key.Binding, bool) {
 	if _, ok := a.refreshTarget(); !ok {
 		return key.Binding{}, false
@@ -87,10 +81,8 @@ func (a *App) refreshBinding() (key.Binding, bool) {
 	return keys.Refresh, true
 }
 
-// startRefresh handles the refresh key. Every way it can decline is
-// explained in the status line: the key is advertised in the footer, so
-// pressing it and seeing nothing happen would be a bug from the user's
-// side of the screen.
+// startRefresh explains every way it declines in the status line, since
+// the key is advertised.
 func (a *App) startRefresh() tea.Cmd {
 	if a.active != nil {
 		return nil
@@ -111,10 +103,8 @@ func (a *App) startRefresh() tea.Cmd {
 	return a.enqueue(req)
 }
 
-// enqueue adds requests to the refresh queue and starts the first if
-// nothing is running. A request for a competition already waiting is
-// folded into that entry, so selecting more seasons of a league while it
-// is queued doesn't fetch it twice.
+// enqueue queues reqs, folding duplicates of waiting entries, and starts
+// the first if idle.
 func (a *App) enqueue(reqs ...core.RefreshRequest) tea.Cmd {
 	if a.deps.Refresh == nil {
 		a.status = "downloading isn't available in this view — run  footui refresh"
@@ -122,11 +112,9 @@ func (a *App) enqueue(reqs ...core.RefreshRequest) tea.Cmd {
 	}
 	for _, req := range reqs {
 		if req.PlayerID != "" {
-			// A player's stats are asked for once: drop a copy already
-			// running or waiting. One asked for on its own is a player
-			// being opened, looked at now, so it goes ahead of the
-			// background refreshes; the launch's batch keeps its order.
-			// Asking for everything isn't answered by the detail alone.
+			// Dedupe players. A lone request is a player being opened, so
+			// it jumps the queue; a History request isn't answered by a
+			// detail-only one.
 			if a.active != nil && a.active.Key() == req.Key() && (!req.History || a.active.History) {
 				continue
 			}
@@ -146,7 +134,6 @@ func (a *App) enqueue(reqs ...core.RefreshRequest) tea.Cmd {
 		}
 		if a.active != nil && len(mergeRequest([]core.RefreshRequest{*a.active}, req)) == 1 && len(req.Seasons) == 0 &&
 			(req.TeamID != "" || req.Nations != "" || req.Directory) && (!req.History || a.active.History) {
-			// Already running: the same matches are being fetched now.
 			continue
 		}
 		a.queue = mergeRequest(a.queue, req)
@@ -160,8 +147,6 @@ func (a *App) enqueue(reqs ...core.RefreshRequest) tea.Cmd {
 	return a.startNext()
 }
 
-// describeRequest is a request as the log records it: what, which
-// seasons, and why when nobody asked for it.
 func describeRequest(req core.RefreshRequest) string {
 	text := req.Label()
 	switch {
@@ -176,24 +161,19 @@ func describeRequest(req core.RefreshRequest) string {
 	return text
 }
 
-// mergeRequest appends req to queue, or merges its seasons into a waiting
-// request for the same competition.
+// mergeRequest appends req, or merges its seasons into a waiting match.
 func mergeRequest(queue []core.RefreshRequest, req core.RefreshRequest) []core.RefreshRequest {
 	for i, q := range queue {
 		if q.Key() != req.Key() {
 			continue
 		}
-		// The directory is the directory: asking twice is asking once. So
-		// is a team's or a gender's matches with no years named — this
-		// year and last — which the stale check on open and the Team
-		// screen can both ask for.
+		// The directory, or matches with no years named, asked twice is
+		// asked once.
 		if req.Directory || (req.TeamID != "" || req.Nations != "") && len(q.Seasons) == 0 && len(req.Seasons) == 0 {
 			queue[i] = upgrade(q, req)
 			return queue
 		}
-		// An empty season list means "the current season", which isn't
-		// a year that can be merged with others; keep such requests
-		// separate rather than guess which year that is.
+		// Empty seasons means "current", which can't be merged with years.
 		if len(q.Seasons) == 0 || len(req.Seasons) == 0 {
 			continue
 		}
@@ -209,9 +189,7 @@ func mergeRequest(queue []core.RefreshRequest, req core.RefreshRequest) []core.R
 	return append(queue, req)
 }
 
-// upgrade is req merged with other, a request for the same thing: if
-// either asks for everything, or was asked for by the user, so does the
-// result.
+// upgrade keeps History and user-asked from either request.
 func upgrade(req, other core.RefreshRequest) core.RefreshRequest {
 	if other.History {
 		req.History = true
@@ -222,15 +200,13 @@ func upgrade(req, other core.RefreshRequest) core.RefreshRequest {
 	return req
 }
 
-// startNext pops the next request off the queue and runs it.
 func (a *App) startNext() tea.Cmd {
 	if len(a.queue) == 0 {
 		a.active = nil
 		return a.broadcastQueue()
 	}
 	if a.active == nil {
-		// Starting from idle: a new batch, so the last one's outcome is
-		// no longer news.
+		// From idle: a new batch, so the last outcome is no longer news.
 		a.err = nil
 		a.status = ""
 		a.snapshotNews()
@@ -249,9 +225,8 @@ func (a *App) startNext() tea.Cmd {
 	return tea.Batch(a.broadcastQueue(), runRefresh(ctx, a.deps.Refresh, req))
 }
 
-// cancelRefresh drops everything queued and stops the running refresh.
-// The running one winds down on its own goroutine; its final event is
-// what returns the app to idle.
+// cancelRefresh drops the queue and stops the running refresh; its final
+// event is what returns the app to idle.
 func (a *App) cancelRefresh() tea.Cmd {
 	if a.active == nil {
 		a.status = "nothing is downloading"
@@ -265,8 +240,6 @@ func (a *App) cancelRefresh() tea.Cmd {
 	return a.broadcastQueue()
 }
 
-// describe is the status line for the active request: what is being
-// fetched, why if it wasn't asked for, and how much is still waiting.
 func (a *App) describe(req core.RefreshRequest, progress string) string {
 	text := progress
 	if text == "" {
@@ -285,14 +258,12 @@ func (a *App) describe(req core.RefreshRequest, progress string) string {
 	return text
 }
 
-// broadcastQueue tells every screen what is queued and running.
 func (a *App) broadcastQueue() tea.Cmd {
 	msg := core.RefreshQueueMsg{Active: a.active, Pending: slices.Clone(a.queue)}
 	return a.broadcast(msg)
 }
 
-// broadcast hands msg to every screen on the stack, not just the visible
-// one, so a screen the user pops back to isn't showing stale state.
+// broadcast reaches the whole stack, so a popped-back screen isn't stale.
 func (a *App) broadcast(msg tea.Msg) tea.Cmd {
 	var cmds []tea.Cmd
 	for i, s := range a.stack {
@@ -303,7 +274,6 @@ func (a *App) broadcast(msg tea.Msg) tea.Cmd {
 	return tea.Batch(cmds...)
 }
 
-// handleRefreshEvent applies one event from the running refresh.
 func (a *App) handleRefreshEvent(msg refreshMsg) tea.Cmd {
 	ev := msg.event
 	if a.active == nil {
@@ -330,8 +300,7 @@ func (a *App) handleRefreshEvent(msg refreshMsg) tea.Cmd {
 		a.deps.Log.Add(core.LogDone, req.Label()+": "+ev.summary)
 	}
 	if a.stopping {
-		// What finished before the stop is cached and worth showing; the
-		// error the cancellation caused is not news.
+		// Show what landed before the stop; the cancel error isn't news.
 		a.stopping = false
 		a.batch = refreshBatch{}
 		a.active = nil
@@ -339,9 +308,7 @@ func (a *App) handleRefreshEvent(msg refreshMsg) tea.Cmd {
 		return tea.Batch(a.broadcast(refreshedMsg(req)), a.broadcastQueue())
 	}
 	if errors.Is(ev.err, core.ErrRateLimited) {
-		// The source has asked footui to stop: everything still queued
-		// would only be refused too, so it's dropped, and the user is told
-		// why. What landed before the refusal is still worth showing.
+		// The rest would be refused too, so drop it.
 		a.queue = nil
 		a.batch = refreshBatch{}
 		a.status = ""
@@ -361,9 +328,7 @@ func (a *App) handleRefreshEvent(msg refreshMsg) tea.Cmd {
 		reload = a.broadcast(refreshedMsg(req))
 	}
 
-	// A failure doesn't abandon the rest of the queue: each request is a
-	// different competition, and one league's trouble says little about
-	// the next.
+	// A failure doesn't abandon the rest of the queue.
 	var news tea.Cmd
 	if len(a.queue) == 0 {
 		a.reportBatch()
@@ -372,7 +337,6 @@ func (a *App) handleRefreshEvent(msg refreshMsg) tea.Cmd {
 	return tea.Batch(reload, news, a.startNext())
 }
 
-// refreshedMsg is what screens are told once req has landed.
 func refreshedMsg(req core.RefreshRequest) core.RefreshedMsg {
 	return core.RefreshedMsg{
 		CompetitionID: req.CompetitionID,
@@ -382,8 +346,7 @@ func refreshedMsg(req core.RefreshRequest) core.RefreshedMsg {
 	}
 }
 
-// refreshBatch accumulates outcomes while the queue drains, so the status
-// line can sum up the whole run once it's idle again.
+// refreshBatch accumulates outcomes until the queue drains.
 type refreshBatch struct {
 	done        []string
 	players     int // of done, how many were players' stats
@@ -392,12 +355,7 @@ type refreshBatch struct {
 	lastErr     error
 }
 
-// reportBatch puts the outcome of everything run since the queue was last
-// idle on the status line. A lone refresh reports its own summary or
-// error; a batch is summed up so an early failure isn't hidden by a later
-// success.
-// batchCount says how many competitions and players a batch refreshed:
-// "3 competitions and 2 players".
+// batchCount reads "3 competitions and 2 players".
 func batchCount(comps, players int) string {
 	noun := func(n int, word string) string {
 		if n == 1 {
@@ -414,6 +372,8 @@ func batchCount(comps, players int) string {
 	return noun(comps, "competition") + " and " + noun(players, "player")
 }
 
+// reportBatch sums up a batch so an early failure isn't hidden by a later
+// success.
 func (a *App) reportBatch() {
 	b := a.batch
 	a.batch = refreshBatch{}

@@ -17,16 +17,12 @@ type CareerSource interface {
 	AthleteCareer(ctx context.Context, athleteID string) ([]provider.CareerSeason, error)
 }
 
-// ErrNoCareer means footui doesn't know the player's ESPN ID, so there
-// is no career to ask for. Their detail refresh records it when it can
-// find them on a club's roster.
+// ErrNoCareer means footui doesn't know the player's ESPN ID yet; a detail
+// refresh records it when it finds them on a roster.
 var ErrNoCareer = errors.New("player not found at the source")
 
-// PlayerCareerJobs asks src for every season the player has stats in and
-// returns those footui can fetch as league tables: one job per
-// competition, most recent season first. A cup's ties and international
-// matches aren't tables, and a season before a competition's coverage
-// starts isn't offered.
+// PlayerCareerJobs returns the player's career seasons footui can fetch as
+// league tables, one job per competition, most recent first.
 func PlayerCareerJobs(ctx context.Context, repos storage.Repositories, src CareerSource, playerID string, now time.Time) ([]Job, error) {
 	athleteID, err := repos.ProviderID(ctx, "player", playerID, DetailProvider)
 	if errors.Is(err, storage.ErrNotFound) || err == nil && athleteID == "" {
@@ -56,10 +52,8 @@ func PlayerCareerJobs(ctx context.Context, repos storage.Repositories, src Caree
 }
 
 // ClubHistoryJobs is every season footui offers of each competition the
-// club has a table in: there is no list of the seasons a club played, so
-// a league it was relegated from is fetched for the years it wasn't
-// there too, which costs requests but nothing else. also adds
-// competitions the club has no table in yet: the one it was opened from.
+// club has a table in, plus also. No source lists a club's seasons, so
+// years it wasn't in a league are fetched too.
 func ClubHistoryJobs(ctx context.Context, repos storage.Repositories, clubID string, also []string, now time.Time) ([]Job, error) {
 	history, err := repos.TeamHistory(ctx, clubID)
 	if err != nil {
@@ -76,8 +70,7 @@ func ClubHistoryJobs(ctx context.Context, repos storage.Repositories, clubID str
 	return historyJobs(order, now, func(string, string) bool { return true }), nil
 }
 
-// historyJobs turns competitions into jobs of the seasons footui offers
-// that want says to fetch, ordered as the catalog orders competitions.
+// historyJobs builds jobs of the seasons want selects, in Coverages order.
 func historyJobs(compIDs []string, now time.Time, want func(compID, year string) bool) []Job {
 	var jobs []Job
 	for _, cov := range Coverages {
@@ -97,8 +90,7 @@ func historyJobs(compIDs []string, now time.Time, want func(compID, year string)
 	return jobs
 }
 
-// tableCoverage is the coverage of a club competition with tables: not a
-// cup, whose ties are a club's matches, and not international football.
+// tableCoverage is the coverage of a club competition with tables.
 func tableCoverage(compID string) (Coverage, bool) {
 	cov, ok := FindCoverage(compID)
 	if !ok || cov.Competition.International() || cov.Competition.Cup() {
@@ -107,8 +99,7 @@ func tableCoverage(compID string) (Coverage, bool) {
 	return cov, true
 }
 
-// finishedBy reports whether a competition's season was already over at
-// a moment: a sync run then fetched its final state.
+// finishedBy reports whether a season was already over at time at.
 func finishedBy(compID, seasonID string, at time.Time) bool {
 	cov, ok := FindCoverage(compID)
 	if !ok {

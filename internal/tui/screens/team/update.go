@@ -15,10 +15,8 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 		return m, nil
 
 	case core.RefreshedMsg:
-		// Reload everything: the refresh re-seeds colours and honours too.
-		// The current selection is carried over as the "opened from"
-		// hint so the reload lands back on the same tab and row instead
-		// of the one the screen was first opened with.
+		// Reload everything (colours and honours are re-seeded too). The
+		// selection becomes the "opened from" hint so the reload keeps it.
 		if comp, ok := m.CurrentCompetition(); ok {
 			m.fromCompetitionID = comp.ID
 			if rows := m.CurrentRows(); m.seasonIdx >= 0 && m.seasonIdx < len(rows) {
@@ -56,8 +54,7 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 		return m, m.refreshRoster()
 
 	case seasonDetailLoadedMsg:
-		// Ignore detail that arrived for a selection the user has already
-		// moved off.
+		// Drop detail for a selection the user has moved off.
 		if msg.seasonID != m.rosterSeason {
 			return m, nil
 		}
@@ -73,10 +70,8 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 		return m, nil
 
 	case colorsLoadedMsg:
-		// A club's brand colours are chosen for shirts, not terminals, so
-		// they're passed through styles.TeamTheme rather than used raw.
-		// The plain theme is left alone: NO_COLOR means no colour, and a
-		// club's branding is not an exception to that.
+		// Shirt colours go through TeamThemeFor, never raw; NO_COLOR wins
+		// over club branding.
 		if !m.theme.NoColor {
 			m.colors = &msg.colors
 			m.theme = styles.TeamThemeFor(msg.colors.PrimaryHex, msg.colors.SecondaryHex, m.deps.ThemeMode())
@@ -89,8 +84,6 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 		if m.colors != nil {
 			m.theme = styles.TeamThemeFor(m.colors.PrimaryHex, m.colors.SecondaryHex, msg.Mode)
 		} else {
-			// A club with no colours shows in the base theme, which is
-			// now the new mode's.
 			m.theme = msg.Theme
 		}
 		return m, nil
@@ -112,8 +105,7 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 	return m, nil
 }
 
-// click selects a competition, or a season or player in either table,
-// moving focus there; clicking the selected row opens it.
+// click moves focus to the clicked row; clicking the selected row opens it.
 func (m *Model) click(msg core.ClickMsg) tea.Cmd {
 	if i, ok := msg.ClickedIndex("tab"); ok {
 		return m.selectCompetition(i)
@@ -166,8 +158,6 @@ func (m *Model) handleKey(msg tea.KeyMsg) (core.Screen, tea.Cmd) {
 	return m, nil
 }
 
-// togglePane moves focus between the seasons table and the squad table.
-// Focus only moves to the squad when there is a squad to move to.
 func (m *Model) togglePane() {
 	if m.focus == paneSeasons && len(m.roster) > 0 {
 		m.focus = paneSquad
@@ -210,12 +200,11 @@ func (m *Model) setCursor(idx int) tea.Cmd {
 		return nil
 	}
 	m.seasonIdx = idx
-	// A different season means a different squad.
 	return m.refreshRoster()
 }
 
-// selectCompetition switches tabs, resetting the season cursor since
-// season indices don't correspond across competitions.
+// selectCompetition resets the season cursor: indices don't correspond
+// across competitions.
 func (m *Model) selectCompetition(idx int) tea.Cmd {
 	if idx < 0 || idx >= len(m.competitions) || idx == m.compIdx {
 		return nil
@@ -226,9 +215,8 @@ func (m *Model) selectCompetition(idx int) tea.Cmd {
 	return m.refreshRoster()
 }
 
-// refreshRoster loads the squad for the currently selected competition and
-// season, clearing the previous one so a stale squad is never shown
-// attached to the wrong season.
+// refreshRoster clears the old squad first so it never shows under the
+// wrong season.
 func (m *Model) refreshRoster() tea.Cmd {
 	comp, hasComp := m.CurrentCompetition()
 	row, hasRow := m.CurrentSeasonRow()
@@ -249,8 +237,6 @@ func (m *Model) refreshRoster() tea.Cmd {
 	return m.loadSeasonDetail(comp.ID, row.Season.ID)
 }
 
-// drillDown opens the Player screen from the squad table, or the League
-// table at the selected season from the seasons table.
 func (m *Model) drillDown() tea.Cmd {
 	if m.focus == paneSquad {
 		row, ok := m.SelectedPlayer()

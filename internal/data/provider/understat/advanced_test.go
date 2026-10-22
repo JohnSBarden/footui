@@ -22,11 +22,8 @@ func closeTo(got, want float64) bool {
 	return math.Abs(got-want) < 1e-6
 }
 
-// PPDA is a ratio, so a season figure must be the ratio of summed
-// numerators and denominators. Arsenal's two matches are 200/10 (=20) and
-// 100/20 (=5): averaging the per-match ratios gives 12.5, while the
-// correct season PPDA is 300/30 = 10. The fixture is built so those two
-// answers differ.
+// Season PPDA is a ratio of sums: Arsenal's 200/10 and 100/20 give 300/30
+// = 10, not the mean of ratios, 12.5.
 func TestSeasonPPDASumsBeforeDividing(t *testing.T) {
 	stats := mapStandings(loadFixture(t), "eng-premier-league", "eng-premier-league:2025")
 	arsenal := findTeam(t, stats, "understat:eng-arsenal")
@@ -71,8 +68,7 @@ func TestAdvancedTeamStatsAreSummedAcrossMatches(t *testing.T) {
 	}
 }
 
-// A team with no matches played has no meaningful advanced stats, and
-// emitting zeroes would read as "pressed nobody" rather than "no data".
+// A team with no matches has no advanced stats, not zeros.
 func TestTeamWithNoMatchesHasNoExtras(t *testing.T) {
 	data := &leagueData{Teams: map[string]teamEntry{
 		"9": {ID: "9", Title: "Newly Promoted", History: nil},
@@ -132,9 +128,7 @@ func TestPlayerAdvancedStatsAreMapped(t *testing.T) {
 	}
 }
 
-// A provider omitting an advanced field must yield nil, not zero: "not
-// reported" and "took zero shots" are different facts and the TUI renders
-// them differently.
+// An omitted advanced field must yield nil, not zero.
 func TestMissingPlayerAdvancedStatsAreNilNotZero(t *testing.T) {
 	players := mapPlayers(loadFixture(t), "eng-premier-league", "eng-premier-league:2025")
 

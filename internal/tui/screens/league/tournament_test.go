@@ -33,16 +33,13 @@ func press(t *testing.T, m *league.Model, keys ...string) *league.Model {
 	return s.(*league.Model)
 }
 
-// A tournament's table is its groups, one at a time, each ranked within
-// itself; [ and ] step through them.
 func TestATournamentShowsOneGroupAtATime(t *testing.T) {
 	m := worldCup(t)
 	out := m.View()
 	if m.Group() != "Group K" || !strings.Contains(out, "[K]") || !strings.Contains(out, " L ") {
 		t.Errorf("group %q:\n%s", m.Group(), out)
 	}
-	// The table, below the scores along the top, which name both groups'
-	// sides.
+	// Below the strip, which names both groups' sides.
 	table := func(out string) string { return out[strings.Index(out, "TEAM"):] }
 	if !strings.Contains(table(out), "Carpania") || strings.Contains(table(out), "Arcadia") {
 		t.Errorf("Group K only:\n%s", out)
@@ -68,8 +65,6 @@ func TestATournamentOpensOnAStarredNationsGroup(t *testing.T) {
 	}
 }
 
-// m lists every fixture by stage — the group stage group by group, then
-// each knockout round — with shoot-outs and kickoff times.
 func TestMatchesViewListsFixturesByRound(t *testing.T) {
 	m := worldCup(t)
 	m = press(t, m, "m")
@@ -99,7 +94,6 @@ func TestMatchesViewListsFixturesByRound(t *testing.T) {
 	}
 }
 
-// Friendlies have no table, so their season opens on the fixtures.
 func TestASeasonWithoutATableOpensOnItsFixtures(t *testing.T) {
 	repos := storagetest.New(t)
 	storagetest.SeedInternational(t, repos)
@@ -109,8 +103,6 @@ func TestASeasonWithoutATableOpensOnItsFixtures(t *testing.T) {
 	}
 }
 
-// MLS's conferences: the overall table first, ranked across both, then
-// each conference on a tab of its own, numbered from 1.
 func TestConferencesAreTabsAfterTheOverallTable(t *testing.T) {
 	repos := storagetest.New(t)
 	mls := models.Competition{ID: "usa-mls", Name: "MLS", Country: "USA", Tier: 1, Gender: "men", CalendarYear: true}

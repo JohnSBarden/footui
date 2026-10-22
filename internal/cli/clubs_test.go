@@ -46,8 +46,7 @@ func seedArsenal(t *testing.T, repos storage.Repositories, now time.Time, synced
 	return arsenal
 }
 
-// A Champions League or cup season stored only because a club's matches
-// came from it is not a competition anyone follows.
+// A season stored only for a club's matches isn't followed.
 func TestTheStaleCheckIgnoresCompetitionsHeldOnlyForMatches(t *testing.T) {
 	repos := withDirectory(t)
 	ctx := context.Background()
@@ -65,8 +64,8 @@ func TestTheStaleCheckIgnoresCompetitionsHeldOnlyForMatches(t *testing.T) {
 	}
 }
 
-// A starred club's recent games are followed on open: a database from
-// before club matches has none for its league, so they are due.
+// A starred club's recent games are due when its league has no matches
+// stored (a database from before club matches).
 func TestAStarredClubIsFollowedForItsRecentGames(t *testing.T) {
 	repos := withDirectory(t)
 	ctx := context.Background()

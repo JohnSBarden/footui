@@ -1,7 +1,5 @@
 // Package sync orchestrates a refresh: fetch from a provider, then upsert
-// through the storage.Repositories backend contract. It depends on both
-// contract boundaries (internal/data/provider, internal/storage) and on
-// neither's concrete implementation — it can be tested with fakes for both.
+// through storage.Repositories. It depends only on the two contracts.
 package sync
 
 import (
@@ -15,9 +13,7 @@ import (
 	"github.com/JohnSBarden/footui/internal/storage"
 )
 
-// Source is the slice of the provider contract a full league/season sync
-// needs. Any provider implementing all three interfaces can be synced with
-// Syncer without Syncer knowing which concrete provider it is.
+// Source is the slice of the provider contract a league-season sync needs.
 type Source interface {
 	provider.StandingsProvider
 	provider.TeamsProvider
@@ -25,14 +21,8 @@ type Source interface {
 }
 
 // DefaultMaxConsecutiveFailures is how many units may fail back-to-back
-// before a run gives up on the rest.
-//
-// Without this, a full refresh against an unreachable host works through
-// every competition and season in turn, paying the full network timeout
-// for each: sixty units at thirty seconds is half an hour of waiting to
-// learn something the third failure already established. Consecutive
-// failures are the signal, not total failures — a run where every other
-// competition succeeds is working fine and should continue.
+// before a run gives up on the rest, so an unreachable host doesn't cost a
+// timeout per unit. Consecutive, not total: scattered failures are fine.
 const DefaultMaxConsecutiveFailures = 3
 
 // Syncer runs refreshes against a Source and a storage.Repositories.
@@ -47,15 +37,9 @@ type Syncer struct {
 	MaxConsecutiveFailures int
 	// MaxAge skips a competition-season whose last successful sync is
 	// newer than this. Zero refreshes everything.
-	//
-	// This is what makes a scheduled `refresh --all --years 10` sane: a
-	// season that finished years ago does not change, and re-fetching
-	// sixty payloads nightly to confirm that is unkind to an undocumented
-	// third-party endpoint and slow for the user.
 	MaxAge time.Duration
 	// KeepFinished leaves alone a past season that was synced after it
-	// ended, whatever MaxAge says: a player's or club's whole history is
-	// fetched once, and asking again only fetches the season under way.
+	// ended, whatever MaxAge says.
 	KeepFinished bool
 	// Now is the clock, injectable for tests.
 	Now func() time.Time
@@ -72,8 +56,7 @@ func New(source Source, repos storage.Repositories) *Syncer {
 	return &Syncer{source: source, repos: repos, providerName: "unknown"}
 }
 
-// WithProviderName sets the name recorded as the provenance of sync log
-// entries.
+// WithProviderName sets the provider name recorded in the sync log.
 func (s *Syncer) WithProviderName(name string) *Syncer {
 	s.providerName = name
 	return s
@@ -96,9 +79,7 @@ type Result struct {
 	Matches int
 }
 
-// SyncCompetitionSeason fetches and persists everything Source can supply
-// for one competition+season: teams, standings (including xG where the
-// source has it), and player rosters with season stats.
+// SyncCompetitionSeason fetches and stores one competition-season.
 func (s *Syncer) SyncCompetitionSeason(ctx context.Context, comp models.Competition, season models.Season) (Result, error) {
 	startedAt := time.Now().UTC()
 	res, err := s.syncCompetitionSeason(ctx, comp, season)
@@ -106,13 +87,8 @@ func (s *Syncer) SyncCompetitionSeason(ctx context.Context, comp models.Competit
 	return res, err
 }
 
-// recordRun writes the attempt to the sync log. Failures are recorded too:
-// a staleness indicator that only saw successes would say "last refreshed
-// Tuesday" when the truth is "tried an hour ago and it failed".
-//
-// A logging failure is deliberately swallowed. The refresh either worked or
-// didn't, and turning a successful sync into an error because the audit row
-// wouldn't write would be the wrong trade.
+// recordRun writes the attempt, failures included, to the sync log. A
+// logging error is deliberately swallowed: it mustn't fail a good sync.
 func (s *Syncer) recordRun(ctx context.Context, comp models.Competition, season models.Season,
 	startedAt time.Time, res Result, syncErr error) {
 
@@ -143,13 +119,9 @@ func (s *Syncer) syncCompetitionSeason(ctx context.Context, comp models.Competit
 	compRef := provider.CompetitionRef{CompetitionID: comp.ID, Name: comp.Name}
 	seasonRef := provider.SeasonRef{SeasonID: season.ID, Label: season.Label}
 
-	// Everything is fetched before anything is written. The source caches
-	// per league/season in process, so these four calls are one round
-	// trip — and doing them first means a failed refresh leaves no trace
-	// in the database. Writing the competition and season up front would
-	// leave phantom rows behind: a season that exists with nothing in it,
-	// which `footui status` and the League screen would then report as
-	// cached.
+	// Fetch everything before writing anything, so a failed refresh leaves
+	// no empty season rows that would then show as cached. The source
+	// caches per season, so these calls are one round trip.
 	teams, err := s.source.Teams(ctx, compRef, seasonRef)
 	if err != nil {
 		return res, fmt.Errorf("sync: fetch teams: %w", err)
@@ -170,8 +142,6 @@ func (s *Syncer) syncCompetitionSeason(ctx context.Context, comp models.Competit
 		return res, fmt.Errorf("sync: fetch roster stats: %w", err)
 	}
 
-	// A source whose season payload lists the matches (understat) gives
-	// clubs their recent league games at no extra cost.
 	var matches []models.Match
 	if ms, ok := s.source.(provider.SeasonMatchesProvider); ok {
 		if matches, err = ms.SeasonMatches(ctx, compRef, seasonRef); err != nil {
@@ -179,8 +149,7 @@ func (s *Syncer) syncCompetitionSeason(ctx context.Context, comp models.Competit
 		}
 	}
 
-	// A provider that returns its own IDs has them mapped to canonical
-	// ones before anything is written; see identity.go.
+	// Native provider IDs are mapped to canonical ones; see identity.go.
 	var ids *resolver
 	if hasNativeIDs(teams) {
 		if ids, err = newResolver(ctx, s.repos, comp); err != nil {
@@ -219,9 +188,8 @@ func (s *Syncer) syncCompetitionSeason(ctx context.Context, comp models.Competit
 	if err := s.repos.UpsertSeason(ctx, season); err != nil {
 		return res, err
 	}
-	// The fetch is the season as it stands, so it replaces what was
-	// cached rather than adding to it. A fetch with no clubs in it is
-	// taken as the source having nothing, never as a season emptied.
+	// The fetch replaces the cached season. One with no clubs means the
+	// source has nothing, never that the season was emptied.
 	if len(teams) > 0 {
 		if err := s.repos.ClearCompetitionSeason(ctx, comp.ID, season.ID); err != nil {
 			return res, fmt.Errorf("sync: clear season: %w", err)
@@ -274,9 +242,7 @@ type colorSource interface {
 }
 
 // applyProviderColors stores a provider's brand colours for clubs that
-// have none yet. It never replaces existing colours: curated ones are
-// better, and the curated seed runs after every refresh anyway. Like the
-// seed it is decoration, so a failure here doesn't fail the refresh.
+// have none yet; curated ones win. Failures don't fail the refresh.
 func (s *Syncer) applyProviderColors(ctx context.Context, comp provider.CompetitionRef, season provider.SeasonRef, ids *resolver) {
 	cs, ok := s.source.(colorSource)
 	if !ok {
@@ -304,8 +270,8 @@ func (s *Syncer) applyProviderColors(ctx context.Context, comp provider.Competit
 // provider had rate-limited it.
 var errSkippedRateLimited = fmt.Errorf("skipped: the provider is rate-limiting footui: %w", provider.ErrRateLimited)
 
-// failureStatus is how a failed unit is logged: rate limiting is logged
-// as such, because it suspends automatic refreshes for a while.
+// failureStatus logs rate limiting distinctly: it suspends automatic
+// refreshes for a while.
 func failureStatus(err error) string {
 	if errors.Is(err, provider.ErrRateLimited) {
 		return models.SyncStatusRateLimited
@@ -313,7 +279,6 @@ func failureStatus(err error) string {
 	return models.SyncStatusFailed
 }
 
-// hasNativeIDs reports whether a provider returned its own team IDs.
 func hasNativeIDs(teams []models.Team) bool {
 	for _, t := range teams {
 		if _, _, ok := nativeID(t.ID); ok {
@@ -323,9 +288,7 @@ func hasNativeIDs(teams []models.Team) bool {
 	return false
 }
 
-// UnitResult is the outcome of syncing one competition-season. Err being
-// non-nil does not stop the rest of a run — it is recorded here and
-// reported at the end.
+// UnitResult is the outcome of syncing one competition-season.
 type UnitResult struct {
 	Competition models.Competition
 	Season      models.Season
@@ -334,14 +297,10 @@ type UnitResult struct {
 	Year   int
 	Result Result
 	Err    error
-	// Skipped marks a unit that was never attempted because the run gave
-	// up after repeated failures. It is reported separately from a
-	// failure: nothing is known about a skipped unit, whereas a failed one
-	// was tried and didn't work.
+	// Skipped marks a unit never attempted because the run gave up.
 	Skipped bool
-	// Fresh marks a unit deliberately left alone because its cached data
-	// is newer than MaxAge. Unlike Skipped this is a good outcome, not a
-	// degraded one, so it is neither an error nor counted as a failure.
+	// Fresh marks a unit left alone because its cache is new enough; a
+	// good outcome, not a failure.
 	Fresh bool
 	// CachedAt is when a Fresh unit was last successfully synced.
 	CachedAt time.Time
@@ -350,26 +309,13 @@ type UnitResult struct {
 // Failed reports whether this unit errored.
 func (u UnitResult) Failed() bool { return u.Err != nil }
 
-// Progress is called with each unit's outcome as soon as it completes.
-// A full refresh spends most of its time waiting on the network, so
-// reporting only at the end leaves the user staring at a frozen terminal
-// for minutes. nil is allowed and means "no reporting".
+// Progress is called with each unit's outcome as it completes; nil is
+// allowed.
 type Progress func(UnitResult)
 
 // SyncMany syncs every combination of the given competitions and season
-// start years, isolating failures: one competition (or one season of one
-// competition) failing does not abort the others. progress, if non-nil,
-// is called as each unit finishes.
-//
-// That isolation is the whole point of the method. A full refresh spans
-// dozens of upstream requests against an undocumented endpoint, and the
-// expected failure mode is partial — one league's season missing, a
-// transient network error — not total. Aborting the run would throw away
-// every competition already fetched and leave the cache half-populated
-// with no record of why.
-//
-// A cancelled context is the one thing that does stop the run: that is the
-// user pressing ctrl+c, not an upstream problem.
+// start years. One unit failing does not abort the others; only a
+// cancelled context stops the run.
 func (s *Syncer) SyncMany(ctx context.Context, comps []models.Competition, seasonYears []string, progress Progress) []UnitResult {
 	jobs := make([]Job, 0, len(comps))
 	for _, c := range comps {
@@ -379,8 +325,6 @@ func (s *Syncer) SyncMany(ctx context.Context, comps []models.Competition, seaso
 }
 
 // Job is one competition and the season start years of it to sync.
-// Competitions differ in calendar and in how far back their provider
-// goes, so each carries its own seasons.
 type Job struct {
 	Competition models.Competition
 	Seasons     []string
@@ -430,9 +374,7 @@ func (s *Syncer) SyncJobs(ctx context.Context, jobs []Job, progress Progress) []
 			if cachedAt, fresh := s.isFresh(ctx, comp, season); fresh {
 				record(UnitResult{Competition: comp, Season: season,
 					Fresh: true, CachedAt: cachedAt})
-				// A unit left alone breaks a failure streak no more than
-				// it contributes to one: it says nothing about whether
-				// the provider is reachable.
+				// Neither breaks nor extends a failure streak.
 				continue
 			}
 
@@ -459,10 +401,7 @@ func (s *Syncer) SyncJobs(ctx context.Context, jobs []Job, progress Progress) []
 }
 
 // isFresh reports whether a competition-season was successfully synced
-// recently enough to leave alone.
-//
-// Only a successful run counts. A failure an hour ago is not a reason to
-// skip: the data it was meant to fetch is still missing.
+// recently enough to leave alone. Only a successful run counts.
 func (s *Syncer) isFresh(ctx context.Context, comp models.Competition, season models.Season) (time.Time, bool) {
 	if s.MaxAge <= 0 && !s.KeepFinished {
 		return time.Time{}, false

@@ -6,9 +6,7 @@ import (
 	"github.com/JohnSBarden/footui/internal/data/sync"
 )
 
-// Every competition the registry routes here must be one this package
-// knows how to fetch, or a refresh of it fails at runtime instead of in
-// this test.
+// Every competition the registry routes here must be fetchable here.
 func TestEveryRoutedCompetitionHasALeagueKey(t *testing.T) {
 	for _, c := range sync.Coverages {
 		if c.Provider != sync.ProviderUnderstat {

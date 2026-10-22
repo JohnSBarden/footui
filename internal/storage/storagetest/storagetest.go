@@ -1,9 +1,5 @@
-// Package storagetest provides an in-memory storage.Repositories for tests
-// in other packages, plus helpers for seeding it with realistic data.
-//
-// It hands back the real SQLite store rather than a hand-written fake:
-// screen tests then exercise the same SQL the binary runs, so a broken
-// query fails a screen test instead of only showing up at runtime.
+// Package storagetest provides an in-memory SQLite store and seed helpers
+// for tests; it uses the real store so screen tests exercise real SQL.
 package storagetest
 
 import (
@@ -27,31 +23,28 @@ func New(t *testing.T) storage.Repositories {
 	return sqlite.NewStore(db)
 }
 
-// Fixed is the timestamp every seeded row is stamped with, so golden output
-// never depends on when the test ran.
+// Fixed is the timestamp on every seeded row, keeping golden output stable.
 var Fixed = time.Date(2026, 3, 1, 12, 0, 0, 0, time.UTC)
 
 // TeamRow is one team's line in a seeded standings table.
 type TeamRow struct {
 	ID   string
 	Name string
-	// Position is the standings rank. Zero means "leave null", for
-	// exercising the missing-value rendering path.
+	// Position zero leaves it null.
 	Position int
 	MP       int
 	W, D, L  int
 	GF, GA   int
 	Pts      int
 	XG, XGA  float64
-	// NoXG seeds the row with null xG/xGA, as a provider without expected
-	// goals would.
+	// NoXG leaves xG/xGA null.
 	NoXG bool
-	// Group is the row's group or conference, empty for none.
+	// Group is the group or conference, empty for none.
 	Group string
 }
 
-// SeedCompetition upserts a competition, one season, and a standings table.
-// It returns the season ID.
+// SeedCompetition upserts a competition, one season, and a standings
+// table, returning the season ID.
 func SeedCompetition(t *testing.T, repos storage.Repositories, comp models.Competition, seasonLabel string, rows []TeamRow) string {
 	t.Helper()
 	ctx := context.Background()
@@ -106,10 +99,8 @@ func PremierLeague() models.Competition {
 	}
 }
 
-// SampleStandings is a small, deterministic standings table covering the
-// rendering cases that matter: a positive and a negative goal difference, a
-// team that outperformed its xG and one that underperformed, and a row with
-// no xG data at all.
+// SampleStandings covers +/- goal difference, over- and under-performing
+// xG, and a row with no xG.
 func SampleStandings() []TeamRow {
 	return []TeamRow{
 		{ID: "eng-arsenal", Name: "Arsenal", Position: 1, MP: 38, W: 28, D: 6, L: 4, GF: 91, GA: 29, Pts: 90, XG: 84.2, XGA: 33.7},
@@ -154,11 +145,8 @@ func SeedRoster(t *testing.T, repos storage.Repositories, teamID, competitionID,
 	}
 }
 
-// ChampionsLeague is a second, non-league competition used to prove that a
-// team's stats stay sliceable per competition instead of being blended.
-// Tier is 0 because "tier" describes a position in a domestic league
-// pyramid and means nothing for a continental cup; screens order unknown
-// tiers after real ones, so a club's own league leads the tab bar.
+// ChampionsLeague is a second competition, for proving stats stay per
+// competition rather than blended.
 func ChampionsLeague() models.Competition {
 	return models.Competition{
 		ID: "uefa-champions-league", Name: "Champions League",

@@ -5,8 +5,7 @@ import (
 	"strings"
 )
 
-// eighths are the partial blocks a bar ends in, so a bar's length is exact
-// to an eighth of a cell rather than rounded to whole cells.
+// eighths are the partial blocks a bar ends in.
 var eighths = []string{"", "▏", "▎", "▍", "▌", "▋", "▊", "▉"}
 
 // Bar draws value on a scale of max across width cells. A non-positive

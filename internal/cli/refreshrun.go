@@ -19,26 +19,18 @@ import (
 	"github.com/JohnSBarden/footui/internal/tui/core"
 )
 
-// refreshEvents is how a refresh reports as it runs. The CLI prints each
-// to stdout; the TUI folds them into its status line. Any may be nil.
+// refreshEvents is how a refresh reports progress. Any field may be nil.
 type refreshEvents struct {
-	// unit is called as each competition-season finishes.
-	unit func(sync.UnitResult)
-	// retry is called each time a failed request is about to be retried.
+	unit  func(sync.UnitResult)
 	retry func(attempt, of int, err error)
 	// note carries the outcome of the colours and honours re-seeding.
 	note func(text string)
 }
 
-// runRefresh is the one refresh pipeline, shared by `footui refresh` and
-// the TUI's refresh key: fetch each competition-season from the provider
-// that covers it, then re-seed curated colours and honours so a newly
-// cached competition picks up its clubs' branding and trophies with no
-// extra step. Neither seeding step may fail the refresh: the stats are
-// the point, these are decoration.
-//
-// Jobs are grouped by provider, each group with its own syncer, so one
-// provider being down doesn't count against the other's failure streak.
+// runRefresh is the refresh pipeline shared by `footui refresh` and the
+// TUI. Re-seeding colours and honours must never fail the refresh. Each
+// provider gets its own syncer so one being down doesn't count against
+// the other's failure streak.
 func runRefresh(ctx context.Context, store storage.Repositories, jobs []sync.Job,
 	maxAge time.Duration, ev refreshEvents) []sync.UnitResult {
 
@@ -49,8 +41,6 @@ func runRefresh(ctx context.Context, store storage.Repositories, jobs []sync.Job
 			clubs = append(clubs, j)
 			continue
 		}
-		// An international season is matches from the shared yearly
-		// lists, plus its group tables.
 		ms := newMatchSyncer(store, ev)
 		ms.StaleAfter = maxAge
 		for _, season := range j.Seasons {
@@ -65,17 +55,14 @@ func runRefresh(ctx context.Context, store storage.Repositories, jobs []sync.Job
 	return results
 }
 
-// runHistory fetches a player's or a club's history: league seasons only,
-// and a finished season already fetched is kept, so asking again costs
-// only the season under way.
+// runHistory fetches league seasons only, keeping finished ones already
+// fetched.
 func runHistory(ctx context.Context, store storage.Repositories, jobs []sync.Job, ev refreshEvents) []sync.UnitResult {
 	results := syncLeagues(ctx, store, jobs, ev, func(s *sync.Syncer) { s.KeepFinished = true })
 	reseed(ctx, store, ev)
 	return results
 }
 
-// syncLeagues fetches club competitions' seasons, each provider's with
-// its own syncer, set up by configure.
 func syncLeagues(ctx context.Context, store storage.Repositories, jobs []sync.Job, ev refreshEvents,
 	configure func(*sync.Syncer)) []sync.UnitResult {
 
@@ -101,16 +88,12 @@ func (ev refreshEvents) unitFunc() sync.Progress {
 	}
 }
 
-// newDetailSource builds the source of players' season detail. It is a
-// variable so tests can swap in a stub.
+// newDetailSource, newCareerSource and newMatchSource are variables so
+// tests can swap in stubs.
 var newDetailSource = sources.Details
 
-// newCareerSource builds the source of the seasons a player has stats
-// in. It is a variable so tests can swap in a stub.
 var newCareerSource = sources.Careers
 
-// newMatchSource builds the source of international matches. It is a
-// variable so tests can point it at a fake server.
 var newMatchSource = func(ev refreshEvents) sync.MatchSource {
 	return sources.Matches(ev.retry)
 }
@@ -119,9 +102,7 @@ func newMatchSyncer(store storage.Repositories, ev refreshEvents) *sync.MatchSyn
 	return sync.NewMatchSyncer(newMatchSource(ev), store).WithProviderName(sync.DetailProvider)
 }
 
-// runNations fetches the yearly match lists a gender's nations play in.
-// staleAfter holds the current year to the stale threshold; zero fetches
-// whatever has changed.
+// runNations: zero staleAfter fetches whatever has changed.
 func runNations(ctx context.Context, store storage.Repositories, gender string, years []int,
 	staleAfter time.Duration, ev refreshEvents) []sync.UnitResult {
 
@@ -130,8 +111,8 @@ func runNations(ctx context.Context, store storage.Repositories, gender string, 
 	return ms.SyncNations(ctx, gender, years, ev.unitFunc())
 }
 
-// seedDirectory stores both genders' national teams, so search finds
-// every nation before any of its matches are fetched.
+// seedDirectory stores both genders' national teams so search finds them
+// before any matches are fetched.
 func seedDirectory(ctx context.Context, store storage.Repositories, ev refreshEvents) (int, error) {
 	ms := newMatchSyncer(store, ev)
 	total := 0
@@ -145,7 +126,6 @@ func seedDirectory(ctx context.Context, store storage.Repositories, ev refreshEv
 	return total, nil
 }
 
-// rateLimited reports whether any unit was refused for asking too often.
 func rateLimited(results []sync.UnitResult) bool {
 	for _, r := range results {
 		if errors.Is(r.Err, provider.ErrRateLimited) {
@@ -160,8 +140,7 @@ type providerJobs struct {
 	jobs     []sync.Job
 }
 
-// groupByProvider splits jobs by the provider covering each, keeping the
-// order competitions were asked for within and across groups.
+// groupByProvider preserves the requested order within and across groups.
 func groupByProvider(jobs []sync.Job) []providerJobs {
 	var groups []providerJobs
 	index := map[string]int{}
@@ -181,13 +160,11 @@ func groupByProvider(jobs []sync.Job) []providerJobs {
 	return groups
 }
 
-// newSource constructs the client for a provider.
 func newSource(provider string, ev refreshEvents) (sync.Source, error) {
 	return sources.For(provider, ev.retry)
 }
 
-// failAll records every unit of jobs as failed with err, for a provider
-// that couldn't even be set up.
+// failAll fails every unit of a provider that couldn't be set up.
 func failAll(jobs []sync.Job, err error, ev refreshEvents) []sync.UnitResult {
 	var out []sync.UnitResult
 	for _, j := range jobs {
@@ -223,13 +200,9 @@ func reseed(ctx context.Context, store storage.Repositories, ev refreshEvents) {
 	}
 }
 
-// tuiRefresher adapts runRefresh to the shape the TUI's refresh queue
-// needs: one competition and some of its seasons (the current one when
-// none are named), progress as lines of text, and a one-line summary or an
-// error at the end.
-//
-// staleAfter is the threshold an automatic refresh of international
-// matches is held to; one the user asked for fetches whatever has changed.
+// tuiRefresher adapts runRefresh to the TUI's refresh queue. staleAfter
+// applies only to automatic refreshes; a user-requested one fetches
+// whatever has changed.
 func tuiRefresher(store storage.Repositories, staleAfter time.Duration) core.Refresher {
 	return func(ctx context.Context, req core.RefreshRequest, progress func(string)) (string, error) {
 		ev := refreshEvents{
@@ -264,8 +237,6 @@ func tuiRefresher(store storage.Repositories, staleAfter time.Duration) core.Ref
 					if req.History {
 						return refreshClubHistory(ctx, store, team, req.CompetitionID, ev, progress)
 					}
-					// A club: its recent games, from its league and the
-					// shared lists of its cups and Europe's competitions.
 					ev.unit = func(u sync.UnitResult) {
 						progress(fmt.Sprintf("%s %s %s", u.Competition.Abbrev(), components.SeasonName(u.Season), unitOutcome(u)))
 					}
@@ -341,8 +312,7 @@ func tuiRefresher(store storage.Repositories, staleAfter time.Duration) core.Ref
 	}
 }
 
-// refreshPlayer fetches a player's season detail; maxAge holds the
-// current season to the stale threshold for an automatic refresh.
+// refreshPlayer fetches a player's season detail.
 func refreshPlayer(ctx context.Context, store storage.Repositories, playerID string, maxAge time.Duration) (string, error) {
 	res, err := sync.RefreshPlayerDetail(ctx, store, newDetailSource(), playerID, time.Now(), maxAge)
 	if errors.Is(err, provider.ErrRateLimited) {
@@ -360,11 +330,8 @@ func refreshPlayer(ctx context.Context, store storage.Repositories, playerID str
 	return fmt.Sprintf("%d seasons of stats refreshed", res.Fetched), nil
 }
 
-// refreshPlayerHistory fetches every league season a player has stats in
-// that footui covers, then their detail for each. Their ESPN ID is what
-// the seasons are looked up by; a player first seen on understat gets it
-// from their detail refresh, which finds them on their club's roster. A
-// player ESPN doesn't know gets their cached seasons' detail only.
+// refreshPlayerHistory looks seasons up by ESPN ID, so a player first seen
+// on understat gets a detail refresh first to resolve it.
 func refreshPlayerHistory(ctx context.Context, store storage.Repositories, playerID string,
 	ev refreshEvents, progress func(string)) (string, error) {
 
@@ -399,9 +366,8 @@ func refreshPlayerHistory(ctx context.Context, store storage.Repositories, playe
 	return historySummary(results) + "; " + detail, nil
 }
 
-// refreshClubHistory fetches every season footui offers of each league a
-// club has a table in (and of the one it was opened from), then its
-// recent games.
+// refreshClubHistory fetches every offered season of each league a club
+// has a table in, then its recent games.
 func refreshClubHistory(ctx context.Context, store storage.Repositories, club models.Team, fromCompetitionID string,
 	ev refreshEvents, progress func(string)) (string, error) {
 
@@ -432,7 +398,6 @@ func refreshClubHistory(ctx context.Context, store storage.Repositories, club mo
 	return historySummary(results) + "; " + recent, nil
 }
 
-// historyProgress reports each season of a history as it lands.
 func historyProgress(total int, progress func(string)) func(sync.UnitResult) {
 	done := 0
 	return func(u sync.UnitResult) {
@@ -496,13 +461,9 @@ func unitOutcome(u sync.UnitResult) string {
 	return "fetched"
 }
 
-// summarizeMatches turns a refresh of matches into the line the TUI
-// shows: how much was fetched, how much was already up to date — usually
-// all of it, which is the politeness rules working — and what failed.
-// Being rate-limited is reported as such, so the app stops its queue;
-// otherwise it only errors when nothing could be fetched. upToDate is the
-// line when nothing needed fetching; nameFailures lists each failed unit
-// rather than counting them.
+// summarizeMatches returns core.ErrRateLimited so the app stops its
+// queue; otherwise it errors only when nothing could be fetched.
+// nameFailures lists failed units rather than counting them.
 func summarizeMatches(results []sync.UnitResult, upToDate string, nameFailures bool) (string, error) {
 	if rateLimited(results) {
 		return "", core.ErrRateLimited
@@ -543,12 +504,8 @@ func summarizeMatches(results []sync.UnitResult, upToDate string, nameFailures b
 	return line, nil
 }
 
-// tuiError rephrases a refresh failure for the TUI's one-line status bar.
-// The CLI prints the whole wrapped chain ("sync: fetch teams: giving up
-// after 3 attempts: understat: fetch EPL 2026: no response …"), but the
-// TUI shows the error beneath a screen that already says what was being
-// refreshed, so only the cause and the attempt count are kept. Errors it
-// doesn't recognise pass through unchanged.
+// tuiError shortens a refresh failure to its cause and attempt count for
+// the TUI's one-line status bar. Unrecognised errors pass through.
 func tuiError(err error) error {
 	var msg string
 	var attempts int
@@ -573,9 +530,8 @@ func tuiError(err error) error {
 	return errors.New(msg)
 }
 
-// summarizeUnits turns a refresh of one competition into the line the TUI
-// shows. Several seasons are summed; the refresh only errors when none of
-// them could be fetched, since a partial download is still worth keeping.
+// summarizeUnits errors only when no season could be fetched; a partial
+// download is still worth keeping.
 func summarizeUnits(results []sync.UnitResult) (string, error) {
 	switch len(results) {
 	case 0:
@@ -606,7 +562,6 @@ func summarizeUnits(results []sync.UnitResult) (string, error) {
 	return line, nil
 }
 
-// summarizeUnit describes one competition-season's refresh.
 func summarizeUnit(r sync.UnitResult) (string, error) {
 	switch {
 	case r.Failed():

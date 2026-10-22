@@ -34,8 +34,7 @@ func TestSummarizeMatchesCountsResultsAndSkipsMissingStats(t *testing.T) {
 	if s.Form != "WLD" {
 		t.Errorf("form %q, want oldest first", s.Form)
 	}
-	// Possession is known for one match only: its average is that one, not
-	// diluted by matches that didn't report it.
+	// Possession is known for one match only; others mustn't dilute it.
 	if s.Possession == nil || *s.Possession != 60 {
 		t.Errorf("possession %v", s.Possession)
 	}

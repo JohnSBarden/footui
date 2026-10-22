@@ -11,8 +11,7 @@ import (
 	"github.com/JohnSBarden/footui/internal/tui/components"
 )
 
-// sideBySideWidth is the narrowest terminal that fits both lists next to
-// each other; below it the season list goes underneath.
+// sideBySideWidth: below it the season list stacks underneath.
 const sideBySideWidth = 98
 
 // View implements core.Screen.
@@ -54,8 +53,6 @@ func (m *Model) View() string {
 	return b.String()
 }
 
-// downloading counts the leagues running on, or waiting in, the app's
-// refresh queue.
 func (m *Model) downloading() int {
 	n := len(m.pending)
 	if m.active != nil {
@@ -71,8 +68,7 @@ func (m *Model) leagueTable() string {
 	cursor := m.league
 	headed := false
 	for i, l := range m.leagues {
-		// International entries sit under a heading of their own, below
-		// the club leagues; the heading row isn't a stop for the cursor.
+		// The International heading isn't a cursor stop.
 		if l.international() && !headed {
 			headed = true
 			rows = append(rows, []components.Cell{components.Styled("International", th.PanelTitle)})
@@ -114,8 +110,7 @@ func (m *Model) leagueTable() string {
 	})
 }
 
-// leagueRows caps the league list so it fits the terminal: beside the
-// season list it gets the full height, above it about half.
+// leagueRows: full height side by side, about half when stacked.
 func (m *Model) leagueRows() int {
 	h := m.height - 8
 	if m.width < sideBySideWidth {
@@ -124,7 +119,6 @@ func (m *Model) leagueRows() int {
 	return max(h, 5)
 }
 
-// lastRefreshed is the newest successful refresh across a league's seasons.
 func lastRefreshed(l League, now time.Time) string {
 	var newest time.Time
 	for _, s := range l.Seasons {
@@ -178,8 +172,7 @@ func (m *Model) seasonTable() string {
 	})
 }
 
-// seasonStatus says what's known about one season, most urgent first: in
-// flight beats cached beats a past failure.
+// seasonStatus: in flight beats cached beats a past failure.
 func (m *Model) seasonStatus(l League, s SeasonState, current string, now time.Time) components.Cell {
 	th := m.deps.Theme
 	running, waiting := m.queued(l, s.Year, current)
@@ -205,8 +198,6 @@ func (m *Model) paneTitle(text string, p pane) string {
 	return m.deps.Theme.Muted.Render("  " + text)
 }
 
-// seasonRows caps the season list so it fits the terminal when stacked
-// under the league list.
 func (m *Model) seasonRows() int {
 	chrome := 8
 	if m.width < sideBySideWidth {

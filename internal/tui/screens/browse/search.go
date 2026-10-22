@@ -14,14 +14,10 @@ import (
 	"github.com/JohnSBarden/footui/internal/tui/core"
 )
 
-// maxPerKind caps how many of each entity type a search returns, so one
-// very common substring can't bury competitions and teams under hundreds
-// of player matches.
+// maxPerKind stops a common substring burying teams under players.
 const maxPerKind = 25
 
-// search queries the local cache. An empty query lists the cached
-// competitions, which makes the entry screen a table of contents rather
-// than a blank prompt.
+// search queries the local cache; an empty query lists competitions.
 func (m *Model) search(query string) tea.Cmd {
 	deps := m.deps
 	query = strings.TrimSpace(query)
@@ -34,8 +30,7 @@ func (m *Model) search(query string) tea.Cmd {
 			}
 			results := make([]Result, 0, len(comps))
 			for _, c := range comps {
-				// A cup is stored for its matches, which show on a
-				// club's screen; it has no table to open.
+				// A cup has no table to open.
 				if !c.Cup() {
 					results = append(results, Result{Kind: KindCompetition, Competition: c})
 				}
@@ -56,8 +51,7 @@ func (m *Model) search(query string) tea.Cmd {
 			return core.ErrMsg{Err: err}
 		}
 
-		// Competitions, then teams, then players: the broader the entity,
-		// the more likely it is what a short query meant.
+		// Broadest entity first: likelier what a short query meant.
 		var results []Result
 		for _, c := range rank(comps, func(c models.Competition) string { return c.Name }, query) {
 			if !c.Cup() {
@@ -71,8 +65,7 @@ func (m *Model) search(query string) tea.Cmd {
 			results = append(results, Result{Kind: KindPlayer, Player: p})
 		}
 
-		// Shown grouped — clubs, nations, players, leagues — with the
-		// ranking above kept within each group.
+		// Stable, so the ranking holds within each group.
 		sort.SliceStable(results, func(i, j int) bool { return groupOf(results[i]) < groupOf(results[j]) })
 		var teamIDs []string
 		for _, r := range results {
@@ -88,7 +81,6 @@ func (m *Model) search(query string) tea.Cmd {
 	}
 }
 
-// group is a heading the results are shown under.
 type group int
 
 const (
@@ -103,7 +95,6 @@ func (g group) String() string {
 	return [...]string{"clubs", "nations", "players", "leagues", "not downloaded"}[g]
 }
 
-// groupOf is the heading a result is shown under.
 func groupOf(r Result) group {
 	switch {
 	case r.Kind == KindTeam && r.Team.National:
@@ -118,24 +109,18 @@ func groupOf(r Result) group {
 	return groupLeagues
 }
 
-// searchFurtherAfter is how long typing must pause before the data
-// source is searched too: one request per settled query, not per key.
+// searchFurtherAfter debounces source searches to one per settled query.
 const searchFurtherAfter = 400 * time.Millisecond
 
-// minFurtherQuery is the shortest query worth sending to the source.
 const minFurtherQuery = 3
 
-// searchFurtherDueMsg is the pause after typing running out.
 type searchFurtherDueMsg struct{ query string }
 
-// foundMsg is what the data source's search turned up for query.
 type foundMsg struct {
 	query string
 	found []Result
 }
 
-// scheduleFurther asks for the data source to be searched once typing
-// pauses, if there is one and the query is long enough to mean someone.
 func (m *Model) scheduleFurther(query string) tea.Cmd {
 	if m.deps.Players == nil || len([]rune(strings.TrimSpace(query))) < minFurtherQuery {
 		return nil
@@ -143,9 +128,7 @@ func (m *Model) scheduleFurther(query string) tea.Cmd {
 	return tea.Tick(searchFurtherAfter, func(time.Time) tea.Msg { return searchFurtherDueMsg{query: query} })
 }
 
-// searchFurther searches the data source for players, keeping those not
-// already cached. A failure leaves the local results as they are: the
-// source being unreachable is no reason to hide what is cached.
+// searchFurther leaves local results alone on failure.
 func (m *Model) searchFurther(query string) tea.Cmd {
 	deps := m.deps
 	q := strings.TrimSpace(query)
@@ -169,9 +152,8 @@ func (m *Model) searchFurther(query string) tea.Cmd {
 	}
 }
 
-// merge rebuilds the list from the local results and the found players
-// that aren't cached under the same name: a player cached from a source
-// that hasn't linked its ID yet is still the same player.
+// merge dedupes found players by name, not ID: a cached player's source
+// ID may not be linked yet.
 func (m *Model) merge() {
 	local := map[string]bool{}
 	for _, r := range m.local {
@@ -188,10 +170,7 @@ func (m *Model) merge() {
 	m.cursor = min(m.cursor, max(len(m.results)-1, 0))
 }
 
-// rank sorts matches by how well they match and truncates to maxPerKind.
-// The repository does substring matching, which alone would order
-// "Manchester City" and "Manchester United" arbitrarily for the query
-// "manchester united"; scoring puts the closer match first.
+// rank orders substring matches by closeness and truncates to maxPerKind.
 func rank[T any](items []T, name func(T) string, query string) []T {
 	sorted := make([]T, len(items))
 	copy(sorted, items)
@@ -210,8 +189,7 @@ func rank[T any](items []T, name func(T) string, query string) []T {
 	return sorted
 }
 
-// Match quality, best first. Anything the repository returned is at least
-// a substring match, so scoreSubstring is the floor.
+// Match quality, best first; scoreSubstring is the floor.
 const (
 	scoreExact = iota
 	scorePrefix
@@ -219,7 +197,7 @@ const (
 	scoreSubstring
 )
 
-// matchScore rates how closely name matches query, lower being better.
+// matchScore is lower for a closer match.
 func matchScore(name, query string) int {
 	n, q := strings.ToLower(name), strings.ToLower(strings.TrimSpace(query))
 	switch {
@@ -234,9 +212,7 @@ func matchScore(name, query string) int {
 	}
 }
 
-// hasWordPrefix reports whether any word in name starts with query, so
-// "united" ranks "Manchester United" above "Unitednordsjaelland"-style
-// mid-word hits.
+// hasWordPrefix reports whether any word in name starts with query.
 func hasWordPrefix(name, query string) bool {
 	for _, word := range strings.FieldsFunc(name, func(r rune) bool {
 		return r == ' ' || r == '-' || r == '\''

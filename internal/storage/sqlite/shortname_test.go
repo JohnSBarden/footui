@@ -6,9 +6,8 @@ import (
 	"testing"
 )
 
-// A database cached before friendlies were renamed keeps "FRI", which
-// reads as Friday beside a match date, until a nation refresh rewrites
-// the row. The upgrade renames it.
+// The upgrade renames a cached friendlies "FRI" short name, which
+// reads as Friday beside a match date.
 func TestUpgradeRenamesFriendliesShortName(t *testing.T) {
 	path := copyFile(t, "testdata/footui-0011.db")
 	raw, err := sql.Open("sqlite", path)

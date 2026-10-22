@@ -1,12 +1,6 @@
-// Package team renders one club's dashboard: its season-by-season record,
-// headline stats, and squad.
-//
-// Everything on this screen is scoped to a single competition at a time,
-// selected with the tab bar. That is the screen's central constraint: a
-// club's Premier League and Champions League numbers are different numbers
-// and must never be summed into one figure. The storage layer already
-// keeps rows at (team, competition, season) grain, and this screen groups
-// by competition rather than flattening, so the property holds end to end.
+// Package team renders one club's season record, stats and squad. Numbers
+// are scoped to one competition tab at a time and must never be summed
+// across competitions.
 package team
 
 import (
@@ -51,9 +45,7 @@ type Model struct {
 	deps core.Deps
 	team models.Team
 
-	// The competition and season the user drilled in from, used to pick
-	// the initially selected tab and row so the screen opens showing the
-	// same numbers the previous screen was showing.
+	// Where the user drilled in from; picks the initial tab and row.
 	fromCompetitionID string
 	fromSeasonID      string
 
@@ -66,20 +58,15 @@ type Model struct {
 
 	honours []models.Trophy
 
-	// recent are the club's last few finished games in every competition,
-	// which its form line is read from.
+	// recent feeds the form line: last finished games, all competitions.
 	recent       []models.Match
 	recentLoaded bool
-	// strip is the scores along the top: the club's schedule either side
-	// of today, in every competition.
-	strip scorestrip.Strip
-	// fetching and queued say the club's recent games are being fetched
-	// or waiting to be.
+	strip        scorestrip.Strip
+	// fetching and queued: recent games are being fetched / waiting to be.
 	fetching bool
 	queued   bool
 
-	// lastSync is the most recent refresh attempt for the selected
-	// competition-season, or nil when it has never been attempted.
+	// lastSync is nil when the selection has never been refreshed.
 	lastSync      *models.SyncRun
 	roster        []RosterRow
 	extras        map[string]float64
@@ -92,15 +79,11 @@ type Model struct {
 	width  int
 	height int
 
-	// theme is this screen's own theme, which becomes the club's brand
-	// theme once its colours load. It is deliberately separate from
-	// deps.Theme: deps is what gets handed to screens this one pushes, and
-	// a player who turned out for three clubs should not be rendered in
-	// one club's colours. Branding stays on the screen it belongs to.
+	// theme is kept separate from deps.Theme so club branding doesn't leak
+	// into screens pushed from here (e.g. a player who played for others).
 	theme   styles.Theme
 	branded bool
-	// colors are the club's brand colours once loaded, kept so the theme
-	// can be rebuilt when the user switches mode.
+	// colors are kept to rebuild the theme on a light/dark mode switch.
 	colors *models.TeamColors
 
 	loading bool
@@ -108,18 +91,14 @@ type Model struct {
 	err     error
 }
 
-// Themed reports whether this screen is rendering in the club's own brand
-// colours rather than the neutral theme.
+// Themed reports whether the screen is in the club's brand colours.
 func (m *Model) Themed() bool { return m.branded }
 
-// ScreenTheme implements core.ThemedScreen, so the app's chrome matches
-// the club's colours.
+// ScreenTheme implements core.ThemedScreen.
 func (m *Model) ScreenTheme() styles.Theme { return m.theme }
 
-// New constructs the Team screen. competitionID and seasonID say where the
-// user came from; either may be empty (e.g. opened from Browse), in which
-// case the screen defaults to the most recent season of the team's
-// highest-tier competition.
+// New constructs the Team screen. Empty competitionID/seasonID default to
+// the latest season of the team's highest-tier competition.
 func New(deps core.Deps, team models.Team, competitionID, seasonID string) *Model {
 	return &Model{
 		deps:              deps,
@@ -154,21 +133,17 @@ func (m *Model) Keys() core.KeyMap {
 	return km
 }
 
-// Init implements core.Screen: everything cached, and — once, on open —
-// whether the club's recent games need fetching.
+// Init implements core.Screen.
 func (m *Model) Init() tea.Cmd {
 	return tea.Batch(m.load(), m.checkRecent())
 }
 
-// load reads everything the screen shows from the cache.
 func (m *Model) load() tea.Cmd {
 	return tea.Batch(m.loadHistory(), m.loadColors(), m.loadHonours(), m.loadRecent())
 }
 
-// RefreshRequest implements core.RefreshRequester: everything about the
-// club — every season of each league it has a table in, and its recent
-// games. The competition it was opened from comes along, so a club with
-// nothing cached yet still gets that league's table.
+// RefreshRequest implements core.RefreshRequester. The origin competition
+// is included so a club with nothing cached still gets that league's table.
 func (m *Model) RefreshRequest() (core.RefreshRequest, bool) {
 	return core.RefreshRequest{TeamID: m.team.ID, Name: m.team.Name, CompetitionID: m.fromCompetitionID, History: true}, true
 }
@@ -176,16 +151,14 @@ func (m *Model) RefreshRequest() (core.RefreshRequest, bool) {
 // RecentGames returns the strip's games.
 func (m *Model) RecentGames() []models.Match { return m.recent }
 
-// FavoriteTarget implements core.Favoritable: the club, whichever pane has
-// the cursor. A player is favourited from their own screen.
+// FavoriteTarget implements core.Favoritable: always the club, never the
+// player under the cursor.
 func (m *Model) FavoriteTarget() (core.FavoriteTarget, bool) {
 	return core.FavoriteTarget{Kind: models.FavoriteTeam, ID: m.team.ID, Name: m.team.Name}, true
 }
 
-// RefreshTarget implements core.Refreshable: the selected competition tab,
-// or — when nothing is cached yet so there are no tabs — the competition
-// the team was opened from. A team opened by name with no history has no
-// competition to refresh.
+// RefreshTarget implements core.Refreshable: the selected tab, else the
+// competition the team was opened from.
 func (m *Model) RefreshTarget() (string, bool) {
 	if comp, ok := m.CurrentCompetition(); ok {
 		return comp.ID, true
@@ -200,29 +173,24 @@ type historyLoadedMsg struct {
 	history      map[string][]SeasonRow
 }
 
-// honoursLoadedMsg carries a club's curated honours. An empty list is a
-// normal state — the dataset covers only part of every league.
+// honoursLoadedMsg: an empty list is normal; the dataset is partial.
 type honoursLoadedMsg struct {
 	honours []models.Trophy
 }
 
-// colorsLoadedMsg carries a club's brand colours. Absent colours are a
-// normal state, not an error, so the message simply isn't sent.
+// colorsLoadedMsg isn't sent when a club has no colours.
 type colorsLoadedMsg struct {
 	colors models.TeamColors
 }
 
-// seasonDetailLoadedMsg carries everything scoped to the selected
-// (competition, season): the squad and the long-tail team stats. They load
-// together because the same selection change invalidates both.
+// seasonDetailLoadedMsg loads squad and extras together because the same
+// selection change invalidates both.
 type seasonDetailLoadedMsg struct {
 	seasonID      string
 	competitionID string
-	// lastSync is the most recent refresh attempt for the selected
-	// competition-season, or nil when it has never been attempted.
-	lastSync *models.SyncRun
-	roster   []RosterRow
-	extras   map[string]float64
+	lastSync      *models.SyncRun
+	roster        []RosterRow
+	extras        map[string]float64
 }
 
 // --- accessors used by the view and by tests ---

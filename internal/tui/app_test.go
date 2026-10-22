@@ -13,8 +13,7 @@ import (
 	"github.com/JohnSBarden/footui/internal/tui/styles"
 )
 
-// fakeScreen records what the app sends it, so navigation and key routing
-// can be asserted without a real screen's data loading.
+// fakeScreen records what the app sends it.
 type fakeScreen struct {
 	name        string
 	initialized *bool
@@ -22,10 +21,8 @@ type fakeScreen struct {
 	width       *int
 	capturing   bool
 	keyMap      core.KeyMap
-	// target is what RefreshTarget reports; refreshed records the
-	// RefreshedMsgs the screen was handed.
-	target    string
-	refreshed *[]string
+	target      string
+	refreshed   *[]string
 }
 
 func newFake(name string) fakeScreen {
@@ -65,7 +62,6 @@ func newApp(initial core.Screen) *App {
 	return NewApp(core.Deps{Theme: styles.Plain()}, initial)
 }
 
-// isQuit reports whether a command produced Bubble Tea's quit message.
 func isQuit(cmd tea.Cmd) bool {
 	if cmd == nil {
 		return false
@@ -143,8 +139,7 @@ func TestQQuitsFromAnOrdinaryScreen(t *testing.T) {
 	}
 }
 
-// Browse's search box needs the literal character, or a club with a "q" in
-// its name would be unsearchable.
+// A search box needs the literal "q".
 func TestQReachesAScreenThatIsCapturingText(t *testing.T) {
 	screen := newFake("Browse")
 	screen.capturing = true
@@ -171,8 +166,7 @@ func TestCtrlCAlwaysQuits(t *testing.T) {
 	}
 }
 
-// A screen popped back to must be laid out for the current terminal, not
-// the size it last saw.
+// A popped-back screen must be laid out for the current terminal size.
 func TestResizeReachesEveryScreenInTheStack(t *testing.T) {
 	root := newFake("Browse")
 	pushed := newFake("League")
@@ -250,9 +244,7 @@ func (errFake) Error() string { return "boom" }
 
 func (f fakeScreen) Keys() core.KeyMap { return f.keyMap }
 
-// Screens declare bindings, not help text, and the app renders the footer
-// from them — so what the footer promises is always what the screen
-// actually handles.
+// The footer is rendered from the screen's declared bindings.
 func TestFooterIsRenderedFromTheScreensBindings(t *testing.T) {
 	screen := newFake("League")
 	screen.keyMap = core.KeyMap{Short: []key.Binding{
@@ -317,8 +309,7 @@ func TestExpandedHelpIncludesTheGlobalBindings(t *testing.T) {
 	}
 }
 
-// A search box must receive a literal "?" rather than having the app
-// swallow it as a help toggle.
+// A search box must receive a literal "?".
 func TestQuestionMarkReachesAScreenCapturingText(t *testing.T) {
 	screen := newFake("Browse")
 	screen.capturing = true
@@ -330,9 +321,7 @@ func TestQuestionMarkReachesAScreenCapturingText(t *testing.T) {
 	}
 }
 
-// A screen with a focused text box swallows "q" and "?", so the footer
-// must not advertise them — a user would discover the lie by typing a
-// search and finding nothing happens.
+// A focused text box swallows "q" and "?", so the footer mustn't offer them.
 func TestFooterOffersCtrlCWhileAScreenCapturesText(t *testing.T) {
 	screen := newFake("Browse")
 	screen.capturing = true
@@ -360,9 +349,7 @@ func TestFooterOffersQOnOrdinaryScreens(t *testing.T) {
 	}
 }
 
-// A pty with no winsize set, and some CI runners, report 0x0. Taking that
-// literally collapses every table column to its minimum and truncates club
-// names to nothing, so it must be ignored rather than believed.
+// Some ptys and CI runners report 0x0, which must be ignored.
 func TestZeroSizedTerminalReportIsIgnored(t *testing.T) {
 	screen := newFake("League")
 	app := newApp(screen)
@@ -390,8 +377,7 @@ func TestUnsizedTerminalKeepsAUsableDefault(t *testing.T) {
 	}
 }
 
-// fakeRefresher records the competition it was asked for and plays back a
-// scripted refresh: each progress line, then the summary or error.
+// fakeRefresher plays back scripted progress lines, then summary or error.
 type fakeRefresher struct {
 	called   []string
 	requests []core.RefreshRequest
@@ -416,10 +402,8 @@ func (f *fakeRefresher) fn() core.Refresher {
 	}
 }
 
-// drive runs a command and feeds its message back into the app, repeating
-// until the chain of commands ends — the synchronous equivalent of the
-// Bubble Tea runtime, minus the goroutines. Views seen along the way are
-// returned so a test can assert on what the user saw mid-flight.
+// drive runs the command chain synchronously, returning the views seen
+// along the way.
 func drive(t *testing.T, app *App, cmd tea.Cmd) (*App, []string) {
 	t.Helper()
 	var views []string
@@ -554,8 +538,7 @@ func TestRExplainsWhenNoRefresherIsWired(t *testing.T) {
 	}
 }
 
-// Browse's search box needs the literal "r"; ctrl+r is the refresh key
-// there, and the footer must say so.
+// In a search box ctrl+r is the refresh key, and the footer must say so.
 func TestCtrlRRefreshesWhileAScreenCapturesText(t *testing.T) {
 	screen := newFake("Browse")
 	screen.capturing = true
@@ -595,8 +578,7 @@ func TestFooterOffersRefreshOnlyWhereItWorks(t *testing.T) {
 	}
 }
 
-// The status line has one row; a long message must be cut to fit rather
-// than wrapping and pushing the chrome off the bottom of the screen.
+// A long status must be cut, not wrapped.
 func TestStatusLineIsTruncatedToTheTerminalWidth(t *testing.T) {
 	app := newApp(newFake("League"))
 	updated, _ := app.Update(tea.WindowSizeMsg{Width: 40, Height: 20})
@@ -633,9 +615,8 @@ func (h heightScreen) View() string {
 	return strings.TrimSuffix(strings.Repeat("row\n", *h.height), "\n")
 }
 
-// A screen that fills the height it's told fills the terminal exactly,
-// with or without a breadcrumb above it, and the footer sits on the
-// bottom rows however short a screen is.
+// A screen filling its height fills the terminal exactly, with or without
+// a breadcrumb, and the footer stays on the bottom rows.
 func TestScreensFillTheTerminalAboveAPinnedFooter(t *testing.T) {
 	root := heightScreen{newFake("Root"), new(int)}
 	app := newApp(root)

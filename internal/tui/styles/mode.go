@@ -9,12 +9,9 @@ import (
 type Mode int
 
 const (
-	// Weak keeps the terminal's own background (transparent, if the
-	// terminal is) and uses club colours for highlights and UI elements
-	// only.
+	// Weak keeps the terminal's background; club colours are highlights only.
 	Weak Mode = iota
-	// Strong paints the whole screen in the club's primary colour, with
-	// text and accents chosen for contrast against it.
+	// Strong paints the whole screen in the club's primary colour.
 	Strong
 )
 
@@ -36,9 +33,8 @@ func ParseMode(s string) (Mode, error) {
 	return Weak, fmt.Errorf("unknown theme %q (want weak or strong)", s)
 }
 
-// Appearance is the user's theme choice, shared by pointer between the
-// root app and every screen so a toggle at runtime reaches screens built
-// afterwards from an older copy of their parent's dependencies.
+// Appearance is the user's theme choice. It is shared by pointer so a
+// runtime toggle reaches screens built from older copies of their deps.
 type Appearance struct {
 	Mode Mode
 }

@@ -26,8 +26,7 @@ func newDeps(repos storage.Repositories) core.Deps {
 	}
 }
 
-// screen seeds a Premier League season and returns a settled League screen
-// laid out at a fixed width, so assertions on rendered output are stable.
+// screen returns a settled League screen at a fixed width.
 func screen(t *testing.T, rows []storagetest.TeamRow) (core.Screen, storage.Repositories) {
 	t.Helper()
 	repos := storagetest.New(t)
@@ -80,8 +79,8 @@ func TestViewShowsGoalDifferenceWithExplicitSign(t *testing.T) {
 	s, _ := screen(t, storagetest.SampleStandings())
 	out := s.View()
 
-	// Arsenal 91-29 = +62, Wolves 50-65 = -15. The sign has to be visible
-	// because under NO_COLOR it's the only thing conveying direction.
+	// Arsenal 91-29 = +62, Wolves 50-65 = -15. Under NO_COLOR the sign is
+	// the only cue.
 	if !strings.Contains(out, "+62") {
 		t.Errorf("expected Arsenal's goal difference as +62\n---\n%s", out)
 	}
@@ -105,7 +104,6 @@ func TestViewDistinguishesMissingXGFromZero(t *testing.T) {
 func TestEmptyStateTellsUserHowToPopulateIt(t *testing.T) {
 	repos := storagetest.New(t)
 	ctx := context.Background()
-	// A competition row exists, but nothing was ever refreshed into it.
 	if err := repos.UpsertCompetition(ctx, storagetest.PremierLeague()); err != nil {
 		t.Fatalf("UpsertCompetition: %v", err)
 	}
@@ -133,7 +131,6 @@ func TestUnknownCompetitionSurfacesAnError(t *testing.T) {
 func TestCursorMovesAndClampsAtBothEnds(t *testing.T) {
 	s, _ := screen(t, storagetest.SampleStandings())
 
-	// The screen opens on the league header, one step above the table.
 	if !s.(*league.Model).HeaderSelected() {
 		t.Fatal("the screen should open with the header highlighted")
 	}
@@ -213,7 +210,6 @@ func TestRefreshKeepsTheCursorOnTheSameClub(t *testing.T) {
 	}
 }
 
-// seasonsScreen seeds the given seasons and settles a League screen.
 func seasonsScreen(t *testing.T, width int, labels ...string) core.Screen {
 	t.Helper()
 	repos := storagetest.New(t)
@@ -224,7 +220,6 @@ func seasonsScreen(t *testing.T, width int, labels ...string) core.Screen {
 	return tuitest.Resize(t, tuitest.Settle(t, league.New(newDeps(repos), comp.ID)), width, 30)
 }
 
-// seasonBar is the line of the view holding the season tabs.
 func seasonBar(t *testing.T, s core.Screen) string {
 	t.Helper()
 	for _, line := range strings.Split(s.View(), "\n") {
@@ -236,8 +231,6 @@ func seasonBar(t *testing.T, s core.Screen) string {
 	return ""
 }
 
-// Every cached season must be reachable — a user who downloaded ten
-// seasons should be able to look at all ten.
 func TestEveryCachedSeasonIsReachable(t *testing.T) {
 	labels := []string{"2018", "2019", "2020", "2021", "2022", "2023", "2024", "2025"}
 	s := seasonsScreen(t, 120, labels...)
@@ -252,8 +245,6 @@ func TestEveryCachedSeasonIsReachable(t *testing.T) {
 	}
 }
 
-// The tabs read like a timeline, oldest on the left, so the left arrow
-// moves left on screen and back in time.
 func TestSeasonTabsAreChronologicalAndArrowsMatch(t *testing.T) {
 	s := seasonsScreen(t, 120, "2023", "2024", "2025")
 	bar := seasonBar(t, s)
@@ -270,8 +261,6 @@ func TestSeasonTabsAreChronologicalAndArrowsMatch(t *testing.T) {
 	}
 }
 
-// Seventeen seasons don't fit on one line; the bar scrolls to keep the
-// selected season in view and says there are more.
 func TestSeasonBarScrollsToFitTheTerminal(t *testing.T) {
 	var labels []string
 	for y := 2010; y <= 2026; y++ {
@@ -307,7 +296,6 @@ func TestSeasonSwitchLoadsThatSeasonsTable(t *testing.T) {
 		t.Fatalf("expected to start on 2025-26\n---\n%s", out)
 	}
 
-	// "left" moves to the older season.
 	s = tuitest.Key(t, s, "left")
 	out := s.View()
 	if !strings.Contains(out, "Leicester City") {
@@ -326,7 +314,6 @@ func TestEnterWithoutATeamRouteDoesNothing(t *testing.T) {
 	}
 }
 
-// Clicking a club selects it; clicking it again opens it, as enter does.
 func TestClickingAClubSelectsThenOpensIt(t *testing.T) {
 	repos := storagetest.New(t)
 	storagetest.SeedCompetition(t, repos, storagetest.PremierLeague(), "2025", storagetest.SampleStandings())
@@ -384,8 +371,6 @@ func TestEnterPushesTheTeamScreenForTheSelectedRow(t *testing.T) {
 	}
 }
 
-// selectedName reads back which team the cursor is on by finding the row
-// the table marked as selected.
 func selectedName(t *testing.T, s core.Screen) string {
 	t.Helper()
 	m, ok := s.(*league.Model)
@@ -417,8 +402,6 @@ func TestFreshnessShowsWhenTheSeasonWasLastRefreshed(t *testing.T) {
 	}
 }
 
-// "We tried an hour ago and it broke" is what the user needs to act on, so
-// a failed attempt must not be reported as though the data is simply old.
 func TestAFailedRefreshIsReportedAsAFailureNotAsStaleness(t *testing.T) {
 	repos := storagetest.New(t)
 	storagetest.SeedCompetition(t, repos, storagetest.PremierLeague(), "2025", storagetest.SampleStandings())
@@ -440,8 +423,6 @@ func TestAFailedRefreshIsReportedAsAFailureNotAsStaleness(t *testing.T) {
 	}
 }
 
-// Data that predates sync logging, or was seeded by hand, has no run to
-// report — that's normal and must not produce a misleading note.
 func TestNoSyncHistoryShowsNoFreshnessNote(t *testing.T) {
 	s, _ := screen(t, storagetest.SampleStandings())
 
@@ -451,10 +432,8 @@ func TestNoSyncHistoryShowsNoFreshnessNote(t *testing.T) {
 	}
 }
 
-// A narrow terminal has to give something up. Squeezing the team column
-// would turn "Manchester United" and "Manchester City" into two identical
-// truncated rows, making the table actively wrong rather than merely less
-// detailed — so the derived columns go instead.
+// Truncated names ("Manchester United"/"City") would make the table wrong,
+// so derived columns go first.
 func TestNarrowTerminalsDropStatColumnsNotTeamNames(t *testing.T) {
 	repos := storagetest.New(t)
 	storagetest.SeedCompetition(t, repos, storagetest.PremierLeague(), "2025", []storagetest.TeamRow{
@@ -473,7 +452,6 @@ func TestNarrowTerminalsDropStatColumnsNotTeamNames(t *testing.T) {
 					width, name, out)
 			}
 		}
-		// The core table is never sacrificed.
 		for _, col := range []string{"MP", "GD", "PTS"} {
 			if !strings.Contains(out, col) {
 				t.Errorf("width %d dropped the core column %q\n---\n%s", width, col, out)
@@ -494,8 +472,6 @@ func TestWideTerminalsShowTheExpectedGoalsColumns(t *testing.T) {
 	}
 }
 
-// xG and xGA are a pair: attacking output means little without what the
-// team conceded, so the step below both is neither.
 func TestExpectedGoalsColumnsAreDroppedAsAPair(t *testing.T) {
 	repos := storagetest.New(t)
 	storagetest.SeedCompetition(t, repos, storagetest.PremierLeague(), "2025", storagetest.SampleStandings())
@@ -529,8 +505,6 @@ func TestRefreshTargetIsTheCompetitionShown(t *testing.T) {
 	}
 }
 
-// A refresh that lands while the screen is open must replace the empty
-// state without the user navigating away and back.
 func TestRefreshedMsgReloadsTheStandings(t *testing.T) {
 	repos := storagetest.New(t)
 	if err := repos.UpsertCompetition(context.Background(), storagetest.PremierLeague()); err != nil {
@@ -552,8 +526,6 @@ func TestRefreshedMsgReloadsTheStandings(t *testing.T) {
 	}
 }
 
-// Drilling from a team's 2024-25 row should show the 2024-25 table, not
-// whatever season is newest.
 func TestNewAtOpensOnTheRequestedSeason(t *testing.T) {
 	repos := storagetest.New(t)
 	comp := storagetest.PremierLeague()

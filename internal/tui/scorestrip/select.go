@@ -1,7 +1,5 @@
-// Package scorestrip is the row of scores across the top of the matchday
-// and league screens: the latest results, any game in play and the next
-// fixtures, a tile each, the way a league's own website runs them along
-// its header.
+// Package scorestrip is the row of score tiles across the top of the
+// matchday and league screens.
 package scorestrip
 
 import (
@@ -12,16 +10,15 @@ import (
 	"github.com/JohnSBarden/footui/internal/data/models"
 )
 
-// roundSpan is how far either side of a round's first or last kickoff its
-// other games can fall: a weekend round runs Friday night to Monday night.
+// roundSpan covers a weekend round, Friday night to Monday night.
 const roundSpan = 84 * time.Hour
 
-// liveFor is how long after kickoff a game without a result is taken to
-// still be going on, so the strip opens with it in view.
+// liveFor is how long after kickoff a game without a result counts as
+// still going on.
 const liveFor = 3 * time.Hour
 
-// Per team, the matchday strip carries its last few results and its next
-// fixture; the team's own page, its schedule further either way.
+// Games either side of now: team* on the matchday strip, page* on a
+// team's own page.
 const (
 	teamRecent   = 2
 	teamUpcoming = 1
@@ -29,10 +26,7 @@ const (
 	pageUpcoming = 5
 )
 
-// Rounds is a season's latest round played by now and its next one: the
-// games within roundSpan of the last kickoff before now, and of the first
-// after it. A season that has ended keeps only its last round, one yet to
-// start only its first.
+// Rounds is a season's latest round played by now and its next one.
 func Rounds(matches []models.Match, now time.Time) []models.Match {
 	var last, next time.Time
 	for _, m := range matches {
@@ -56,20 +50,17 @@ func Rounds(matches []models.Match, now time.Time) []models.Match {
 	return Ordered(out)
 }
 
-// TeamWindow is a team's last games kicked off by now and its next, from
-// its matches in any order: the few the matchday strip carries per team.
+// TeamWindow is a team's last few games and its next, for the matchday
+// strip.
 func TeamWindow(matches []models.Match, now time.Time) []models.Match {
 	return window(matches, now, teamRecent, teamUpcoming)
 }
 
-// Schedule is the strip on a team's own page: more of its games either
-// side of now.
+// Schedule is the strip on a team's own page.
 func Schedule(matches []models.Match, now time.Time) []models.Match {
 	return window(matches, now, pageRecent, pageUpcoming)
 }
 
-// window is the last recent of matches kicked off by now and the next
-// upcoming, in kickoff order.
 func window(matches []models.Match, now time.Time, recent, upcoming int) []models.Match {
 	ms := Ordered(matches)
 	split, _ := slices.BinarySearchFunc(ms, now, func(m models.Match, t time.Time) int {
@@ -100,8 +91,7 @@ func Ordered(matches []models.Match) []models.Match {
 	return out
 }
 
-// current reports whether a game is in play or still to come: what the
-// strip opens with in view.
+// current reports whether a game is in play or still to come.
 func current(m models.Match, now time.Time) bool {
 	switch {
 	case m.Finished(), m.Status == models.MatchPostponed, m.Status == models.MatchCancelled:

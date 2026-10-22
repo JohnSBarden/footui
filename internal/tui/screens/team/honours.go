@@ -9,18 +9,14 @@ import (
 	"github.com/JohnSBarden/footui/internal/tui/components"
 )
 
-// honourLine is one aggregated row of the honours panel: a title, how many
-// times it was won, and the seasons.
+// honourLine is one aggregated row of the honours panel.
 type honourLine struct {
 	Title   string
 	Type    string
 	Seasons []string
 }
 
-// Honours groups the club's trophy rows into display lines. Rows are
-// stored one per win (the schema's grain), but an honours list reads as
-// "Premier League ×3", so they're aggregated here rather than in SQL —
-// the grouping is a presentation decision, not a storage one.
+// Honours aggregates one-row-per-win trophies into display lines.
 func (m *Model) Honours() []honourLine {
 	if len(m.honours) == 0 {
 		return nil
@@ -43,12 +39,10 @@ func (m *Model) Honours() []honourLine {
 	lines := make([]honourLine, 0, len(order))
 	for _, title := range order {
 		line := byTitle[title]
-		// Most recent first, matching how the seasons tables read.
 		sort.Sort(sort.Reverse(sort.StringSlice(line.Seasons)))
 		lines = append(lines, *line)
 	}
 
-	// Continental honours first — they're the ones a reader looks for.
 	sort.SliceStable(lines, func(i, j int) bool {
 		return honourRank(lines[i].Type) < honourRank(lines[j].Type)
 	})
@@ -68,9 +62,8 @@ func honourRank(trophyType string) int {
 	}
 }
 
-// honoursPanel renders the club's honours, or nothing at all when the
-// curated dataset doesn't cover this club. An empty panel would imply the
-// club has won nothing, which is a different and probably false claim.
+// honoursPanel renders nothing for an uncovered club: an empty panel would
+// falsely imply it has won nothing.
 func (m *Model) honoursPanel() string {
 	lines := m.Honours()
 	if len(lines) == 0 {
@@ -80,8 +73,7 @@ func (m *Model) honoursPanel() string {
 
 	var b strings.Builder
 	b.WriteString(components.Label(th, "Honours"))
-	// The league-title lists start at a fixed season, so the panel says so
-	// rather than letting a partial count read as an all-time total.
+	// League-title data is partial; don't let it read as an all-time count.
 	b.WriteString(th.Muted.Render("  league titles from " + trophies.LeagueTitlesFrom + " only"))
 	b.WriteString("\n")
 
@@ -102,11 +94,9 @@ func (m *Model) honoursPanel() string {
 	return strings.TrimRight(b.String(), "\n")
 }
 
-// maxDiamonds is the longest tally of ◆ an honour line draws before it
-// switches to a count.
+// maxDiamonds is the longest ◆ tally before switching to ◆×n.
 const maxDiamonds = 10
 
-// diamonds is a tally of n titles: one ◆ each, or ◆×n past maxDiamonds.
 func diamonds(n int) string {
 	if n > maxDiamonds {
 		return "◆×" + strconv.Itoa(n)
@@ -114,9 +104,7 @@ func diamonds(n int) string {
 	return strings.Repeat("◆", n)
 }
 
-// maxSeasonsShown caps how many years one honour line lists before
-// summarizing; a club with eighteen league titles would otherwise wrap
-// across the whole terminal.
+// maxSeasonsShown caps the years listed per honour line.
 const maxSeasonsShown = 8
 
 func (m *Model) seasonList(seasons []string) string {

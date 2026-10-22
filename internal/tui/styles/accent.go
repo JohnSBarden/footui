@@ -8,13 +8,11 @@ import (
 	"github.com/lucasb-eyer/go-colorful"
 )
 
-// Accent is footui's own highlight colour on the screens no club owns:
-// its lime, a colour the user picked, or the terminal's own palette.
+// Accent is footui's highlight colour on screens no club owns.
 type Accent struct {
-	// hex is the chosen colour; empty means lime.
+	// empty means lime
 	hex string
-	// terminal draws everything in the terminal's ANSI palette, so footui
-	// follows the terminal's theme.
+	// draw in the terminal's ANSI palette
 	terminal bool
 }
 
@@ -54,7 +52,6 @@ func ParseAccent(s string) (Accent, error) {
 	return Accent{hex: c.Hex()}, nil
 }
 
-// accent is the accent in use, set once at startup by UseAccent.
 var accent Accent
 
 // UseAccent sets footui's accent for every theme built afterwards.
@@ -67,8 +64,6 @@ func applyAccent(p Palette) Palette {
 		return terminalPalette()
 	case accent.hex != "":
 		c := mustHex(accent.hex)
-		// The colour is made readable on light and dark terminals alike,
-		// as a club's is, and so is the text drawn on it.
 		p.Accent = adaptiveForeground(c, minContrast)
 		p.OnAccent = lipgloss.AdaptiveColor{
 			Light: readableHex(adjustForBackground(c, mustHex(lightBackground), minContrast)),
@@ -78,9 +73,7 @@ func applyAccent(p Palette) Palette {
 	return p
 }
 
-// terminalPalette is footui's palette in the terminal's own ANSI colours:
-// whatever theme the terminal has, footui wears it. Body text is the
-// terminal's default foreground.
+// terminalPalette is footui's palette in the terminal's ANSI colours.
 func terminalPalette() Palette {
 	return Palette{
 		Accent:    lipgloss.ANSIColor(10), // bright green
@@ -98,14 +91,12 @@ func terminalPalette() Palette {
 	}
 }
 
-// readableHex is black or white, whichever reads on c.
 func readableHex(c colorful.Color) string {
 	return string(readableTextOn(c).(lipgloss.Color))
 }
 
-// strongAccentHex is the accent footui's own strong-mode pitch is drawn
-// with: the chosen colour, or lime. The pitch is footui's own green
-// whatever the terminal's palette, so it keeps lime then too.
+// strongAccentHex is the pitch's accent. The pitch is always footui's
+// green, so a terminal accent still gets lime.
 func strongAccentHex() string {
 	if accent.hex != "" {
 		return accent.hex

@@ -12,18 +12,14 @@ import (
 	"github.com/JohnSBarden/footui/internal/tui/scorestrip"
 )
 
-// recentGames is how many games the form line is read from; the Games
-// screen (m) lists more.
+// recentGames is how many games the form line is read from.
 const recentGames = 5
 
-// recentLoadedMsg carries the club's last few finished games in every
-// competition, and the scores along the top.
 type recentLoadedMsg struct {
 	matches []models.Match
 	strip   scorestrip.Strip
 }
 
-// loadRecent fetches the form line's games and the scores from the cache.
 func (m *Model) loadRecent() tea.Cmd {
 	deps, teamID := m.deps, m.team.ID
 	return func() tea.Msg {
@@ -35,8 +31,8 @@ func (m *Model) loadRecent() tea.Cmd {
 	}
 }
 
-// loadStrip is the club's schedule either side of today. The strip is a
-// nicety, so a failure leaves it empty rather than failing the screen.
+// loadStrip leaves the strip empty on failure rather than failing the
+// screen.
 func loadStrip(deps core.Deps, teamID string) scorestrip.Strip {
 	t := now()
 	ms, err := scorestrip.ForTeam(deps, teamID, t)
@@ -51,9 +47,8 @@ func loadStrip(deps core.Deps, teamID string) scorestrip.Strip {
 	return strip
 }
 
-// checkRecent asks, once on open, whether the club's recent games need
-// fetching, and queues the club's refresh if they do. Asking costs no
-// request; a club whose games are current queues nothing.
+// checkRecent queues the club's refresh if its recent games are due.
+// Asking costs no request.
 func (m *Model) checkRecent() tea.Cmd {
 	due, club := m.deps.ClubDue, m.team
 	if due == nil || club.National {
@@ -70,8 +65,6 @@ func (m *Model) checkRecent() tea.Cmd {
 	}
 }
 
-// recentStrip is the club's form over its last five games, under the
-// scores along the top, which carry the games themselves.
 func (m *Model) recentStrip() string {
 	th := m.theme
 	title := components.Label(th, "Recent")

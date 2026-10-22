@@ -19,7 +19,6 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 		return m, nil
 
 	case core.RefreshedMsg, core.FavoritesChangedMsg:
-		// New numbers, or a card added or removed.
 		return m, m.load()
 
 	case core.FrameMsg:
@@ -63,7 +62,7 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 			m.showLog = !m.showLog
 			return m, nil
 		}
-		// A click selects a card; clicking the selected one opens it.
+		// Clicking the selected card opens it.
 		i, ok := msg.ClickedIndex("card")
 		if !ok || i >= len(m.cards) {
 			return m, nil
@@ -111,8 +110,7 @@ func (m *Model) handleKey(msg tea.KeyMsg) (core.Screen, tea.Cmd) {
 	return m, nil
 }
 
-// open drills into the selected card: the same screen Browse would open,
-// with the card's season as context.
+// open drills into the same screen Browse would, at the card's season.
 func (m *Model) open() tea.Cmd {
 	c, ok := m.Selected()
 	if !ok {

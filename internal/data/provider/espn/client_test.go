@@ -31,8 +31,7 @@ func limitedServer(t *testing.T, refuse int32, retryAfter string) (*httptest.Ser
 	return srv, &hits
 }
 
-// recordWaits replaces the client's sleeping with a log of how long it
-// would have slept.
+// recordWaits logs the client's sleeps instead of sleeping.
 func recordWaits(c *Client) *[]time.Duration {
 	var waits []time.Duration
 	c.wait = func(_ context.Context, d time.Duration) error {
@@ -70,9 +69,7 @@ func TestA429WithoutRetryAfterBacksOffSlowly(t *testing.T) {
 	}
 }
 
-// A 429 that outlasts every retry trips the breaker: the error says
-// footui is being rate-limited, and nothing more is asked of ESPN — by
-// this client or any other sharing the breaker — for an hour.
+// A 429 that outlasts every retry trips the shared breaker for an hour.
 func TestPersistentRateLimitingOpensTheBreaker(t *testing.T) {
 	srv, hits := limitedServer(t, 1000, "")
 	c := NewClient().withBaseURLs(srv.URL, srv.URL)

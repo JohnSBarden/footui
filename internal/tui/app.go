@@ -1,10 +1,5 @@
-// Package tui is the root of footui's terminal interface: it owns the
-// navigation stack, the global key bindings, and the chrome (breadcrumb,
-// status line) drawn around whichever screen is on top.
-//
-// It is the only package that imports the individual screen packages —
-// screens themselves navigate through core.Navigator constructors handed
-// to them in core.Deps, so no screen imports another.
+// Package tui owns the navigation stack, global keys and chrome. It is the
+// only package that imports the screens; they navigate via core.Navigator.
 package tui
 
 import (
@@ -43,8 +38,8 @@ type App struct {
 	stack []core.Screen
 	// zoneIDs are the clickable regions of the last frame drawn.
 	zoneIDs []string
-	// ids parallels stack with a unique id per entry, so a message
-	// produced by a screen beneath the top can be routed back to it.
+	// ids parallels stack, so a message from a screen beneath the top can
+	// be routed back to it.
 	ids    []int
 	nextID int
 
@@ -54,22 +49,18 @@ type App struct {
 	status string
 	err    error
 
-	// refreshing is the status of an in-flight refresh, shown in place of
-	// the status line until it finishes; empty when none is running.
-	// Unlike status it survives keystrokes, so the user can keep
-	// navigating while it runs without losing sight of it.
+	// refreshing replaces the status line while a refresh runs; unlike
+	// status it survives keystrokes.
 	refreshing string
-	// active is the refresh running now, nil when idle; queue is what
-	// waits behind it. batch collects outcomes until the queue drains.
+	// active is nil when idle. batch collects outcomes until the queue
+	// drains.
 	active *core.RefreshRequest
 	queue  []core.RefreshRequest
 	batch  refreshBatch
-	// stopActive cancels the running refresh; stopping is set once the
-	// user has asked it to stop, until it reports back.
+	// stopping is set once the user asks to stop, until it reports back.
 	stopActive context.CancelFunc
 	stopping   bool
-	// startup is refresh work to queue as soon as the app starts — the
-	// stale current seasons the host found when it opened the database.
+	// startup is refresh work to queue as soon as the app starts.
 	startup []core.RefreshRequest
 
 	help     help.Model
@@ -78,29 +69,25 @@ type App struct {
 	// splash is the launch screen, nil once it's gone.
 	splash *splashState
 
-	// news is the ticker beneath the footer: what refreshes brought in
-	// for the followed teams. newsBefore is the snapshot taken as the
-	// current batch started; newsTurning is set while a tick is pending.
+	// newsBefore is the snapshot taken as the current batch started;
+	// newsTurning is set while a tick is pending.
 	news        ticker.Feed
 	newsBefore  ticker.Snapshot
 	newsTurning bool
 	// clock stands in for time.Now in tests; nil is the real clock.
 	clock func() time.Time
 
-	// kick is the kickabout being played over the screen, nil when none
-	// is. While it runs it takes the keys; every other message still
+	// kick takes the keys while it runs; every other message still
 	// reaches the stack, so the screen is current when the game ends.
 	kick *kickabout.Model
 
-	// framing is set while an animation frame is pending for the screen
-	// on top.
+	// framing is set while an animation frame is pending.
 	framing bool
 }
 
 var _ tea.Model = (*App)(nil)
 
-// NewApp constructs the root model with initial as the bottom of the
-// navigation stack.
+// NewApp constructs the root model with initial at the bottom of the stack.
 func NewApp(deps core.Deps, initial core.Screen) *App {
 	h := help.New()
 	h.ShowAll = false
@@ -115,24 +102,20 @@ func NewApp(deps core.Deps, initial core.Screen) *App {
 	}
 }
 
-// NewDeps builds the dependency bundle every screen is constructed with,
-// including the Navigator that wires screen-to-screen drill-down.
+// NewDeps builds the dependency bundle every screen is constructed with.
 func NewDeps(ctx context.Context, repos storage.Repositories, theme styles.Theme) core.Deps {
 	deps := core.Deps{Ctx: ctx, Repos: repos, Theme: theme, Favorites: core.NewFavorites(nil), Log: core.NewLog(nil)}
 	deps.Nav = navigator()
 	return deps
 }
 
-// navigator maps each drill-down route to the screen package that
-// implements it.
 func navigator() core.Navigator {
 	return core.Navigator{
 		League: func(deps core.Deps, competitionID, seasonID string) core.Screen {
 			return league.NewAt(deps, competitionID, seasonID)
 		},
 		Team: func(deps core.Deps, t models.Team, competitionID, seasonID string) core.Screen {
-			// Every route to a team — a table row, a search result, a
-			// card — lands on the nation screen for a national team.
+			// Every route to a national team lands on the nation screen.
 			if t.National {
 				return nation.New(deps, t)
 			}
@@ -156,14 +139,13 @@ func navigator() core.Navigator {
 	}
 }
 
-// NewLeagueScreen constructs the League screen, for callers (the CLI) that
-// want to start the app on a specific competition.
+// NewLeagueScreen constructs the League screen for a competition.
 func NewLeagueScreen(deps core.Deps, competitionID string) core.Screen {
 	return league.New(deps, competitionID)
 }
 
-// NewTeamScreen constructs the Team screen, for `footui team <name>` — or
-// the nation screen, for a national team.
+// NewTeamScreen constructs the Team screen, or the nation screen for a
+// national team.
 func NewTeamScreen(deps core.Deps, t models.Team) core.Screen {
 	if t.National {
 		return nation.New(deps, t)
@@ -171,20 +153,19 @@ func NewTeamScreen(deps core.Deps, t models.Team) core.Screen {
 	return team.New(deps, t, "", "")
 }
 
-// NewPlayerScreen constructs the Player screen, for `footui player <name>`.
+// NewPlayerScreen constructs the Player screen.
 func NewPlayerScreen(deps core.Deps, p models.Player) core.Screen {
 	return player.New(deps, p, "")
 }
 
 // NewBrowseScreen constructs the Browse screen, optionally pre-filled with
-// a search query. It is where an ambiguous `footui team <name>` lands, and
-// what bare `footui` opens before anything is favourited.
+// a search query.
 func NewBrowseScreen(deps core.Deps, query string) core.Screen {
 	return browse.New(deps, query)
 }
 
-// NewHomeScreen is what bare `footui` opens: the dashboard once anything is
-// favourited, Browse until then.
+// NewHomeScreen is the dashboard once anything is favourited, Browse until
+// then.
 func NewHomeScreen(deps core.Deps) core.Screen {
 	if deps.Favorites.Len() > 0 {
 		return dashboard.New(deps)
@@ -193,8 +174,7 @@ func NewHomeScreen(deps core.Deps) core.Screen {
 }
 
 // QueueOnStart arranges for reqs to be refreshed as soon as the app
-// starts. It is how a stale current season gets brought up to date on
-// open without the user asking, while they carry on browsing.
+// starts.
 func (a *App) QueueOnStart(reqs ...core.RefreshRequest) {
 	a.startup = append(a.startup, reqs...)
 }
@@ -229,9 +209,8 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return model, tea.Batch(cmd, a.nextFrame())
 }
 
-// nextFrame asks for an animation frame when the screen on top is
-// animating and none is pending. The splash and the kickabout draw over
-// the screen, so it isn't animated beneath them.
+// nextFrame asks for an animation frame when the top screen is animating
+// and none is pending; not while the splash or kickabout covers it.
 func (a *App) nextFrame() tea.Cmd {
 	if a.framing || a.splash != nil || a.kick != nil {
 		return nil
@@ -246,15 +225,13 @@ func (a *App) nextFrame() tea.Cmd {
 func (a *App) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if a.splash != nil {
 		if mouse, ok := msg.(tea.MouseMsg); ok {
-			// A click skips the splash as a key does.
 			if mouse.Action == tea.MouseActionPress {
 				a.splash = nil
 			}
 			return a, nil
 		}
 		if key, ok := msg.(tea.KeyMsg); ok {
-			// Any key skips the splash; it isn't passed on, since the
-			// user pressed it at the splash, not at the screen.
+			// The key that skips the splash isn't passed on.
 			a.splash = nil
 			if key.String() == "ctrl+c" {
 				return a, tea.Quit
@@ -280,17 +257,13 @@ func (a *App) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, a.splashAnimate()
 
 	case tea.WindowSizeMsg:
-		// A terminal that can't report its size sends zeroes (a pty with
-		// no winsize set, some CI runners). Taking those literally
-		// collapses every column to its minimum and truncates club names
-		// to nothing, so the sensible default is kept instead.
+		// A terminal that can't report its size sends zeroes (some ptys,
+		// CI); keep the default rather than collapse every column.
 		if msg.Width <= 0 || msg.Height <= 0 {
 			return a, nil
 		}
 		a.width, a.height = msg.Width, msg.Height
-		// Every screen in the stack is resized, not just the visible one,
-		// so a screen the user pops back to isn't laid out for the old
-		// terminal size.
+		// Resize the whole stack, so a popped-back screen isn't stale.
 		var cmds []tea.Cmd
 		for i, s := range a.stack {
 			updated, cmd := s.Update(a.screenSize(i))
@@ -298,8 +271,7 @@ func (a *App) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmds = append(cmds, a.routeFrom(i, cmd))
 		}
 		if a.kick != nil {
-			// The pitch is the screen as it now looks, so it's laid out
-			// again from scratch.
+			// The pitch is built from the screen, so rebuild it.
 			cmds = append(cmds, a.startKick())
 		}
 		return a, tea.Batch(cmds...)
@@ -333,9 +305,8 @@ func (a *App) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, nil
 
 	case core.ErrMsg:
-		// Errors are shown by the screen that requested the data, since it
-		// knows the context; the app keeps a copy only so a screen that
-		// ignores ErrMsg doesn't swallow the failure silently.
+		// The requesting screen shows errors; the app keeps a copy so a
+		// screen that ignores ErrMsg doesn't swallow it.
 		a.err = msg.Err
 
 	case tickerMsg:
@@ -367,8 +338,7 @@ func (a *App) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return a, cmd
 }
 
-// handleGlobalKey intercepts the bindings that work on every screen. It
-// reports whether it consumed the key.
+// handleGlobalKey reports whether it consumed key as a global binding.
 func (a *App) handleGlobalKey(key tea.KeyMsg) (bool, tea.Model, tea.Cmd) {
 	switch key.String() {
 	case "ctrl+c":
@@ -433,15 +403,13 @@ func (a *App) handleGlobalKey(key tea.KeyMsg) (bool, tea.Model, tea.Cmd) {
 	return false, a, nil
 }
 
-// startKick turns the screen as it looks now into a pitch.
 func (a *App) startKick() tea.Cmd {
 	k := kickabout.New(a.baseView(), a.width, a.height, a.theme())
 	a.kick = &k
 	return k.Init()
 }
 
-// updateKick gives the game its keys and ticks, reporting whether it
-// consumed msg. esc ends the game; ctrl+c still quits.
+// updateKick reports whether the game consumed msg; ctrl+c still quits.
 func (a *App) updateKick(msg tea.Msg) (bool, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
@@ -463,8 +431,7 @@ func (a *App) updateKick(msg tea.Msg) (bool, tea.Cmd) {
 	return false, nil
 }
 
-// theme is what the chrome is drawn in: the visible screen's own theme
-// when it has one (a club's colours), the app's otherwise.
+// theme is the visible screen's own theme when it has one, else the app's.
 func (a *App) theme() styles.Theme {
 	if themed, ok := a.current().(core.ThemedScreen); ok {
 		return themed.ScreenTheme()
@@ -472,7 +439,6 @@ func (a *App) theme() styles.Theme {
 	return a.deps.Theme
 }
 
-// toggleTheme switches between weak and strong club themes.
 func (a *App) toggleTheme() tea.Cmd {
 	if a.deps.Appearance == nil {
 		a.deps.Appearance = &styles.Appearance{}
@@ -495,15 +461,12 @@ func (a *App) toggleTheme() tea.Cmd {
 			a.status += " (saved as default)"
 		}
 	}
-	// Screens pushed later are built from a.deps, so they start in the
-	// new mode too.
+	// Screens pushed later are built from a.deps.
 	a.deps.Theme = styles.BaseFor(mode, false)
 	return a.broadcast(core.ThemeChangedMsg{Mode: mode, Theme: a.deps.Theme})
 }
 
-// openSearch returns to the search screen with its box focused: popping
-// back to it when it is already on the stack, pushing one when it isn't
-// (the app was opened straight onto a team, say).
+// openSearch pops back to a search screen on the stack, or pushes one.
 func (a *App) openSearch() tea.Cmd {
 	for i := len(a.stack) - 1; i >= 0; i-- {
 		searcher, ok := a.stack[i].(core.Searcher)
@@ -522,13 +485,11 @@ func (a *App) openSearch() tea.Cmd {
 	return core.Push(a.deps.Nav.Browse(a.deps, ""))
 }
 
-// capturingText reports whether the visible screen wants bare letters.
 func (a *App) capturingText() bool {
 	entry, ok := a.current().(core.TextEntry)
 	return ok && entry.CapturingText()
 }
 
-// openCatalog pushes the league catalog, unless it is already showing.
 func (a *App) openCatalog() tea.Cmd {
 	if !a.catalogAvailable() {
 		a.status = "the league catalog isn't available in this view — see  footui competitions"
@@ -544,7 +505,7 @@ func (a *App) catalogAvailable() bool {
 	return a.deps.Nav.Catalog != nil && len(a.deps.Catalog) > 0
 }
 
-// pop removes the top screen, quitting when the stack would be emptied.
+// pop quits when the stack would be emptied.
 func (a *App) pop() (tea.Model, tea.Cmd) {
 	if len(a.stack) <= 1 {
 		return a, tea.Quit
@@ -556,10 +517,8 @@ func (a *App) pop() (tea.Model, tea.Cmd) {
 	return a, nil
 }
 
-// screenSize is the window size handed to the screen at index i of the
-// stack: the full terminal minus the chrome the app draws around it. The
-// first screen is only ever seen alone, with no breadcrumb above it, so it
-// has those lines too.
+// screenSize is the terminal minus chrome for stack index i. The first
+// screen has no breadcrumb, so it gets those lines too.
 func (a *App) screenSize(i int) tea.WindowSizeMsg {
 	h := a.height - chromeHeight
 	if i > 0 {
@@ -568,9 +527,7 @@ func (a *App) screenSize(i int) tea.WindowSizeMsg {
 	return tea.WindowSizeMsg{Width: a.width, Height: h}
 }
 
-// chromeHeight is the number of lines App reserves beneath every screen:
-// a gap, the footer and the status line. crumbHeight is the breadcrumb
-// and the gap under it, above every screen but the first.
+// chromeHeight: gap, footer, status line. crumbHeight: breadcrumb and gap.
 const (
 	chromeHeight = 3
 	crumbHeight  = 2
@@ -591,9 +548,8 @@ func (a *App) View() string {
 	return components.ScanZones(v)
 }
 
-// handleMouse makes the mouse a second way to do what the keys do: the
-// wheel scrolls (as the arrow keys), and a click goes to the screen as
-// the region it landed in, for the screen to select or open.
+// handleMouse maps the wheel to arrow keys and a click to a ClickMsg for
+// the zone it landed in.
 func (a *App) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case msg.Button == tea.MouseButtonWheelUp && msg.Action == tea.MouseActionPress:
@@ -613,7 +569,6 @@ func (a *App) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 	return a, nil
 }
 
-// baseView is the screen with the app's chrome around it.
 func (a *App) baseView() string {
 	var top, bottom strings.Builder
 
@@ -622,17 +577,14 @@ func (a *App) baseView() string {
 		top.WriteString("\n\n")
 	}
 
-	// The status line keeps its row when empty, so the footer doesn't jump
-	// up and down a line as messages come and go.
+	// The status line keeps its row when empty, so the footer doesn't jump.
 	bottom.WriteString("\n\n")
 	bottom.WriteString(a.footer())
 	bottom.WriteString("\n")
 	bottom.WriteString(a.statusLine())
 
-	// A screen taller than what's left is cut from the bottom. Drawn
-	// whole, the terminal would scroll its top away instead — the header
-	// that says whose screen this is. A shorter one is padded, so the
-	// footer stays on the bottom rows wherever the screen ends.
+	// Cut a tall screen from the bottom (else the terminal scrolls its
+	// header away); pad a short one so the footer stays at the bottom.
 	room := a.height - strings.Count(top.String(), "\n") - strings.Count(bottom.String(), "\n")
 	body := a.current().View()
 	if room > 0 {
@@ -660,16 +612,9 @@ func (a *App) breadcrumb() string {
 	return a.theme().Breadcrumb.Render(strings.Join(titles, " › "))
 }
 
-// footer renders the current screen's key bindings. Screens declare
-// bindings rather than help strings, so what the footer promises is always
-// what the screen actually handles.
+// footer renders the current screen's key bindings plus the global ones.
 func (a *App) footer() string {
-	// The global bindings are the app's, not the screen's, so they're
-	// appended here rather than repeated in every screen's KeyMap.
-	//
-	// The expanded help lists every one. The one-line footer can't fit
-	// them all beside a screen's own keys, so it keeps what gets a user
-	// around and out, ordered so a narrow terminal cuts the least
+	// The short footer is ordered so a narrow terminal cuts the least
 	// essential first; the rest are one "?" away.
 	var short, full []key.Binding
 	refresh, canRefresh := a.refreshBinding()
@@ -678,8 +623,7 @@ func (a *App) footer() string {
 	_, isSearch := a.current().(core.Searcher)
 
 	if a.capturingText() {
-		// The text box takes "?" and every bare letter, so there is no
-		// expanded help to defer to: the ctrl keys are all listed.
+		// The text box takes "?", so list all the ctrl keys here.
 		download = keys.CatalogFromTextEntry
 		short = []key.Binding{keys.Back, keys.QuitFromTextEntry}
 		if canRefresh {
@@ -707,9 +651,8 @@ func (a *App) footer() string {
 		}
 		full = append(full, keys.Theme, keys.Help, keys.Back, keys.Quit, keys.Kickabout)
 	}
-	// The favourite key goes first in both views: it's the one action
-	// that depends on what's on screen, so the user can't know it's there
-	// without being told.
+	// Favourite goes first: it's the one action that depends on what's on
+	// screen.
 	if favorite, ok := a.favoriteBinding(); ok {
 		short = append([]key.Binding{favorite}, short...)
 		full = append([]key.Binding{favorite}, full...)
@@ -717,8 +660,7 @@ func (a *App) footer() string {
 
 	km := a.current().Keys()
 	if slices.ContainsFunc(km.Short, func(b key.Binding) bool { return b.Help().Key == "esc" }) {
-		// The screen has its own use for esc right now (clearing a
-		// query), and advertising "esc back" alongside it would be wrong.
+		// The screen has its own use for esc right now; drop "esc back".
 		isEsc := func(b key.Binding) bool { return b.Help().Key == "esc" }
 		short = slices.DeleteFunc(slices.Clone(short), isEsc)
 		full = slices.DeleteFunc(slices.Clone(full), isEsc)
@@ -734,8 +676,8 @@ func (a *App) footer() string {
 	a.help.Styles.FullDesc = a.theme().Help
 	a.help.Styles.FullSeparator = a.theme().Help
 
-	// help.Model's own width limit lets the last item through when the
-	// ellipsis doesn't quite fit, so every line is clipped here as well.
+	// help.Model's width limit lets the last item overflow when the
+	// ellipsis doesn't fit, so clip here too.
 	lines := strings.Split(a.help.View(km), "\n")
 	for i, line := range lines {
 		lines[i] = ansi.Truncate(line, a.width, "…")
@@ -743,9 +685,8 @@ func (a *App) footer() string {
 	return strings.Join(lines, "\n")
 }
 
-// statusLine is the single row beneath the footer. Messages are cut to the
-// terminal width: a wrapped status would push the chrome off the bottom of
-// the screen.
+// statusLine is cut to the width: a wrapped status would push the chrome
+// off the screen.
 func (a *App) statusLine() string {
 	switch {
 	case a.refreshing != "":
@@ -760,10 +701,8 @@ func (a *App) statusLine() string {
 	return ""
 }
 
-// Run starts the program on the given screen and blocks until the user
-// quits, behind a launch splash. startup is refresh work to queue
-// immediately; waitForData keeps the splash up until the first of it
-// lands, for a database with nothing to show yet.
+// Run starts the program behind a splash and blocks until the user quits.
+// waitForData keeps the splash up until the first startup refresh lands.
 func Run(deps core.Deps, initial core.Screen, waitForData bool, startup ...core.RefreshRequest) error {
 	app := NewApp(deps, initial)
 	app.ShowSplash(waitForData)

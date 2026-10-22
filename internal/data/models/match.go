@@ -5,31 +5,23 @@ import (
 	"time"
 )
 
-// Match is one game between two teams. National teams are tracked at this
-// grain — every match is stored, and a nation's record is computed from
-// whichever of its matches a filter selects — rather than as a season line
-// per competition, because a nation's year is a dozen matches spread over
-// half a dozen competitions. A club's recent games are matches too, in
-// its league, cups and European competitions.
+// Match is one game between two teams. A nation's record is computed from
+// its matches rather than stored per competition-season.
 type Match struct {
 	ID            string
 	CompetitionID string
-	// SeasonID is the competition's edition the match belongs to, which is
-	// not always the calendar year it was played in: Euro 2020 was played
-	// in 2021.
+	// SeasonID is the edition, not always the year played: Euro 2020 was
+	// played in 2021.
 	SeasonID string
 	Kickoff  time.Time
 	Status   string // MatchStatus* below
-	// Round is a display label: "Group B", "Quarterfinal", or empty when
-	// the source has none (a friendly).
+	// Round is a display label ("Group B"); may be empty.
 	Round      string
 	HomeTeamID string
 	AwayTeamID string
-	// Neutral is a match at a ground that is neither side's.
-	Neutral bool
-	// Scores are nil until the match has started. For a match decided on
-	// penalties they are the score after extra time, and the shoot-out
-	// is in HomePens/AwayPens.
+	Neutral    bool
+	// Scores are nil until kickoff. On penalties they are the score after
+	// extra time; the shoot-out is in HomePens/AwayPens.
 	HomeScore *int
 	AwayScore *int
 	HomePens  *int
@@ -42,16 +34,14 @@ type Match struct {
 }
 
 // MatchTeamStats is one side's numbers from one match. Each is nil when
-// missing or implausible, so averages can skip it rather than count it as
-// zero.
+// missing or implausible, so averages skip it rather than count zero.
 type MatchTeamStats struct {
 	Possession    *float64
 	Shots         *int
 	ShotsOnTarget *int
 	Corners       *int
 	Fouls         *int
-	// XG is the side's expected goals, which only understat's league
-	// matches carry.
+	// XG is set only for understat league matches.
 	XG *float64
 }
 
@@ -98,9 +88,8 @@ func (m Match) For(teamID string) (scored, conceded *int, stats *MatchTeamStats)
 	return m.AwayScore, m.HomeScore, m.AwayStats
 }
 
-// Result is "W", "D" or "L" for teamID, or "" if the match isn't
-// finished. A shoot-out counts as a draw, as FIFA records it: the match
-// was level when it ended.
+// Result is "W", "D" or "L" for teamID, or "" if unfinished. A shoot-out
+// counts as a draw, as FIFA records it.
 func (m Match) Result(teamID string) string {
 	if !m.Finished() {
 		return ""
@@ -159,11 +148,9 @@ func (f MatchFilter) Keeps(comp Competition) bool {
 type MatchSummary struct {
 	Played, Won, Drawn, Lost int
 	GoalsFor, GoalsAgainst   int
-	// Form is the results of the last five finished matches, oldest
-	// first, so it reads left to right in time.
+	// Form is the last five results, oldest first.
 	Form string
-	// Averages per match, over only the matches that have the stat; nil
-	// when none do.
+	// Averages over only the matches that have the stat; nil when none do.
 	Possession    *float64
 	Shots         *float64
 	ShotsOnTarget *float64
@@ -171,8 +158,8 @@ type MatchSummary struct {
 	Fouls         *float64
 }
 
-// SummarizeMatches computes teamID's record from matches, in any order.
-// Matches that haven't finished are ignored.
+// SummarizeMatches computes teamID's record from finished matches, in any
+// order.
 func SummarizeMatches(teamID string, matches []Match) MatchSummary {
 	finished := make([]Match, 0, len(matches))
 	for _, m := range matches {

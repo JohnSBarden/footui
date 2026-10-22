@@ -13,9 +13,7 @@ import (
 	"github.com/JohnSBarden/footui/internal/tui/core"
 )
 
-// playerDetail fills a player card's position, its season detail, a
-// keeper's xGA estimate and the season's standouts. A card without detail
-// keeps its goals-and-assists lines, so failures here only cost the extra.
+// playerDetail's failures only cost the extras; the card keeps its G/A.
 func playerDetail(deps core.Deps, c *Card, history []models.PlayerSeasonStats) {
 	s := c.PlayerStats
 	details, err := deps.Repos.PlayerSeasonDetails(deps.Ctx, c.Player.ID)
@@ -37,8 +35,7 @@ func playerDetail(deps core.Deps, c *Card, history []models.PlayerSeasonStats) {
 			c.Detail = d
 		}
 	}
-	// A season barely recorded next to the player's best reads as
-	// unrecorded, as on the player page.
+	// Matches the player page's sparse-season rule.
 	playerstats.ClearSparseDefence(sameComp)
 	c.Position = playerstats.GroupOf(detailPos, c.Player.Position, history)
 	if c.Detail == nil {
@@ -91,15 +88,11 @@ func share(num, den int) string {
 	return strconv.Itoa(int(float64(num)*100/float64(den)+0.5)) + "%"
 }
 
-// positionLines are a player card's numbers for their position, under
-// the heading and the club line: a headline, one or two stat lines, and a
-// standout when the season has one.
 func (m *Model) positionLines(c Card, inner int) []string {
 	th := m.deps.Theme
 	d, s := c.Detail, c.PlayerStats
 	mins := detailMinutes(&c)
-	// The line's own counts (shots, key passes) go over the line's own
-	// minutes; an ESPN league's line has none, so the detail's stand in.
+	// ESPN lines have no minutes; the detail's stand in.
 	lineMins := s.Minutes
 	if lineMins < 90 {
 		lineMins = mins
@@ -143,8 +136,7 @@ func (m *Model) positionLines(c Card, inner int) []string {
 		if s.XG != nil {
 			from = "from " + components.Float(s.XG, 1) + " xG"
 		}
-		// A rate needs minutes; without any (ESPN's older seasons) the
-		// shot total stands in.
+		// No minutes (older ESPN seasons): show the shot total, not a rate.
 		shots := ""
 		switch {
 		case s.Shots != nil && lineMins >= 90:
@@ -167,8 +159,6 @@ func (m *Model) positionLines(c Card, inner int) []string {
 		}
 	}
 
-	// The position rides at the right of the headline, so the club line
-	// above keeps its season.
 	chip := c.Position.Short()
 	head := th.Accent.Bold(true).Render(components.Truncate(headline, inner-len(chip)-1))
 	gap := max(inner-lipgloss.Width(head)-len(chip), 1)

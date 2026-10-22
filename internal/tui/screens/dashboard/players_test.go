@@ -19,8 +19,7 @@ func fp(v float64) *float64 { return &v }
 
 const plSeason = "eng-premier-league:2025"
 
-// starPlayer caches a player's Premier League line (and detail, when
-// given) for Arsenal, stars them, and returns the deps to load with.
+// starPlayer caches and stars a player's Arsenal line; d may be nil.
 func starPlayer(t *testing.T, p models.Player, line models.PlayerSeasonStats, d *models.PlayerSeasonDetail) (storage.Repositories, core.Deps) {
 	t.Helper()
 	repos := storagetest.New(t)
@@ -98,8 +97,7 @@ func TestForwardCard(t *testing.T) {
 	wantIn(t, cardView(t, deps), "FWD", "7 goals · 5 assists", "from 8.7 xG · 2.85 shots/90", "38% on target")
 }
 
-// An ESPN league's line has no minutes or key passes; the card takes the
-// minutes from the detail and leaves out what nobody recorded.
+// ESPN lines have no minutes or key passes; minutes come from the detail.
 func TestESPNLeagueCardsUseDetailMinutes(t *testing.T) {
 	_, deps := starPlayer(t, models.Player{ID: "p-messi", Name: "Lionel Messi", Position: "F"},
 		models.PlayerSeasonStats{Appearances: 28, Goals: 25, Assists: 14, Shots: ip(110)},
@@ -118,8 +116,6 @@ func TestESPNLeagueCardsUseDetailMinutes(t *testing.T) {
 	}
 }
 
-// A card showing a season the source barely recorded leaves the
-// defending off rather than showing a token handful.
 func TestCardSparseSeasonLeavesDefendingOff(t *testing.T) {
 	repos, deps := starPlayer(t, models.Player{ID: "p-gabriel", Name: "Gabriel", Position: "D"},
 		models.PlayerSeasonStats{Appearances: 28, Minutes: 2376},
@@ -140,9 +136,7 @@ func TestCardSparseSeasonLeavesDefendingOff(t *testing.T) {
 	}
 }
 
-// ESPN's 2011 season has appearances but no minutes, and zeros for
-// everything minutes would have earned: Henry's card shows his shot
-// total rather than a rate it can't work out.
+// ESPN's 2011 season has no minutes, so no rate can be worked out.
 func TestForwardCardWithoutMinutesShowsTotals(t *testing.T) {
 	_, deps := starPlayer(t, models.Player{ID: "p-henry", Name: "Thierry Henry", Position: "F"},
 		models.PlayerSeasonStats{Appearances: 29, Goals: 15, Assists: 3, Shots: ip(70)},

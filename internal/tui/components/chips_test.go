@@ -10,8 +10,8 @@ import (
 	"github.com/JohnSBarden/footui/internal/tui/styles"
 )
 
-// On a red strong theme the win colour is solved to near-black, and a
-// chip's letter drawn in dark text on it once disappeared.
+// On a red strong theme the win colour is solved to near-black; dark chip
+// text on it must not disappear.
 func TestFormChipLettersReadOnStrongThemes(t *testing.T) {
 	th, ok := styles.StrongTeamTheme("#EF0107", "#FFFFFF")
 	if !ok {

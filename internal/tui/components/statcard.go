@@ -12,24 +12,20 @@ import (
 type Stat struct {
 	Label string
 	Value string
-	// Hint is an optional third line for context — a delta, a rank, or the
-	// same figure per-90. Empty hints collapse the card to two lines.
+	// Hint is an optional third line; empty collapses the card to two.
 	Hint string
-	// Style optionally colours the value (e.g. green for over-performance).
+	// Style optionally colours the value.
 	Style *lipgloss.Style
 }
 
-// StatCards renders stats as a row of bordered cards, wrapping onto
-// further rows when they don't fit maxWidth. Cards share one width so the
-// row reads as a grid rather than a ragged strip.
+// StatCards renders stats as bordered cards of one width, wrapping at
+// maxWidth.
 func StatCards(theme styles.Theme, stats []Stat, maxWidth int) string {
 	if len(stats) == 0 {
 		return ""
 	}
 
 	inner := cardInnerWidth(stats)
-	// Each card costs its content plus the border and padding the theme's
-	// Panel style adds on both sides.
 	cardTotal := inner + 4
 	perRow := Balanced(len(stats), maxWidth/cardTotal)
 
@@ -59,8 +55,7 @@ func renderCard(theme styles.Theme, s Stat, inner int) string {
 	return theme.Panel.Render(body)
 }
 
-// cardInnerWidth sizes every card to the widest content across the set, so
-// the labels and values line up column-wise down a wrapped grid.
+// cardInnerWidth is the widest content across the set.
 func cardInnerWidth(stats []Stat) int {
 	const min = 7
 	w := min

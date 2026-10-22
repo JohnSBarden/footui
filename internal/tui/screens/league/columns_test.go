@@ -16,8 +16,6 @@ func titles(m *Model) map[string]bool {
 	return out
 }
 
-// A competition without expected goals (anything from ESPN) shows what it
-// does have instead of three columns of dashes.
 func TestColumnsFollowTheDataTheCompetitionHas(t *testing.T) {
 	m := New(core.Deps{Theme: styles.Plain()}, "usa-mls")
 	m.width = 140

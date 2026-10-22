@@ -85,9 +85,7 @@ func printStatus(out io.Writer, summary []models.CompetitionCache, dbPath string
 	}
 }
 
-// refreshNote describes a competition's last refresh. A failure is
-// reported as a failure rather than as age: "we tried and it broke" is
-// what the user needs to act on.
+// refreshNote reports a failed refresh as a failure, not as age.
 func refreshNote(run *models.SyncRun, now time.Time) string {
 	if run == nil {
 		return "never"

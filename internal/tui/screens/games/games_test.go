@@ -20,9 +20,8 @@ import (
 
 var club = models.Team{ID: "eng-wessex", Name: "Wessex", Country: "England", Gender: "men"}
 
-// seed stores 32 finished games for the club, alternating home and away
-// against two fictional opponents, newest on 2026-03-31; the newest has
-// ESPN's box score, the one before understat's xG.
+// seed: 32 games, newest on 2026-03-31 with ESPN's box score, the one
+// before with understat's xG.
 func seed(t *testing.T) storage.Repositories {
 	t.Helper()
 	ctx := context.Background()

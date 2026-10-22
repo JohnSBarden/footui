@@ -8,8 +8,7 @@ import (
 	"github.com/JohnSBarden/footui/internal/tui/core"
 )
 
-// loadHistory fetches every cached season for the team and groups it by
-// competition. Grouping happens here, once, rather than on every render.
+// loadHistory groups by competition once here, not on every render.
 func (m *Model) loadHistory() tea.Cmd {
 	deps, teamID := m.deps, m.team.ID
 	return func() tea.Msg {
@@ -36,8 +35,7 @@ func (m *Model) loadHistory() tea.Cmd {
 			}
 			history[s.CompetitionID] = append(history[s.CompetitionID], SeasonRow{Stats: s, Season: season})
 		}
-		// TeamHistory already orders by season descending, so each group
-		// arrives most-recent-first and needs no further sorting.
+		// TeamHistory orders by season descending; groups need no sort.
 
 		ordered := make([]models.Competition, 0, len(comps))
 		for id := range history {
@@ -53,10 +51,8 @@ func (m *Model) loadHistory() tea.Cmd {
 	}
 }
 
-// loadColors fetches the club's curated brand colours. A club with none is
-// the common case (the seed set is hand-curated), so a not-found result
-// yields no message at all rather than an error the user would have to
-// dismiss.
+// loadColors sends no message when the club has no colours (the common
+// case), rather than an error.
 func (m *Model) loadColors() tea.Cmd {
 	deps, teamID := m.deps, m.team.ID
 	return func() tea.Msg {
@@ -68,7 +64,6 @@ func (m *Model) loadColors() tea.Cmd {
 	}
 }
 
-// loadHonours fetches the club's curated honours.
 func (m *Model) loadHonours() tea.Cmd {
 	deps, teamID := m.deps, m.team.ID
 	return func() tea.Msg {
@@ -80,8 +75,6 @@ func (m *Model) loadHonours() tea.Cmd {
 	}
 }
 
-// loadSeasonDetail fetches the squad and the long-tail team stats for one
-// competition-season.
 func (m *Model) loadSeasonDetail(competitionID, seasonID string) tea.Cmd {
 	deps, teamID := m.deps, m.team.ID
 	return func() tea.Msg {
@@ -126,9 +119,7 @@ func (m *Model) loadSeasonDetail(competitionID, seasonID string) tea.Cmd {
 	}
 }
 
-// distinctRefs collects the unique competition and season IDs a team's
-// history touches, so they can be resolved in two batch queries instead of
-// one per row.
+// distinctRefs lets refs resolve in two batch queries, not one per row.
 func distinctRefs(stats []models.TeamSeasonStats) (compIDs, seasonIDs []string) {
 	seenComp := map[string]bool{}
 	seenSeason := map[string]bool{}
@@ -145,9 +136,6 @@ func distinctRefs(stats []models.TeamSeasonStats) (compIDs, seasonIDs []string) 
 	return compIDs, seasonIDs
 }
 
-// selectInitial picks the tab and season row the screen opens on: the ones
-// the user drilled in from when known, otherwise the most recent season of
-// the first competition.
 func (m *Model) selectInitial() {
 	m.compIdx = 0
 	m.seasonIdx = 0

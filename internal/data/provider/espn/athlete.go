@@ -18,16 +18,10 @@ func (p *Provider) HasDetail(competitionID string) bool {
 	return ok
 }
 
-// AthleteSeason fetches one player's season in one competition from the
-// core API: the detail a position is judged on. keeper says whether the
-// player keeps goal; ESPN reports the club's saves against outfield
-// players too, so for anyone else they're dropped. The IDs are left for
-// the caller to fill in.
-//
-// ESPN only records the defensive stats for recent seasons and reports
-// zeros for older ones, so an outfield season with real minutes and not
-// a single tackle, interception or clearance is "not recorded", as is a
-// pass rate of zero.
+// AthleteSeason fetches one player's season detail; the caller fills in
+// the IDs. Saves are kept only for a keeper, since ESPN reports the
+// club's saves against outfield players too. ESPN reports zeros for
+// older seasons' defensive stats, so those become "not recorded".
 func (p *Provider) AthleteSeason(ctx context.Context, competitionID string, year int, athleteID string, keeper bool) (models.PlayerSeasonDetail, error) {
 	slug, ok := slugFor(competitionID)
 	if !ok {
@@ -73,10 +67,8 @@ func (p *Provider) AthleteSeason(ctx context.Context, competitionID string, year
 
 func zero(n *int) bool { return n == nil || *n == 0 }
 
-// implausibleDefence reports a season whose defensive numbers are a token
-// handful rather than a record: under half a tackle, interception or
-// clearance per 90 over 900 minutes or more. Even a pure striker manages
-// nearly twice that; ESPN's older seasons often carry less.
+// implausibleDefence reports under 0.5 defensive actions per 90 over 900+
+// minutes: even a pure striker manages nearly twice that.
 func implausibleDefence(d models.PlayerSeasonDetail) bool {
 	if d.Minutes == nil || *d.Minutes < 900 {
 		return false
@@ -90,9 +82,7 @@ func implausibleDefence(d models.PlayerSeasonDetail) bool {
 	return float64(n)*90/float64(*d.Minutes) < 0.5
 }
 
-// careerLog is the core API's statistics log for an athlete: one entry
-// per league-season they have stats in, each naming its league and
-// season only by URL.
+// careerLog names each league-season only by URL.
 type careerLog struct {
 	Entries []struct {
 		Season struct {
@@ -101,14 +91,11 @@ type careerLog struct {
 	} `json:"entries"`
 }
 
-// leagueSeasonRef pulls the league slug and season year out of a core API
-// season URL (".../leagues/esp.1/seasons/2014?lang=en").
+// leagueSeasonRef matches ".../leagues/esp.1/seasons/2014?lang=en".
 var leagueSeasonRef = regexp.MustCompile(`/leagues/([^/?]+)/seasons/(\d{4})`)
 
-// AthleteCareer lists every league-season ESPN has a player's stats for
-// that footui has a competition for, in ESPN's order (oldest first). A
-// friendly, a super cup or a youth tournament has no competition and is
-// left out; so is a season listed twice (a mid-season move).
+// AthleteCareer lists the player's league-seasons that footui covers,
+// oldest first, deduplicated (a mid-season move lists one twice).
 func (p *Provider) AthleteCareer(ctx context.Context, athleteID string) ([]provider.CareerSeason, error) {
 	var log careerLog
 	if err := p.client.core(ctx, "/all/athletes/"+url.PathEscape(athleteID)+"/statisticslog", &log); err != nil {
@@ -142,8 +129,7 @@ func (p *Provider) AthleteCareer(ctx context.Context, athleteID string) ([]provi
 	return out, nil
 }
 
-// Squad lists a club's roster for a season: each player's ESPN ID, name
-// and position, for matching cached players to ESPN's.
+// Squad lists a club's roster for a season, for matching cached players.
 func (p *Provider) Squad(ctx context.Context, competitionID string, year int, espnTeamID string) ([]provider.SquadMember, error) {
 	slug, ok := slugFor(competitionID)
 	if !ok {
@@ -161,8 +147,7 @@ func (p *Provider) Squad(ctx context.Context, competitionID string, year int, es
 	return out, nil
 }
 
-// squadPosition maps a roster abbreviation to the contract's position
-// letters (provider.SquadMember), "" for one it doesn't know.
+// squadPosition maps to provider.SquadMember's letters, "" if unknown.
 func squadPosition(abbr string) string {
 	switch abbr {
 	case "G", "GK":

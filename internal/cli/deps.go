@@ -21,26 +21,22 @@ import (
 	"github.com/JohnSBarden/footui/internal/tui/styles"
 )
 
-// globalFlags are the flags every command shares, registered as persistent
-// flags on the root command.
+// globalFlags are the root command's persistent flags.
 type globalFlags struct {
 	dbPath  string
 	noColor bool
-	// staleAfter is how old a cached current season may be before
-	// opening the TUI refreshes it; zero disables the check.
+	// staleAfter zero disables the launch refresh.
 	staleAfter time.Duration
-	// theme is the club theme mode name, "weak" or "strong".
+	// theme is "weak" or "strong".
 	theme string
 
-	// settings are the values commands actually use: the flags above
-	// merged with the environment and the config file. Filled in by
-	// resolveSettings before any command runs.
+	// settings are what commands use: flags merged with env and config
+	// file, filled in by resolveSettings. Read these, not the raw flags.
 	settings settings
 }
 
-// openStore opens (creating and migrating if needed) the local database and
-// returns it alongside the repositories the TUI and sync layer use. The
-// caller closes the returned *sql.DB.
+// openStore opens and migrates the database; the caller closes the
+// *sql.DB.
 func (g *globalFlags) openStore() (*sql.DB, storage.Repositories, error) {
 	db, err := sqlite.Open(g.dbPathOrDefault())
 	if err != nil {
@@ -49,8 +45,6 @@ func (g *globalFlags) openStore() (*sql.DB, storage.Repositories, error) {
 	return db, sqlite.NewStore(db), nil
 }
 
-// dbPathOrDefault reports the database path a command will use, for
-// user-facing messages.
 func (g *globalFlags) dbPathOrDefault() string {
 	if g.settings.dbPath != "" {
 		return g.settings.dbPath
@@ -58,9 +52,8 @@ func (g *globalFlags) dbPathOrDefault() string {
 	return config.DefaultDBPath()
 }
 
-// launchTUI opens the store, builds screen dependencies, and runs the app
-// with the screen build returns. Every TUI-launching command funnels
-// through here so database lifetime and theme resolution live in one place.
+// launchTUI is the one place TUI-launching commands open the store and
+// build dependencies.
 func (g *globalFlags) launchTUI(ctx context.Context, build func(core.Deps) (core.Screen, error)) error {
 	db, repos, err := g.openStore()
 	if err != nil {
@@ -93,8 +86,7 @@ func (g *globalFlags) launchTUI(ctx context.Context, build func(core.Deps) (core
 	if err != nil {
 		return err
 	}
-	// A database with no competition cached has nothing to show behind
-	// the splash, so the splash waits for the first league to land.
+	// With nothing cached, the splash waits for the first league to land.
 	comps, err := repos.ListCompetitions(ctx)
 	if err != nil {
 		return err
@@ -102,9 +94,8 @@ func (g *globalFlags) launchTUI(ctx context.Context, build func(core.Deps) (core
 	return tui.Run(deps, screen, len(comps) == 0, staleRefreshes(ctx, repos, now, g.settings.staleAfter)...)
 }
 
-// saveTheme makes a theme chosen in the interface the default for next
-// time. A theme set by flag or environment would override the file, so
-// writing it there would look saved and then not stick.
+// saveTheme refuses when a flag or env var sets the theme, since the
+// saved value would not stick.
 func (g *globalFlags) saveTheme(mode styles.Mode) error {
 	switch g.settings.sources["theme"] {
 	case fromFlag:
@@ -115,17 +106,13 @@ func (g *globalFlags) saveTheme(mode styles.Mode) error {
 	return config.SetTheme(configPath(), mode.String())
 }
 
-// resolveCompetition turns a free-text competition name into exactly one
-// cached competition. Matching is done against the local database rather
-// than the in-code Scope list so the message can distinguish "that league
-// isn't supported" from "it's supported but you haven't refreshed it yet".
+// resolveCompetition matches one cached competition by free-text name.
 func resolveCompetition(ctx context.Context, repos storage.Repositories, query string) (models.Competition, error) {
 	matches, err := repos.FindCompetitionsByName(ctx, query)
 	if err != nil {
 		return models.Competition{}, err
 	}
-	// An exact ID or name beats a substring: "world-cup" is the World
-	// Cup, not also the women's one whose ID contains it.
+	// An exact ID or name beats a substring ("world-cup" vs the women's).
 	for _, c := range matches {
 		if strings.EqualFold(c.ID, query) || textfold.Fold(c.Name) == textfold.Fold(query) {
 			return c, nil
@@ -148,8 +135,6 @@ func resolveCompetition(ctx context.Context, repos storage.Repositories, query s
 	}
 }
 
-// cmdContext returns the context a command's work runs under, so a future
-// signal handler has one place to hook into.
 func cmdContext(cmd *cobra.Command) context.Context {
 	if ctx := cmd.Context(); ctx != nil {
 		return ctx

@@ -15,8 +15,8 @@ import (
 	"github.com/JohnSBarden/footui/internal/storage/sqlite"
 )
 
-// fakeIntl stands in for ESPN's international endpoints and counts every
-// request, so request budgets can be asserted.
+// fakeIntl stands in for ESPN's international endpoints and counts
+// requests.
 type fakeIntl struct {
 	matches   map[string][]models.Match // "comp/year"
 	fail      map[string]error          // "comp/year"
@@ -322,9 +322,7 @@ func TestRateLimitingStopsTheQueueAndOtherFailuresDont(t *testing.T) {
 	}
 }
 
-// Fetching the same year again updates matches in place by ID: a
-// rescheduled fixture moves, a played one gets its score, nothing is
-// duplicated.
+// Fetching the same year again updates matches in place by ID.
 func TestRefetchingUpdatesMatchesInPlace(t *testing.T) {
 	src := newFakeIntl()
 	m := fixture("int-friendly", 2026, at(2026, 11, 14, 19), "1", "2")
@@ -375,9 +373,8 @@ func TestAnIncompleteYearIsStoredButNotTakenAsComplete(t *testing.T) {
 	}
 }
 
-// Nations get "nat-" IDs that a directory seeded first and the match lists
-// agree on, the women's side is separate, and a club with a nation's name
-// is never merged with it.
+// Nations get stable "nat-" IDs, women's sides are separate, and a club
+// with a nation's name is never merged with it.
 func TestNationsResolveToOneIdentity(t *testing.T) {
 	src := newFakeIntl()
 	seedWorld(src)

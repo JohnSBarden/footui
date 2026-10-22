@@ -6,7 +6,6 @@ import "math"
 // as tall as wide, so horizontal speeds are doubled where they're set.
 type Vec struct{ X, Y float64 }
 
-// Ball is the ball's position and velocity.
 type Ball struct{ Pos, Vel Vec }
 
 const (
@@ -17,11 +16,9 @@ const (
 	substeps = 4
 )
 
-// Step advances the ball one tick. It bounces off the field's edges and
-// any cell block reports (a defender), flipping whichever axis it crossed,
-// except where mouth says the right edge is open: a ball crossing it there
-// has scored. hit is the blocked cell it bounced off, nil for an edge or
-// no bounce.
+// Step advances the ball one tick, bouncing off edges and blocked cells
+// except where mouth opens the right edge (a goal). hit is the blocked
+// cell bounced off, nil for an edge or no bounce.
 func Step(b Ball, f Field, block func(x, y int) bool, mouth func(y int) bool) (next Ball, hit *[2]int, scored bool) {
 	solid := func(x, y int) bool { return f.blocked(x, y, block) }
 	for i := 0; i < substeps; i++ {
@@ -61,8 +58,7 @@ func Step(b Ball, f Field, block func(x, y int) bool, mouth func(y int) bool) (n
 
 func cell(v float64) int { return int(math.Floor(v)) }
 
-// MovePlayer moves p by d one cell at a time, stopping short of the
-// field's edge or any cell block reports.
+// MovePlayer moves p by d a cell at a time, stopping short of blocks.
 func MovePlayer(p, d Vec, f Field, block func(x, y int) bool) Vec {
 	steps := int(math.Max(math.Abs(d.X), math.Abs(d.Y)))
 	if steps == 0 {
@@ -82,8 +78,7 @@ func MovePlayer(p, d Vec, f Field, block func(x, y int) bool) Vec {
 // goalEvery is how many ticks the goal waits between moving a row.
 const goalEvery = 4
 
-// Goal is the mouth on the right edge, Size rows from Top, drifting up and
-// down by Dir.
+// Goal is the mouth on the right edge, Size rows from Top.
 type Goal struct {
 	Top, Size, Dir int
 	tick           int
@@ -92,8 +87,7 @@ type Goal struct {
 // Open reports whether row y is inside the mouth.
 func (g Goal) Open(y int) bool { return y >= g.Top && y < g.Top+g.Size }
 
-// Advance drifts the goal a row every goalEvery ticks, turning back before
-// it would leave rows 1 to height-2.
+// Advance keeps the goal within rows 1 to height-2.
 func (g Goal) Advance(height int) Goal {
 	g.tick++
 	if g.tick%goalEvery != 0 {

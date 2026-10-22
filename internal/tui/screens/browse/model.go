@@ -1,10 +1,5 @@
-// Package browse is footui's entry screen: a search box over everything
-// cached locally — competitions, teams, and players — plus the list of
-// competitions to start from when the box is empty.
-//
-// It doubles as the disambiguation screen: `footui team "United"` matches
-// several clubs, so the CLI opens Browse pre-filled with the query rather
-// than making the user guess an exact name.
+// Package browse is the entry screen: search over the local cache. The CLI
+// also opens it pre-filled to disambiguate a name like "United".
 package browse
 
 import (
@@ -25,13 +20,11 @@ const (
 	KindCompetition Kind = iota
 	KindTeam
 	KindPlayer
-	// KindFound is a player the data source's search found who isn't
-	// cached: opening one downloads their seasons.
+	// KindFound is an uncached player; opening one downloads their seasons.
 	KindFound
 )
 
-// Result is one row in the results list. Exactly one of the embedded
-// values is meaningful, selected by Kind.
+// Result is one row in the results list; Kind selects the meaningful field.
 type Result struct {
 	Kind        Kind
 	Competition models.Competition
@@ -59,28 +52,23 @@ type Model struct {
 	deps  core.Deps
 	input textinput.Model
 
-	// results are what the list shows: local, then found (those of
-	// found that aren't cached under the same name).
-	results []Result
-	local   []Result
-	found   []Result
-	// searchingFurther is set while the data source is being searched.
+	// results is local, then found minus names already cached.
+	results          []Result
+	local            []Result
+	found            []Result
 	searchingFurther bool
-	// awaiting is the found player whose seasons are downloading; when
-	// they land the cursor moves to them.
+	// awaiting is the found player downloading; the cursor moves to them
+	// when they land.
 	awaiting *models.FoundPlayer
-	// awaitStarted is set once the awaited downloads have shown on the
-	// refresh queue, so its draining means they're done.
+	// awaitStarted is set once the downloads have shown on the queue, so
+	// its draining means they're done.
 	awaitStarted bool
-	// colors are the result clubs' brand colours, for their dots.
-	colors map[string]models.TeamColors
-	cursor int
+	colors       map[string]models.TeamColors
+	cursor       int
 
-	// query is the search the current results belong to, so a slow query's
-	// results can't overwrite a newer one's.
+	// query guards against a slow query overwriting a newer one's results.
 	query string
-	// searched is set once the query's first local results are in; a
-	// later re-run (after a refresh) keeps the cursor where it was.
+	// searched: later re-runs (after a refresh) keep the cursor.
 	searched bool
 	loading  bool
 	err      error
@@ -89,8 +77,7 @@ type Model struct {
 	height int
 }
 
-// New constructs the Browse screen, pre-filled with query (which may be
-// empty).
+// New constructs the Browse screen, pre-filled with query (may be empty).
 func New(deps core.Deps, query string) *Model {
 	in := textinput.New()
 	in.Placeholder = "clubs, nations, players, leagues"
@@ -113,9 +100,8 @@ func New(deps core.Deps, query string) *Model {
 // Title implements core.Screen.
 func (m *Model) Title() string { return "Browse" }
 
-// Keys implements core.Screen. While the search box has focus it owns
-// most keystrokes, so only the bindings that survive text entry are
-// advertised; tab hands the keyboard to the results list.
+// Keys implements core.Screen. A focused search box advertises only the
+// bindings that survive text entry.
 func (m *Model) Keys() core.KeyMap {
 	if m.input.Focused() {
 		short := []key.Binding{keys.MoveInTextEntry, keys.Open, keys.ToResults}
@@ -138,9 +124,7 @@ func (m *Model) FocusSearch() tea.Cmd {
 	return m.input.Focus()
 }
 
-// Escape implements core.Escaper. esc unwinds the search before it
-// leaves the screen: from the results it returns to the box, and in the
-// box it clears a query. Only esc on an empty box goes back.
+// Escape implements core.Escaper: results → box → clear query → back.
 func (m *Model) Escape() (bool, tea.Cmd) {
 	if !m.input.Focused() {
 		return true, m.input.Focus()
@@ -158,14 +142,12 @@ func (m *Model) Init() tea.Cmd {
 	return tea.Batch(textinput.Blink, m.search(m.query))
 }
 
-// defaultCompetition is what a first-run refresh fetches: the same one the
-// empty state has always told the user to fetch by hand.
+// defaultCompetition is fetched on a first-run refresh; keep in sync with
+// the empty-state hint.
 const defaultCompetition = "eng-premier-league"
 
-// RefreshTarget implements core.Refreshable. With a competition result
-// highlighted, that competition is refreshed. With nothing cached at all
-// there is nothing to pick from, so the default competition is; a
-// highlighted team or player has no single competition to refresh.
+// RefreshTarget implements core.Refreshable: the highlighted competition,
+// or the default one on an empty cache. Teams and players have none.
 func (m *Model) RefreshTarget() (string, bool) {
 	if r, ok := m.SelectedResult(); ok {
 		if r.Kind == KindCompetition {
@@ -189,7 +171,6 @@ func (m *Model) FavoriteTarget() (core.FavoriteTarget, bool) {
 	return core.FavoriteTarget{Kind: kind, ID: id, Name: r.Name()}, true
 }
 
-// favoriteKey is the result's identity as a favourite.
 func (r Result) favoriteKey() (models.FavoriteKind, string) {
 	switch r.Kind {
 	case KindCompetition:
@@ -201,14 +182,12 @@ func (r Result) favoriteKey() (models.FavoriteKind, string) {
 	}
 }
 
-// firstRun reports whether the cache is empty: a blank query returned
-// nothing, and even the loading spinner has settled.
+// firstRun reports whether the cache is empty.
 func (m *Model) firstRun() bool {
 	return !m.loading && len(m.results) == 0 && strings.TrimSpace(m.input.Value()) == ""
 }
 
-// CapturingText implements core.TextEntry: while the search box has focus,
-// bare letters must reach it rather than triggering global shortcuts.
+// CapturingText implements core.TextEntry.
 func (m *Model) CapturingText() bool { return m.input.Focused() }
 
 // SelectedResult returns the result under the cursor.

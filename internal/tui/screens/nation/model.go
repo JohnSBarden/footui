@@ -1,13 +1,6 @@
-// Package nation renders a national team: every match it has played in
-// the years chosen, filtered down to the competitions chosen, with its
-// record and averages computed from exactly those matches.
-//
-// That is the screen's central idea. A club's numbers come pre-summed per
-// competition-season; a nation's year is a dozen matches across half a
-// dozen competitions — a World Cup, its qualifiers, the Nations League,
-// friendlies — and whether friendlies should count is the user's call.
-// So the filter is front and centre (presets, or competitions one by one),
-// is saved per nation, and every figure on screen follows it.
+// Package nation renders a national team's matches for the chosen years
+// and competitions. Every figure follows the filter, which is saved per
+// nation: whether friendlies count is the user's call.
 package nation
 
 import (
@@ -24,11 +17,9 @@ import (
 	"github.com/JohnSBarden/footui/internal/tui/scorestrip"
 )
 
-// now is the clock the scores along the top are measured against; tests
-// pin it.
+// now is the score strip's clock; tests pin it.
 var now = time.Now
 
-// pane is which part of the screen has the keyboard.
 type pane int
 
 const (
@@ -36,9 +27,8 @@ const (
 	paneFilter
 )
 
-// headerRow is the cursor position of the nation's own header, above the
-// first match. The screen opens on it, so the favourite key stars the
-// nation until the user moves into the matches.
+// headerRow is the nation's header, above the first match; the screen
+// opens on it so favouriting stars the nation.
 const headerRow = -1
 
 // presets are the filter bar's first three stops, in order.
@@ -55,15 +45,13 @@ type Model struct {
 	deps core.Deps
 	team models.Team
 
-	// years are the calendar years the nation has matches in, oldest
-	// first; yearIdx indexes them, and len(years) is "All years".
+	// years is oldest first; yearIdx == len(years) is "All years".
 	years   []int
 	yearIdx int
 
 	filter models.MatchFilter
-	// allComps are every competition the nation has a match in, any year:
-	// what an explicit filter is built from. comps are those it played in
-	// the selected years: the toggles offered.
+	// allComps (any year) builds an explicit filter; comps (selected
+	// years) are the toggles offered.
 	allComps []models.Competition
 	comps    []models.Competition
 	compByID map[string]models.Competition
@@ -75,15 +63,12 @@ type Model struct {
 	cursor   int
 	expanded string // the match whose box score is open
 	focus    pane
-	// filterIdx is the filter bar's cursor: the presets, then comps.
+	// filterIdx runs over the presets, then comps.
 	filterIdx int
 
-	// refreshing is set while this nation's matches are being fetched,
-	// queued while they wait to be.
 	refreshing, queued bool
 
-	// strip is the scores along the top: the nation's games either side
-	// of today, whatever the filter.
+	// strip ignores the filter.
 	strip scorestrip.Strip
 
 	width, height int
@@ -92,7 +77,7 @@ type Model struct {
 	err           error
 }
 
-// New constructs the nation screen. Loading happens in Init.
+// New constructs the nation screen.
 func New(deps core.Deps, team models.Team) *Model {
 	return &Model{deps: deps, team: team, cursor: headerRow, loading: true, width: 100, height: 30,
 		compByID: map[string]models.Competition{}, teams: map[string]models.Team{}}
@@ -135,8 +120,8 @@ func (m *Model) Summary() models.MatchSummary { return m.summary }
 // Matches are the matches on screen, newest first.
 func (m *Model) Matches() []models.Match { return m.matches }
 
-// FavoriteTarget implements core.Favoritable: the nation from its header
-// or the filter bar, the competition of the highlighted match otherwise.
+// FavoriteTarget implements core.Favoritable: the nation from the header
+// or filter bar, else the highlighted match's competition.
 func (m *Model) FavoriteTarget() (core.FavoriteTarget, bool) {
 	if match, ok := m.selected(); ok && m.focus == paneMatches {
 		c := m.competition(match.CompetitionID)
@@ -145,8 +130,8 @@ func (m *Model) FavoriteTarget() (core.FavoriteTarget, bool) {
 	return core.FavoriteTarget{Kind: models.FavoriteTeam, ID: m.team.ID, Name: m.team.Label()}, true
 }
 
-// RefreshRequest implements core.RefreshRequester: the nation's matches,
-// for the year on screen, or this year and last.
+// RefreshRequest implements core.RefreshRequester: the year on screen, or
+// this year and last.
 func (m *Model) RefreshRequest() (core.RefreshRequest, bool) {
 	req := core.RefreshRequest{TeamID: m.team.ID, Name: m.team.Label()}
 	if y, ok := m.year(); ok {
@@ -155,8 +140,7 @@ func (m *Model) RefreshRequest() (core.RefreshRequest, bool) {
 	return req, true
 }
 
-// Escape implements core.Escaper: esc leaves the filter bar before it
-// leaves the screen.
+// Escape implements core.Escaper: leave the filter bar first.
 func (m *Model) Escape() (bool, tea.Cmd) {
 	if m.focus == paneFilter {
 		m.focus = paneMatches
@@ -194,7 +178,6 @@ func (m *Model) competition(id string) models.Competition {
 	return models.Competition{ID: id, Name: id}
 }
 
-// teamName is a team's name, or its ID when it isn't cached.
 func (m *Model) teamName(id string) string {
 	if t, ok := m.teams[id]; ok {
 		return t.Name
@@ -223,8 +206,7 @@ type matchesLoadedMsg struct {
 
 type filterSavedMsg struct{ err error }
 
-// loadMeta reads what doesn't depend on the selection: the years and
-// competitions the nation has matches in, and its saved filter.
+// loadMeta reads what doesn't depend on the selection.
 func (m *Model) loadMeta() tea.Cmd {
 	deps, team := m.deps, m.team
 	return func() tea.Msg {
@@ -259,8 +241,6 @@ func (m *Model) loadMeta() tea.Cmd {
 	}
 }
 
-// loadMatches reads the selection: the competitions played in the chosen
-// years (for the toggles), and the filtered matches and their record.
 func (m *Model) loadMatches() tea.Cmd {
 	deps, teamID, years, filter := m.deps, m.team.ID, m.selectedYears(), m.filter
 	return func() tea.Msg {
@@ -292,8 +272,7 @@ func (m *Model) loadMatches() tea.Cmd {
 	}
 }
 
-// competitionsOf resolves the competitions a set of matches were played
-// in, ordered tournaments, qualifiers, nations leagues, friendlies.
+// competitionsOf returns them in SortByCategory order.
 func competitionsOf(deps core.Deps, matches []models.Match) ([]models.Competition, error) {
 	seen := map[string]bool{}
 	var ids []string
@@ -326,8 +305,8 @@ var categoryOrder = map[string]int{
 	models.CategoryFriendly:      3,
 }
 
-// SortByCategory orders international competitions the way the filter
-// reads: tournaments first, friendlies last.
+// SortByCategory orders international competitions tournaments first,
+// friendlies last.
 func SortByCategory(comps []models.Competition) {
 	slices.SortStableFunc(comps, func(a, b models.Competition) int {
 		if d := categoryOrder[a.Category] - categoryOrder[b.Category]; d != 0 {
@@ -343,8 +322,8 @@ func SortByCategory(comps []models.Competition) {
 	})
 }
 
-// saveFilter remembers the filter for this nation. A failed save is only
-// worth a status line: the filter still applies for now.
+// saveFilter: a failed save is only a status line; the filter still
+// applies.
 func (m *Model) saveFilter() tea.Cmd {
 	deps, teamID, f := m.deps, m.team.ID, m.filter
 	return func() tea.Msg {

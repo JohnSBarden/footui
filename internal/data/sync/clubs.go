@@ -11,29 +11,21 @@ import (
 	"github.com/JohnSBarden/footui/internal/storage"
 )
 
-// A club's recent games come from two places. Its understat league's
-// matches arrive with the league season — the payload footui downloads for
-// the table already lists them — so they cost no extra request. Everything
-// else is ESPN's yearly match lists, the same
-// units national teams use: its ESPN league, if it plays in one, Europe's
-// competitions, and its country's cups. Those are shared, so the first
-// club of a country costs a request per unit and every club after it
-// costs nothing.
+// A club's recent games come from its understat league season payload,
+// and otherwise from ESPN's yearly units, shared with other clubs and
+// national teams.
 
 // ClubPlan is what a club's recent games need fetched.
 type ClubPlan struct {
-	// Leagues are the understat league seasons that are due: one with no
-	// matches stored though the club played in it, or the current season
-	// once stale.
+	// Leagues are the understat league seasons that are due.
 	Leagues []Job
 	// Units are the ESPN units the club plays in, due or not —
 	// MatchSyncer.SyncUnits skips what isn't.
 	Units []Unit
 }
 
-// clubYears is how far back a club's games are fetched: this calendar
-// year and last, which for an August–May league is this season and last,
-// and comfortably more than the thirty games the Games screen lists.
+// clubYears is how many calendar years of a club's games are fetched;
+// comfortably more than the thirty the Games screen lists.
 const clubYears = 2
 
 // europeanCountries are the countries whose clubs play in the European
@@ -41,8 +33,7 @@ const clubYears = 2
 var europeanCountries = map[string]bool{"England": true, "Spain": true, "Germany": true, "Italy": true, "France": true}
 
 // PlanClub works out what a club's recent games need. staleAfter is how
-// old the current understat season may get before it is due again; zero
-// makes it due whenever asked, which costs one request.
+// old the current understat season may get; zero makes it always due.
 func PlanClub(ctx context.Context, repos storage.Repositories, club models.Team, now time.Time, staleAfter time.Duration) (ClubPlan, error) {
 	var plan ClubPlan
 	years := RecentYears(now, clubYears)
@@ -86,8 +77,6 @@ func PlanClub(ctx context.Context, repos storage.Repositories, club models.Team,
 			continue
 		}
 		if cov.Provider != ProviderUnderstat {
-			// An ESPN league, or a European competition the club has a
-			// table line in: both are yearly units.
 			for _, y := range inRange {
 				addUnit(cov, y)
 			}
@@ -123,8 +112,7 @@ func PlanClub(ctx context.Context, repos storage.Repositories, club models.Team,
 }
 
 // leagueSeasonDue reports whether an understat league season needs
-// fetching for its matches: it has none stored though the club has played
-// in it, or it is the current season and older than staleAfter.
+// fetching for its matches.
 func leagueSeasonDue(ctx context.Context, repos storage.Repositories, cov Coverage, line models.TeamSeasonStats,
 	label string, now time.Time, staleAfter time.Duration) bool {
 
@@ -147,7 +135,6 @@ func seasonLabel(seasonID, competitionID string) string {
 	return strings.TrimPrefix(seasonID, competitionID+":")
 }
 
-// compareLabels orders season labels by start year.
 func compareLabels(a, b string) int {
 	x, _ := strconv.Atoi(a)
 	y, _ := strconv.Atoi(b)

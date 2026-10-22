@@ -9,10 +9,8 @@ import (
 	"github.com/JohnSBarden/footui/internal/tui/styles"
 )
 
-// The splash wordmark is "footui" in block letters, its two o's a pair of
-// footballs bouncing out of step and spinning opposite ways. Each ball is
-// a shaded sphere with the twelve pentagons of a truncated icosahedron
-// picked out in the faint colour, lit from the top left.
+// The splash wordmark's two o's are footballs: shaded spheres with a
+// truncated icosahedron's twelve pentagons, lit from the top left.
 
 const (
 	ballRows, ballCols = 7, 12
@@ -36,7 +34,6 @@ var (
 	glyphI = []string{"██", "  ", "██", "██", "██", "██", "██", "██", "██"}
 )
 
-// artWidth is the wordmark's width in columns.
 var artWidth = len([]rune(glyphF[0])) + 2*ballCols + len([]rune(glyphT[0])) +
 	len([]rune(glyphU[0])) + len([]rune(glyphI[0])) + 5*artGap
 
@@ -60,7 +57,6 @@ func unit(x, y, z float64) [3]float64 {
 	return [3]float64{x / l, y / l, z / l}
 }
 
-// ballCell is what one character of a ball shows.
 type ballCell uint8
 
 const (
@@ -108,9 +104,7 @@ func renderBall(spin float64) [ballRows][ballCols]ballCell {
 	return out
 }
 
-// splashBalls is the two balls' motion. Each bounce's height is
-// |sin(phase)|·amp; once the splash has nothing left to wait for, amp and
-// spin run down so the balls come to rest.
+// splashBalls bounce |sin(phase)|·amp high; amp and spin run down to rest.
 type splashBalls struct {
 	amp, spin float64
 	s1, s2    float64 // spin angles
@@ -134,7 +128,6 @@ func (b *splashBalls) step(dt float64, settling bool) {
 	b.s2 -= spinRate * b.spin * dt
 }
 
-// splashArt draws the wordmark, artRows lines of artWidth columns.
 func splashArt(th styles.Theme, balls splashBalls) string {
 	letter := th.TableCell
 	h1 := math.Abs(math.Sin(balls.p1)) * balls.amp
@@ -161,9 +154,8 @@ func splashArt(th styles.Theme, balls splashBalls) string {
 	return strings.Join(lines, "\n")
 }
 
-// ballRow is one row of a ball's column: the ball itself, lifted h of
-// the way to the top of its bounce, or on the last row its shadow, which
-// shrinks as the ball rises.
+// ballRow is one row of a ball lifted h (0..1) of its bounce; the last row
+// is its shadow.
 func ballRow(th styles.Theme, ball *[ballRows][ballCols]ballCell, h float64, row int) string {
 	if row == artRows-1 {
 		w := max(4, int(math.Round(10-h*6)))

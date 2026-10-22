@@ -10,10 +10,6 @@ import (
 	"github.com/JohnSBarden/footui/internal/storage"
 )
 
-// newTestStore returns a Store over a fresh in-memory database. Repository
-// tests run against real SQLite rather than a fake so that schema
-// constraints (foreign keys, the composite team_competition_season key)
-// are actually exercised.
 func newTestStore(t *testing.T) *Store {
 	t.Helper()
 	db, err := Open(":memory:")
@@ -24,9 +20,8 @@ func newTestStore(t *testing.T) *Store {
 	return NewStore(db)
 }
 
-// seedCompetitionSeason upserts a competition, a season, a team, and the
-// anchor row linking them — the minimum needed before team_season_stats
-// will accept a row.
+// seedCompetitionSeason seeds the minimum team_season_stats needs: a
+// competition, season, team and the link row.
 func seedCompetitionSeason(t *testing.T, s *Store, compID, seasonLabel, teamID, teamName string) string {
 	t.Helper()
 	ctx := context.Background()
@@ -177,8 +172,7 @@ func TestGetTeamReturnsNotFoundForUnknownID(t *testing.T) {
 	}
 }
 
-// Standings is the query the League screen renders, so it must come back
-// ranked by the position the mapper computed, not in insertion order.
+// Standings must be ranked by position, not insertion order.
 func TestStandingsOrderByPosition(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()
@@ -234,8 +228,7 @@ func TestTeamSeasonStatExtrasRoundTrip(t *testing.T) {
 	}
 }
 
-// A second provider supplying only some keys must not wipe the ones
-// another provider already contributed for the same team-season.
+// A provider supplying only some extras must not wipe another's.
 func TestUpsertingSomeExtrasLeavesOthersIntact(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()
@@ -327,9 +320,7 @@ func TestPlayerAdvancedStatsStayNullWhenNotSupplied(t *testing.T) {
 	}
 }
 
-// Football is full of accented names and people search from an ASCII
-// keyboard. Before folding, "martin" could not find "Martín Zubimendi" and
-// "jurrien" found nothing at all.
+// ASCII queries must find accented names.
 func TestSearchFindsAccentedNamesFromASCIIQueries(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()
@@ -397,10 +388,8 @@ func TestTeamSearchIsAccentInsensitive(t *testing.T) {
 	}
 }
 
-// A database created before the search columns existed must become
-// searchable on the next open, not only after the user happens to
-// refresh — a silently unsearchable name is a hard bug to notice, since
-// the query succeeds and simply returns nothing.
+// Rows from before the search columns existed must be searchable on the
+// next open, not only after a refresh.
 func TestFoldedNamesAreBackfilledForPreexistingRows(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()

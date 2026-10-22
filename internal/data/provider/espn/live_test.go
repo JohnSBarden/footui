@@ -10,17 +10,9 @@ import (
 	datasync "github.com/JohnSBarden/footui/internal/data/sync"
 )
 
-// TestLiveCanary refreshes the current NWSL season from ESPN's real API
-// and checks every payload a refresh reads — standings, team list,
-// rosters, team statistics — still maps into something usable. The API
-// is undocumented and can change shape without notice; the fixture tests
-// can't see that, so this does. It is opt-in (FOOTUI_LIVE=1) so ordinary
-// test runs stay offline, and it runs weekly in CI
-// (.github/workflows/canary.yml).
-//
-// NWSL because it is one of the smallest leagues ESPN serves us: a
-// refresh is two requests per club, so a small league keeps the canary
-// to a few dozen throttled requests.
+// TestLiveCanary refreshes the current NWSL season (a small league, so few
+// requests) from the real API, catching shape changes fixtures can't.
+// Opt-in via FOOTUI_LIVE=1; runs weekly in .github/workflows/canary.yml.
 func TestLiveCanary(t *testing.T) {
 	if os.Getenv("FOOTUI_LIVE") != "1" {
 		t.Skip("live provider check; set FOOTUI_LIVE=1 to run")
@@ -130,8 +122,8 @@ func TestLiveCanary(t *testing.T) {
 		len(rows), played/2, goals, withPossession, len(players), len(colors))
 }
 
-// TestLivePlayerSearch checks search still finds a player who isn't
-// cached and still lists the seasons of his career.
+// TestLivePlayerSearch checks search still finds an uncached player and
+// his career seasons.
 func TestLivePlayerSearch(t *testing.T) {
 	if os.Getenv("FOOTUI_LIVE") != "1" {
 		t.Skip("live provider check; set FOOTUI_LIVE=1 to run")

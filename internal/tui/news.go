@@ -15,8 +15,7 @@ func tickNews() tea.Cmd {
 	return tea.Tick(ticker.Every, func(time.Time) tea.Msg { return tickerMsg{} })
 }
 
-// snapshotNews remembers the followed teams as a batch of refreshes
-// starts, for newsSince to compare against once it drains.
+// snapshotNews is taken as a batch starts, for newsSince to diff against.
 func (a *App) snapshotNews() {
 	if a.deps.Repos == nil {
 		return
@@ -24,10 +23,8 @@ func (a *App) snapshotNews() {
 	a.newsBefore = ticker.Take(a.deps.Ctx, a.deps.Repos, a.now())
 }
 
-// newsSince puts what the batch brought in for the followed teams on the
-// ticker, led by the batch's own summary, which would otherwise sit on
-// the status line in its place. It starts the ticker turning if it
-// wasn't.
+// newsSince puts the batch's news on the ticker, led by the batch summary
+// it displaces from the status line.
 func (a *App) newsSince() tea.Cmd {
 	if a.deps.Repos == nil {
 		return nil
@@ -51,8 +48,6 @@ func (a *App) newsSince() tea.Cmd {
 	return tickNews()
 }
 
-// turnNews shows the ticker's next item, and stops turning once it has
-// nothing left.
 func (a *App) turnNews() tea.Cmd {
 	if !a.news.Advance(a.now()) {
 		a.newsTurning = false

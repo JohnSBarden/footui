@@ -13,8 +13,7 @@ import (
 	"github.com/JohnSBarden/footui/internal/storage/sqlite"
 )
 
-// flakySource fails for specific competition/season pairs, so partial
-// failure can be asserted without a network.
+// flakySource fails for specific competition/season pairs.
 type flakySource struct {
 	failOn map[string]bool
 	// failWith is the error a failing unit returns, when set.
@@ -195,9 +194,7 @@ func TestSyncManyReportsProgressAsUnitsFinish(t *testing.T) {
 	}
 }
 
-// A run against a dead host would otherwise pay the full network timeout
-// for every competition-season in turn. Consecutive failures are the
-// signal to stop.
+// Consecutive failures stop the run.
 func TestSyncManyGivesUpAfterConsecutiveFailures(t *testing.T) {
 	src := &flakySource{failOn: map[string]bool{}}
 	for _, id := range []string{"a-league", "b-league", "c-league", "d-league", "e-league"} {
@@ -223,8 +220,7 @@ func TestSyncManyGivesUpAfterConsecutiveFailures(t *testing.T) {
 	}
 }
 
-// A run where every other competition works is healthy and must not be
-// cut short — total failures are not the signal, consecutive ones are.
+// Alternating failures must not cut a run short.
 func TestInterleavedFailuresDoNotTripTheCircuitBreaker(t *testing.T) {
 	src := &flakySource{failOn: map[string]bool{
 		"a-league/2025": true,
@@ -247,9 +243,7 @@ func TestInterleavedFailuresDoNotTripTheCircuitBreaker(t *testing.T) {
 	}
 }
 
-// Being rate-limited stops a run at once, not after three strikes: every
-// further request would only prolong it. The refusal is logged as such,
-// which is what suspends automatic refreshes.
+// Being rate-limited stops a run at once and is logged as such.
 func TestRateLimitingStopsTheRunImmediately(t *testing.T) {
 	src := &flakySource{failOn: map[string]bool{"a-league/2025": true},
 		failWith: fmt.Errorf("espn: %w", provider.ErrRateLimited)}
@@ -323,9 +317,7 @@ func TestSyncRecordsEveryAttemptInTheSyncLog(t *testing.T) {
 		t.Errorf("provider = %q, want the name the syncer was given", ok.Provider)
 	}
 
-	// A failure must be recorded too: "we tried an hour ago and it broke"
-	// is different from "we haven't tried since Tuesday", and a staleness
-	// indicator that hid failures would show the wrong one.
+	// A failure must be recorded too.
 	failed, err := store.LatestSyncRun(context.Background(), "b-league", "b-league:2025")
 	if err != nil {
 		t.Fatalf("LatestSyncRun (failure): %v", err)
@@ -358,10 +350,7 @@ func TestSyncSucceedsEvenIfTheSyncLogCannotBeWritten(t *testing.T) {
 	}
 }
 
-// A failed refresh must leave nothing behind. Writing the competition and
-// season before fetching would create a season that exists with no data in
-// it, which `footui status` and the League screen would then report as
-// cached.
+// A failed refresh must leave no empty season behind.
 func TestAFailedSyncWritesNothing(t *testing.T) {
 	src := &flakySource{failOn: map[string]bool{"a-league/2025": true}}
 	db, err := sqlite.Open(":memory:")
@@ -385,8 +374,7 @@ func TestAFailedSyncWritesNothing(t *testing.T) {
 		t.Errorf("a failed sync left %d competition(s) behind: %+v", len(summary), summary)
 	}
 
-	// The attempt itself is still recorded — that's the whole point of
-	// the sync log.
+	// The attempt itself is still recorded.
 	if _, err := store.LatestSyncRun(context.Background(), "a-league", "a-league:2025"); err != nil {
 		t.Errorf("the failed attempt should still be logged: %v", err)
 	}
@@ -428,9 +416,7 @@ func TestASuccessfulSyncIsVisibleInTheCacheSummary(t *testing.T) {
 	}
 }
 
-// A season that finished years ago does not change. Re-fetching it nightly
-// to confirm that is slow and unkind to the endpoint, which is what
-// MaxAge exists to avoid.
+// MaxAge leaves recently synced seasons alone.
 func TestMaxAgeLeavesRecentlySyncedUnitsAlone(t *testing.T) {
 	src := &flakySource{failOn: map[string]bool{}}
 	db, err := sqlite.Open(":memory:")
@@ -487,8 +473,7 @@ func TestMaxAgeStillRefreshesDataOlderThanTheThreshold(t *testing.T) {
 	}
 }
 
-// A failure an hour ago is not a reason to skip: the data it was meant to
-// fetch is still missing.
+// A recent failure is not a reason to skip.
 func TestMaxAgeDoesNotSkipAfterAFailedAttempt(t *testing.T) {
 	src := &flakySource{failOn: map[string]bool{"a-league/2025": true}}
 	db, err := sqlite.Open(":memory:")
@@ -531,8 +516,7 @@ func TestZeroMaxAgeRefreshesEverything(t *testing.T) {
 	}
 }
 
-// A unit left alone says nothing about whether the provider is reachable,
-// so it must neither trip nor reset the give-up counter.
+// A fresh unit must neither trip nor reset the give-up counter.
 func TestFreshUnitsDoNotAffectTheFailureStreak(t *testing.T) {
 	src := &flakySource{failOn: map[string]bool{}}
 	db, err := sqlite.Open(":memory:")
@@ -561,8 +545,7 @@ func TestFreshUnitsDoNotAffectTheFailureStreak(t *testing.T) {
 	if s.Fresh != 1 {
 		t.Errorf("expected b-league left alone, got %+v", s)
 	}
-	// a, c, d fail consecutively across the fresh b — the streak should
-	// not have been reset by it, so e is skipped.
+	// a, c, d fail across the fresh b, so e is skipped.
 	if s.Failed != 3 || s.Skipped != 1 {
 		t.Errorf("a fresh unit reset the failure streak: %+v", s)
 	}

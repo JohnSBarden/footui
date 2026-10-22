@@ -1,16 +1,6 @@
-// Package understat implements the source contract (internal/data/provider)
-// against understat.com's internal JSON endpoint. It is footui's v1 data
-// provider.
-//
-// It was substituted in for the FBref scraper described in the original
-// design during implementation: FBref sits behind a Cloudflare JS
-// challenge that blocks plain HTTP fetches (and the sandbox this was built
-// in has no headless-browser access to clear it), while understat.com
-// serves the same class of data as a fetchable, undocumented-but-stable
-// JSON endpoint. See docs/data-model.md for the resulting coverage gap
-// (understat.com covers 6 men's top-flight leagues only, and has no
-// fouls/possession/corners data) and how another provider can close it
-// later without touching anything outside this package.
+// Package understat implements the source contract against understat.com's
+// undocumented JSON endpoint: six men's top flights, with xG but no fouls,
+// possession or corners (see docs/data-model.md).
 package understat
 
 import (
@@ -30,26 +20,14 @@ import (
 	"github.com/JohnSBarden/footui/internal/data/provider"
 )
 
-// defaultBaseURL is understat.com. It is a Client field rather than a
-// package constant so tests can point the client at a local server and
-// exercise the retry, throttle, and cache paths without a network.
 const defaultBaseURL = "https://understat.com"
 
-// CacheDirEnv names an optional directory for caching raw endpoint
-// responses on disk. When it's set, a league/season payload is read from
-// there if present and written there after a successful fetch.
-//
-// This is deliberately opt-in and off by default: `footui refresh` means
-// "go get the current numbers", and silently serving yesterday's file
-// would make that a lie. It exists so that developing against the data
-// (and running the opt-in live tests) doesn't hammer an undocumented
-// third-party endpoint with identical requests.
+// CacheDirEnv names an opt-in dev cache of raw responses. Off by default:
+// a refresh must not silently serve yesterday's file.
 const CacheDirEnv = "FOOTUI_HTTP_CACHE"
 
-// Retry policy. The request timeout is kept short enough that a full
-// retry cycle against a dead host costs well under a minute, because
-// `footui refresh --all` multiplies whatever this is by every
-// competition-season in the run.
+// Retry policy. Kept short: `footui refresh --all` multiplies a dead
+// host's retry cycle by every competition-season.
 const (
 	requestTimeout = 15 * time.Second
 	maxAttempts    = 3
@@ -57,20 +35,14 @@ const (
 	maxBackoff     = 4 * time.Second
 )
 
-// Client fetches and caches per-(league,season) payloads from
-// understat.com. A single payload holds everything Provider serves for that league/season,
-// so calls to its different methods for the same league/season trigger only
-// one HTTP fetch.
+// Client fetches and caches per-(league,season) payloads; one payload
+// serves every Provider method for that league-season.
 type Client struct {
 	httpClient *http.Client
 	baseURL    string
 	minGap     time.Duration
-	// cacheDir, when non-empty, is a directory of raw JSON responses read
-	// before hitting the network and written after a successful fetch.
-	cacheDir string
-	// OnRetry, when set, is called before each retry. A refresh against an
-	// unresponsive host is otherwise silent for the length of every
-	// timeout it waits through, which is indistinguishable from a hang.
+	cacheDir   string
+	// OnRetry, when set, is called before each retry.
 	OnRetry func(attempt, of int, err error)
 
 	mu        sync.Mutex
@@ -78,8 +50,7 @@ type Client struct {
 	cache     map[string]*leagueData
 }
 
-// NewClient constructs a Client. minGap is the minimum delay enforced
-// between outbound requests (politeness towards an undocumented endpoint).
+// NewClient constructs a Client with minGap between outbound requests.
 func NewClient(minGap time.Duration) *Client {
 	return &Client{
 		httpClient: &http.Client{Timeout: requestTimeout},
@@ -94,8 +65,6 @@ func cacheKey(leagueKey, season string) string {
 	return leagueKey + ":" + season
 }
 
-// fetchLeagueData returns the parsed payload for a league/season, using the
-// in-memory cache when available.
 func (c *Client) fetchLeagueData(ctx context.Context, leagueKey, season string) (*leagueData, error) {
 	key := cacheKey(leagueKey, season)
 
@@ -114,8 +83,7 @@ func (c *Client) fetchLeagueData(ctx context.Context, leagueKey, season string) 
 			c.mu.Unlock()
 			return &payload, nil
 		}
-		// A corrupt cache file is not worth failing over: fall through and
-		// re-fetch, which also overwrites the bad file.
+		// Corrupt cache file: re-fetch, which overwrites it.
 	}
 
 	if err := c.throttle(ctx); err != nil {
@@ -143,9 +111,7 @@ func (c *Client) fetchLeagueData(ctx context.Context, leagueKey, season string) 
 
 var cacheNameUnsafe = regexp.MustCompile(`[^a-zA-Z0-9]+`)
 
-// diskCachePath maps a league/season to a cache filename. League keys
-// contain spaces ("La liga", "Serie A"), so they're normalized rather than
-// used verbatim as path segments.
+// diskCachePath normalizes league keys, which contain spaces ("La liga").
 func (c *Client) diskCachePath(leagueKey, season string) string {
 	if c.cacheDir == "" {
 		return ""
@@ -166,9 +132,7 @@ func (c *Client) readDiskCache(leagueKey, season string) ([]byte, bool) {
 	return body, true
 }
 
-// writeDiskCache persists a successful response. Cache write failures are
-// ignored: the caller already has the data, and a read-only or full cache
-// directory shouldn't fail a refresh that otherwise worked.
+// writeDiskCache ignores failures; they shouldn't fail a good refresh.
 func (c *Client) writeDiskCache(leagueKey, season string, body []byte) {
 	path := c.diskCachePath(leagueKey, season)
 	if path == "" {
@@ -180,16 +144,13 @@ func (c *Client) writeDiskCache(leagueKey, season string, body []byte) {
 	_ = os.WriteFile(path, body, 0o600)
 }
 
-// get fetches a league/season payload, retrying transient failures.
 func (c *Client) get(ctx context.Context, leagueKey, season string) ([]byte, error) {
 	url := fmt.Sprintf("%s/getLeagueData/%s/%s", c.baseURL, leagueKey, season)
 
 	var lastErr error
 	for attempt := 0; attempt < maxAttempts; attempt++ {
 		if attempt > 0 {
-			// Announced here rather than after the failure so the last
-			// attempt, which has no retry following it, isn't reported
-			// as "trying again".
+			// Announced here so the final failure isn't reported as a retry.
 			if c.OnRetry != nil {
 				c.OnRetry(attempt, maxAttempts, lastErr)
 			}
@@ -256,8 +217,7 @@ func (c *Client) attempt(ctx context.Context, url, leagueKey, season string) ([]
 	return body, nil
 }
 
-// httpStatusError is a non-200 response, kept as a type so retryability
-// can be decided on the status code rather than by matching error strings.
+// httpStatusError is a non-200 response.
 type httpStatusError struct {
 	Status    int
 	LeagueKey string
@@ -270,10 +230,8 @@ func (e *httpStatusError) Error() string {
 		e.LeagueKey, e.Season, e.Status, e.URL)
 }
 
-// ExhaustedError is a fetch that failed on every attempt it was allowed.
-// Last is the final attempt's error, which already names the league and
-// season — repeating them here would double the prefix in the message
-// the user reads.
+// ExhaustedError is a fetch that failed every attempt. Last already names
+// the league and season, so Error doesn't repeat them.
 type ExhaustedError struct {
 	Attempts int
 	Last     error
@@ -292,12 +250,8 @@ func (e *ExhaustedError) AttemptsMade() int { return e.Attempts }
 func (e *TimeoutError) TimedOutAfter() time.Duration { return e.After }
 
 // TimeoutError is a request that got no response within the client's
-// timeout. It is exported so a caller can recognise it and phrase the
-// failure for its own medium. net/http's own wording for this is "context deadline exceeded
-// (Client.Timeout exceeded while awaiting headers)", which is both
-// misleading (no context of ours expired) and unreadable; this says what
-// actually happened. It still satisfies net.Error so retryable treats it
-// as the transient failure it is.
+// timeout, replacing net/http's misleading "context deadline exceeded".
+// It satisfies net.Error so retryable treats it as transient.
 type TimeoutError struct {
 	LeagueKey string
 	Season    string
@@ -313,19 +267,9 @@ func (e *TimeoutError) Error() string {
 func (e *TimeoutError) Timeout() bool   { return true }
 func (e *TimeoutError) Temporary() bool { return true }
 
-// retryable reports whether an error is worth another attempt.
-//
-// The distinction that matters is transient versus settled. A timeout or a
-// 503 may well succeed a second later. A 404 means the league/season
-// genuinely isn't there, and a DNS failure means the host can't be
-// resolved at all — retrying either just multiplies the wait before the
-// user learns the same thing.
-//
-// Whether the user interrupted is read from ctx, not from err. net/http
-// reports its own request timeouts as context.DeadlineExceeded as well, so
-// classifying on the error alone treats every timeout as a cancellation
-// and never retries the single most common transient failure — which is
-// exactly the bug this signature exists to prevent.
+// retryable reports whether an error is transient. Cancellation is read
+// from ctx, not err: net/http reports its own timeouts as
+// context.DeadlineExceeded too, which would otherwise never be retried.
 func retryable(ctx context.Context, err error) bool {
 	if ctx.Err() != nil {
 		return false
@@ -338,8 +282,7 @@ func retryable(ctx context.Context, err error) bool {
 
 	var dnsErr *net.DNSError
 	if errors.As(err, &dnsErr) {
-		// A temporary resolver hiccup is worth retrying; "no such host"
-		// is not.
+		// Retry a resolver hiccup, not "no such host".
 		return dnsErr.IsTemporary || dnsErr.IsTimeout
 	}
 
@@ -348,14 +291,11 @@ func retryable(ctx context.Context, err error) bool {
 		return netErr.Timeout()
 	}
 
-	// Anything else (a malformed request, a read failure) is treated as
-	// settled: retrying an unclassified error risks hammering the endpoint
-	// for no reason.
+	// Unclassified errors are settled, so the endpoint isn't hammered.
 	return false
 }
 
-// backoffFor returns the delay before the given attempt (1-indexed after
-// the first), growing exponentially.
+// backoffFor returns the delay before attempt (1 is the first retry).
 func backoffFor(attempt int) time.Duration {
 	d := baseBackoff << (attempt - 1)
 	if d > maxBackoff {

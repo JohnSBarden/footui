@@ -10,7 +10,6 @@ import (
 	"github.com/JohnSBarden/footui/internal/tui/tuitest"
 )
 
-// seedThreeSeasons gives Haaland three league seasons.
 func seedThreeSeasons(t *testing.T) storage.Repositories {
 	t.Helper()
 	repos := storagetest.New(t)

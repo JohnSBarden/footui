@@ -16,8 +16,7 @@ import (
 	"github.com/JohnSBarden/footui/internal/tui/styles"
 )
 
-// favScreen is a screen with something to favourite, recording the
-// FavoritesChangedMsgs it is handed.
+// favScreen records the FavoritesChangedMsgs it is handed.
 type favScreen struct {
 	fakeScreen
 	target  core.FavoriteTarget
@@ -47,8 +46,6 @@ func favApp(t *testing.T, capturing bool) (*App, storage.Repositories, favScreen
 	return NewApp(deps, screen), repos, screen
 }
 
-// pressAndSettle sends a key and feeds back the message its command produces, as
-// the runtime would.
 func pressAndSettle(app *App, k string) {
 	_, cmd := app.Update(keyPress(k))
 	if cmd == nil {

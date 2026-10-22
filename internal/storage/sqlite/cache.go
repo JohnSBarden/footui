@@ -10,13 +10,8 @@ import (
 	"github.com/JohnSBarden/footui/internal/storage"
 )
 
-// CacheSummary reports what's cached per competition.
-//
-// The counts come from correlated subqueries rather than joins because
-// joining season, team_competition_season, and player_season_stats in one
-// statement multiplies rows against each other — a competition with 3
-// seasons and 20 teams would report 60 teams. Subqueries keep each count
-// answering its own question.
+// CacheSummary uses correlated subqueries, not joins: joining seasons,
+// teams and players would multiply the counts.
 func (s *Store) CacheSummary(ctx context.Context) ([]models.CompetitionCache, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT c.id, c.name, c.country, c.tier, c.gender, c.format, c.calendar_year,
@@ -52,9 +47,8 @@ func (s *Store) CacheSummary(ctx context.Context) ([]models.CompetitionCache, er
 		return nil, err
 	}
 
-	// The latest sync per competition is a separate lookup: folding it
-	// into the query above would need a correlated ORDER BY ... LIMIT 1
-	// per column, and there are only ever a handful of competitions.
+	// The latest sync is a separate lookup; there are only a handful of
+	// competitions.
 	for i := range out {
 		run, err := s.latestSyncForCompetition(ctx, out[i].Competition.ID)
 		if err != nil {

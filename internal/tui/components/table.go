@@ -1,7 +1,5 @@
-// Package components holds the reusable render helpers shared by screens —
-// tables, stat cards, tab bars. They take a styles.Theme and return a
-// string; none of them hold state or know about Bubble Tea messages, so
-// they're directly testable and reusable across every screen.
+// Package components holds stateless render helpers shared by screens:
+// they take a styles.Theme and return a string.
 package components
 
 import (
@@ -16,16 +14,12 @@ import (
 type Column struct {
 	Title string
 	Width int
-	// Right right-aligns the column. Numeric columns are right-aligned so
-	// digits line up on the decimal/ones place and are scannable down the
-	// column; text columns are left-aligned.
+	// Right right-aligns the column (use for numbers).
 	Right bool
 }
 
-// Cell is one table cell. Style optionally overrides the theme's default
-// cell style (used for e.g. a green positive goal difference); it's
-// ignored on the selected row, where the selection highlight takes over
-// the whole line so the row reads as one unit.
+// Cell is one table cell. Style overrides the theme's cell style except
+// on the selected row.
 type Cell struct {
 	Text  string
 	Style *lipgloss.Style
@@ -43,8 +37,8 @@ type TableOpts struct {
 	Rows    [][]Cell
 	// Cursor is the index of the selected row, or -1 for no selection.
 	Cursor int
-	// MaxRows caps rendered rows, scrolling to keep Cursor visible. Zero
-	// means render every row.
+	// MaxRows caps rendered rows, scrolling to keep Cursor visible; 0 means
+	// all.
 	MaxRows int
 	Theme   styles.Theme
 	// Zone, when set, makes each row clickable as Zone+":"+its index.
@@ -78,8 +72,6 @@ func Table(opts TableOpts) string {
 		}
 	}
 
-	// A truncated table says so, so a user doesn't mistake a scrolled view
-	// for the whole league.
 	if end < len(opts.Rows) || start > 0 {
 		b.WriteString("\n")
 		b.WriteString(opts.Theme.Muted.Render(
@@ -100,10 +92,8 @@ func renderRow(opts TableOpts, row []Cell, selected bool) string {
 
 		switch {
 		case selected:
-			// Per-cell colours are deliberately dropped here: the selection
-			// background has to win, and mixing it with per-cell
-			// foregrounds produces unreadable combinations on some
-			// terminals.
+			// Per-cell colours are dropped: mixed with the selection
+			// background they're unreadable on some terminals.
 			parts[i] = text
 		case cell.Style != nil:
 			parts[i] = cell.Style.Render(text)
@@ -119,16 +109,14 @@ func renderRow(opts TableOpts, row []Cell, selected bool) string {
 	return line
 }
 
-// visibleWindow returns the [start, end) row range to render, scrolling the
-// window so cursor stays inside it.
+// visibleWindow returns the [start, end) row range keeping cursor inside.
 func visibleWindow(total, cursor, maxRows int) (int, int) {
 	if maxRows <= 0 || total <= maxRows {
 		return 0, total
 	}
 	start := 0
 	if cursor >= 0 {
-		// Keep the cursor centred once it moves past the halfway point,
-		// so there's always context above and below the selection.
+		// Keep the cursor centred past the halfway point.
 		start = cursor - maxRows/2
 	}
 	if start < 0 {
@@ -140,9 +128,7 @@ func visibleWindow(total, cursor, maxRows int) (int, int) {
 	return start, start + maxRows
 }
 
-// pad truncates or pads s to exactly width display cells. Width is measured
-// with Lip Gloss so multi-byte club names ("Bayern München", "Beşiktaş")
-// align on the same column as ASCII ones.
+// pad truncates or pads s to exactly width display cells (not bytes).
 func pad(s string, width int, right bool) string {
 	if width <= 0 {
 		return s
@@ -160,8 +146,7 @@ func pad(s string, width int, right bool) string {
 	return s + strings.Repeat(" ", gap)
 }
 
-// Truncate shortens s to at most width display cells, ending in "…" when
-// it had to cut something.
+// Truncate shortens s to at most width display cells, ending in "…".
 func Truncate(s string, width int) string {
 	if width <= 0 {
 		return ""
@@ -183,7 +168,6 @@ func Truncate(s string, width int) string {
 	return "…"
 }
 
-// itoa avoids pulling strconv into every call site in this package.
 func itoa(i int) string {
 	if i == 0 {
 		return "0"

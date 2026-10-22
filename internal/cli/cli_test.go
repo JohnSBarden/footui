@@ -15,16 +15,12 @@ import (
 	"github.com/JohnSBarden/footui/internal/storage/sqlite"
 )
 
-// run executes the real root command with args, returning its combined
-// output. Commands that launch the TUI are excluded from these tests —
-// they need a terminal — but everything else runs exactly as it does for a
-// user.
+// run executes the real root command (TUI commands excluded).
 func run(t *testing.T, args ...string) (string, error) {
 	t.Helper()
 	var buf bytes.Buffer
 
-	// Never read the developer's own settings file. A test that wants one
-	// sets FOOTUI_CONFIG itself before calling run.
+	// Never read the developer's own settings file.
 	if os.Getenv("FOOTUI_CONFIG") == "" {
 		t.Setenv("FOOTUI_CONFIG", filepath.Join(t.TempDir(), "none.yaml"))
 	}
@@ -138,8 +134,7 @@ func TestColorsReportsCoverageAndNamesTheGaps(t *testing.T) {
 	if !strings.Contains(out, "1 of 2 cached teams") {
 		t.Errorf("expected a coverage count\n---\n%s", out)
 	}
-	// Naming the gap is the point — that list is how someone knows what to
-	// add to the seed file.
+	// The list tells someone what to add to the seed file.
 	if !strings.Contains(out, "eng-not-curated") {
 		t.Errorf("expected the uncolored club named\n---\n%s", out)
 	}
@@ -235,8 +230,7 @@ func TestStatusReportsWhatIsCachedAndItsFreshness(t *testing.T) {
 	}
 }
 
-// A failed refresh must be reported as a failure, not as data that is
-// merely a bit old.
+// A failed refresh must report failure, not merely old data.
 func TestStatusFlagsCompetitionsWhoseLastRefreshFailed(t *testing.T) {
 	db := tempDB(t)
 	conn, err := sqlite.Open(db)

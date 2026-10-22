@@ -10,17 +10,15 @@ import (
 	"github.com/JohnSBarden/footui/internal/tui/core"
 )
 
-// Log panel geometry: how wide it is beside the cards (wider on a wide
-// terminal), and the most of what's queued it lists by name.
+// Log panel geometry.
 const (
 	logWidth     = 36
 	logWideWidth = 46
 	logQueued    = 4
 )
 
-// logPanelWidth is how wide the log panel is, zero while it's closed.
-// On a terminal too narrow for it and a column of cards, it takes the
-// whole width.
+// logPanelWidth is zero while closed, and the full width when there's no
+// room beside a column of cards.
 func (m *Model) logPanelWidth() int {
 	switch {
 	case !m.showLog:
@@ -33,8 +31,6 @@ func (m *Model) logPanelWidth() int {
 	return m.width
 }
 
-// cardsWidth is the width the cards flow into: the screen's, less the log
-// panel's when it's open.
 func (m *Model) cardsWidth() int {
 	if w := m.logPanelWidth(); w > 0 {
 		return max(m.width-w-cardGap, 0)
@@ -42,8 +38,6 @@ func (m *Model) cardsWidth() int {
 	return m.width
 }
 
-// logButton is the header's log button, a click target; it reads as
-// pressed while the panel is open.
 func (m *Model) logButton() string {
 	th := m.deps.Theme
 	label, style := "≡ log", th.Keycap
@@ -53,8 +47,6 @@ func (m *Model) logButton() string {
 	return components.Zone("log", style.Render(label))
 }
 
-// withLog puts the log panel to the right of the cards, height lines
-// tall; on a narrow terminal it replaces them.
 func (m *Model) withLog(cards string, height int) string {
 	w := m.logPanelWidth()
 	panel := m.logPanel(w, height)
@@ -78,8 +70,6 @@ func (m *Model) withLog(cards string, height int) string {
 	return strings.Join(out, "\n")
 }
 
-// logPanel is what's downloading now, what's waiting, and the log of
-// what happened, newest first, as much as fits in height lines.
 func (m *Model) logPanel(width, height int) string {
 	th := m.deps.Theme
 	inner := max(width-4, 8)
@@ -128,7 +118,6 @@ func (m *Model) logPanel(width, height int) string {
 	return th.Panel.Width(width - 2).Height(height - 2).BorderForeground(th.Palette.Border).Render(strings.Join(lines, "\n"))
 }
 
-// logLine is one entry: its time, a mark for how it went, and its text.
 func (m *Model) logLine(e core.LogEntry, inner int) string {
 	th := m.deps.Theme
 	mark, style := "·", th.Muted
@@ -144,8 +133,7 @@ func (m *Model) logLine(e core.LogEntry, inner int) string {
 	return th.Faint.Render(stamp) + style.Render(components.Truncate(mark+" "+e.Text, max(inner-len(stamp), 1)))
 }
 
-// latestProgress is the running download's last progress line: the
-// newest one since the last thing started.
+// latestProgress only looks back to the last start entry.
 func latestProgress(entries []core.LogEntry) string {
 	for i := len(entries) - 1; i >= 0; i-- {
 		switch e := entries[i]; e.Level {

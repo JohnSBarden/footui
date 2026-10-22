@@ -74,9 +74,7 @@ func (m *Model) header() string {
 	return line
 }
 
-// yearBar is "‹ 2025  [2026]  All years ›": each year with matches,
-// oldest on the left, then all of them together, windowed to maxWidth
-// around the one selected.
+// yearBar is "‹ 2025  [2026]  All years ›", windowed around the selection.
 func (m *Model) yearBar(maxWidth int) string {
 	th := m.deps.Theme
 	if len(m.years) == 0 {
@@ -98,8 +96,6 @@ func (m *Model) yearBar(maxWidth int) string {
 }
 
 // filterBar is "Filter: [All] Competitive Tournaments │ ✓WC ✓WCQ ☐FRI".
-// Presets are bracketed when in effect; each competition shows whether
-// the filter keeps it. With the bar focused, its cursor is underlined.
 func (m *Model) filterBar() string {
 	th := m.deps.Theme
 	focused := m.focus == paneFilter
@@ -166,9 +162,8 @@ func (m *Model) summaryTable() string {
 	return components.Table(components.TableOpts{Columns: cols, Rows: [][]components.Cell{row}, Cursor: -1, Theme: th})
 }
 
-// matchTable lists the matches newest first. The expanded match's box
-// score is drawn as extra rows right under it, so the cursor's row index
-// in the table is shifted past them.
+// matchTable draws the box score as rows under the expanded match, so the
+// cursor's table row is shifted past them.
 func (m *Model) matchTable() string {
 	th := m.deps.Theme
 	roundWidth := max(m.width-(1+1+10+1+6+1+3+1+22+1+15+1)-4, 8)
@@ -196,24 +191,19 @@ func (m *Model) matchRow(mt models.Match) []components.Cell {
 		m.teamName(mt.Opponent(m.team.ID)), mt.Round)
 }
 
-// boxScore is the two sides' numbers from one match, the nation's first.
+// boxScore puts the nation's side first.
 func (m *Model) boxScore(mt models.Match) [][]components.Cell {
 	return components.BoxScore(m.deps.Theme, mt, m.team.ID, 4)
 }
 
-// minStripBody is the room the screen keeps below the scores along the
-// top for them to be drawn: on a short terminal they would leave the
-// match list a handful of rows.
+// minStripBody is the room needed below the score strip to show it.
 const minStripBody = 14
 
-// showStrip says whether the scores along the top fit above the matches.
 func (m *Model) showStrip() bool {
 	return !m.strip.Empty() &&
 		m.height-components.Lines(m.header())-1-m.strip.Height()-1 >= minStripBody
 }
 
-// tableHeight is the lines left for the match list under everything else
-// the screen draws, measured rather than guessed.
 func (m *Model) tableHeight() int {
 	used := components.Lines(m.header()) + 1
 	if m.showStrip() {

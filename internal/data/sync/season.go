@@ -7,11 +7,9 @@ import (
 	"github.com/JohnSBarden/footui/internal/data/models"
 )
 
-// NewSeason builds the canonical Season for a competition and a starting
-// year (e.g. "2025" for the 2025-26 season). Label is kept as the bare
-// start-year string understat.com itself uses as a season key (it's also
-// what gets passed back out as provider.SeasonRef.Label) — display
-// formatting like "2025-26" is a TUI-layer concern, not stored here.
+// NewSeason builds the canonical Season for a competition and start year
+// ("2025" for 2025-26). Label stays the bare year: it is understat's season
+// key and goes back out as provider.SeasonRef.Label.
 func NewSeason(competitionID, startYear string) models.Season {
 	return models.Season{
 		ID:            competitionID + ":" + startYear,
@@ -20,15 +18,11 @@ func NewSeason(competitionID, startYear string) models.Season {
 	}
 }
 
-// seasonRolloverMonth is the month a new European season is considered to
-// have begun. August rather than July: in July the new season has no
-// matches played yet, so treating it as current would point a refresh at
-// an empty payload while last season's completed data is what a user
-// actually wants to see.
+// seasonRolloverMonth is when a new European season counts as begun.
+// August, not July: in July the new season has no matches yet.
 const seasonRolloverMonth = time.August
 
-// CurrentSeasonStartYear returns the start year of the season in progress
-// at the given time, as the bare-year string used for season labels.
+// CurrentSeasonStartYear returns the start year of the season in progress.
 func CurrentSeasonStartYear(now time.Time) string {
 	year := now.Year()
 	if now.Month() < seasonRolloverMonth {

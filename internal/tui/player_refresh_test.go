@@ -38,8 +38,7 @@ func TestSplashPauseNamesNoSource(t *testing.T) {
 	}
 }
 
-// Opening a player is something being looked at now: their request goes
-// ahead of background league refreshes, and asking twice is asking once.
+// A player's request jumps the queue, and asking twice is asking once.
 func TestPlayerRequestJumpsTheQueueOnce(t *testing.T) {
 	app := newAppWithRefresh(newFake("Dashboard"), &fakeRefresher{summary: "ok"})
 	app.active = &core.RefreshRequest{CompetitionID: "eng-premier-league"}
@@ -58,9 +57,8 @@ func TestPlayerRequestJumpsTheQueueOnce(t *testing.T) {
 	}
 }
 
-// r on a player asks for their whole history. Opening them already
-// queued (or started) their detail, which doesn't answer that; and a
-// later automatic request doesn't water a waiting history request down.
+// A history request isn't answered by the queued detail, nor downgraded
+// by a later automatic request.
 func TestHistoryRequestIsNotSwallowedByTheDetail(t *testing.T) {
 	app := newAppWithRefresh(newFake("Dashboard"), &fakeRefresher{summary: "ok"})
 	detail := core.RefreshRequest{PlayerID: "p1", Name: "Antoine Griezmann", Automatic: true}

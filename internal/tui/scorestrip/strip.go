@@ -12,13 +12,10 @@ import (
 	"github.com/JohnSBarden/footui/internal/tui/styles"
 )
 
-// Lines is how tall a strip with any games in it is: the day, then each
-// tile's competition and state over its two sides.
+// Lines is the height of a non-empty strip.
 const Lines = 4
 
-// Tile geometry. A tile is at least minTile wide and at most maxTile;
-// between tiles is a rule, and the strip keeps a column either side for
-// the arrows that say more games are off screen.
+// Tile geometry; edge leaves room for the scroll arrows.
 const (
 	minTile = 17
 	maxTile = 24
@@ -33,17 +30,14 @@ type Strip struct {
 	Teams   map[string]models.Team
 	Comps   map[string]models.Competition
 	Colors  map[string]models.TeamColors
-	// ShowComp names each tile's competition; a league's own strip, where
-	// every game is in it, leaves it out.
+	// ShowComp names each tile's competition.
 	ShowComp bool
-	// Highlight picks out a team's name when it reports true for it: the
-	// starred clubs on a league's strip.
+	// Highlight picks out a team's name when it reports true.
 	Highlight func(teamID string) bool
 	// Now is what "today" and "in play" are measured against.
 	Now time.Time
 
-	// first is the leftmost tile shown once the strip has been scrolled;
-	// until then it opens on the games in play and next up.
+	// first is the leftmost tile, used only once scrolled.
 	first    int
 	scrolled bool
 }
@@ -59,7 +53,6 @@ func (s Strip) Height() int {
 	return Lines
 }
 
-// fit is how many tiles fit in width, and how wide each is.
 func fit(width int) (n, tile int) {
 	room, gap := width-2*edge, lipgloss.Width(sep)
 	n = max((room+gap)/(minTile+gap), 1)
@@ -67,9 +60,8 @@ func fit(width int) (n, tile int) {
 	return n, min(max(tile, 8), maxTile)
 }
 
-// start is the leftmost tile shown for n tiles: where it was scrolled to,
-// or else with the games in play and to come filling the right third, and
-// the latest results the rest.
+// start is the leftmost tile for n tiles. Unscrolled, games in play and
+// to come fill the right third.
 func (s Strip) start(n int) int {
 	last := max(len(s.Matches)-n, 0)
 	if s.scrolled {
@@ -158,8 +150,7 @@ func (s Strip) View(th styles.Theme, width int) string {
 	return strings.Join(out, "\n")
 }
 
-// day is the day a game is on, as the strip heads it: "Today",
-// "Yesterday", "Tomorrow", or "Sat 17 Oct".
+// day is "Today", "Yesterday", "Tomorrow", or "Sat 17 Oct".
 func (s Strip) day(t time.Time) string {
 	date := func(t time.Time) time.Time {
 		y, m, d := t.Local().Date()
@@ -184,8 +175,7 @@ func (s Strip) dayCell(th styles.Theme, label string, tile int) string {
 	return th.Label.Render(components.Truncate(label, tile))
 }
 
-// stateLine is the competition, on the left when the strip shows it, and
-// where the game is on the right: "FT", "LIVE", "19:45".
+// stateLine is the competition on the left and the state on the right.
 func (s Strip) stateLine(th styles.Theme, m models.Match, tile int) string {
 	state, style := s.state(th, m)
 	comp := ""
@@ -200,7 +190,6 @@ func (s Strip) stateLine(th styles.Theme, m models.Match, tile int) string {
 	return th.Muted.Render(comp) + strings.Repeat(" ", gap) + style.Render(state)
 }
 
-// state is a game's state as its tile shows it, and how it's drawn.
 func (s Strip) state(th styles.Theme, m models.Match) (string, lipgloss.Style) {
 	switch m.Status {
 	case models.MatchPostponed:
@@ -227,8 +216,7 @@ func (s Strip) state(th styles.Theme, m models.Match) (string, lipgloss.Style) {
 	return m.Kickoff.Local().Format("15:04"), th.TableCell
 }
 
-// side is one team's line on a tile: its colour dot, its name and its
-// goals, the winner bright and the loser dimmed.
+// side is one team's line on a tile.
 func (s Strip) side(th styles.Theme, m models.Match, teamID string, tile int) string {
 	team, ok := s.Teams[teamID]
 	name := teamID
@@ -274,9 +262,8 @@ func (s Strip) side(th styles.Theme, m models.Match, teamID string, tile int) st
 		scoreStyle.Render(goals)
 }
 
-// shorten fits a name in room the way a scoreboard would, its leading
-// words cut to initials before its last is cut short — "M. United" and
-// "M. City" rather than "Manchester…" twice.
+// shorten cuts leading words to initials before truncating, so "M. United"
+// and "M. City" stay distinct.
 func shorten(name string, room int) string {
 	words := strings.Fields(name)
 	for i := 0; lipgloss.Width(name) > room && i < len(words)-1; i++ {
@@ -286,7 +273,6 @@ func shorten(name string, room int) string {
 	return components.Truncate(name, room)
 }
 
-// pad fills a cell out to width so the next tile lines up.
 func pad(s string, width int) string {
 	return s + strings.Repeat(" ", max(width-lipgloss.Width(s), 0))
 }

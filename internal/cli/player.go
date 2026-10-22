@@ -24,8 +24,7 @@ func newPlayerCmd(g *globalFlags) *cobra.Command {
 					return nil, err
 				}
 				// Same rule as `footui team`: one match opens directly,
-				// anything else hands off to Browse, which can show what
-				// the alternatives actually are.
+				// anything else hands off to Browse.
 				if len(matches) == 1 {
 					return tui.NewPlayerScreen(deps, matches[0]), nil
 				}

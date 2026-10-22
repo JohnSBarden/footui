@@ -50,9 +50,6 @@ func (m *Model) View() string {
 	return b.String()
 }
 
-// header is the wordmark, what the screen is, and on the right the log
-// button and today's date — the day is what "updated 3 hours ago" is
-// measured from.
 func (m *Model) header() string {
 	th := m.deps.Theme
 	left := components.Wordmark(th) + " " + th.Accent.Bold(true).Render("matchday") +
@@ -66,9 +63,8 @@ func (m *Model) header() string {
 	return left
 }
 
-// renderCard draws one card width columns wide. The selected card's
-// border is heavier, so it still stands out without colour, and in
-// colour it glints and the card is shaded (selectedCard).
+// renderCard gives the selected card a heavier border so it stands out
+// without colour.
 func (m *Model) renderCard(c Card, selected bool, width int) string {
 	th := m.deps.Theme
 	inner := max(width-4, 8)
@@ -93,9 +89,7 @@ func (m *Model) renderCard(c Card, selected bool, width int) string {
 	if selected {
 		return m.selectedCard(body, inner)
 	}
-	// An unselected club card wears its club's scarf along the top edge;
-	// the selected one keeps the plain heavy border, so selection stays
-	// the loudest thing on the screen.
+	// No scarf on the selected card: selection stays the loudest thing.
 	if c.Group == GroupClubs && !c.Missing {
 		col := c.Colors[c.Team.ID]
 		return components.ScarfTop(th, col.PrimaryHex, col.SecondaryHex, inner+4) + "\n" +
@@ -104,10 +98,6 @@ func (m *Model) renderCard(c Card, selected bool, width int) string {
 	return style.Render(body)
 }
 
-// badge says at a glance what a card is: a nation's flag, a goal net
-// for a league, a trophy for a tournament, ◆ in a club's colour for the
-// club and ● in it for one of its players. A terminal without emoji gets
-// ▦ (a table) for a league and ◈ in gold for a tournament.
 func (m *Model) badge(c Card) string {
 	th := m.deps.Theme
 	switch {
@@ -130,8 +120,6 @@ func (m *Model) badge(c Card) string {
 	return m.inClubColour("●", c.Colors[c.Team.ID].PrimaryHex)
 }
 
-// inClubColour draws a badge glyph in a club's primary colour, or the
-// accent for a club without one.
 func (m *Model) inClubColour(glyph, primaryHex string) string {
 	th := m.deps.Theme
 	if col, ok := styles.ClubForeground(primaryHex); ok && !th.NoColor {
@@ -140,8 +128,6 @@ func (m *Model) inClubColour(glyph, primaryHex string) string {
 	return th.Accent.Render(glyph)
 }
 
-// heading is a card's first line: its badge and name, and on the right
-// how fresh its numbers are.
 func (m *Model) heading(c Card, inner int) string {
 	th := m.deps.Theme
 	badge, age := m.badge(c), m.age(c)
@@ -166,8 +152,7 @@ func (m *Model) missingLines(c Card, inner int) []string {
 	}
 }
 
-// wideTable is the inner width from which a league card's rows carry the
-// whole record, not just points.
+// wideTable is the inner width at which league rows show the full record.
 const wideTable = 56
 
 func (m *Model) leagueLines(c Card, inner int) []string {
@@ -181,8 +166,7 @@ func (m *Model) leagueLines(c Card, inner int) []string {
 		return append(lines, th.Empty.Render(components.Truncate("No table cached yet.", inner)))
 	}
 	rows := c.Table
-	// Starred clubs below the top rows replace its tail, so the card stays
-	// the same height.
+	// Starred clubs replace the tail so the card height doesn't change.
 	if n := len(c.Starred); n > 0 {
 		keep := max(leagueRows-n, 1)
 		if keep < len(rows) {
@@ -204,31 +188,25 @@ func (m *Model) leagueLines(c Card, inner int) []string {
 	for _, r := range rows {
 		lines = append(lines, m.standingLine(c, r, maxPts, inner))
 	}
-	// A two-column card keeps its full height, so the cards flowing in
-	// beneath it line up.
+	// Keep full height so cards packed beneath line up.
 	for wide && len(lines) < leagueHeight-2 {
 		lines = append(lines, "")
 	}
 	return lines
 }
 
-// pointsBarWidth is the points bar on a narrow league card's rows;
-// wideBarWidth the least a wide one's gets.
+// Points bar widths: narrow rows, and the minimum on wide rows.
 const (
 	pointsBarWidth = 5
 	wideBarWidth   = 10
 )
 
-// recordWidth is "   P   W   D   L   GD" on a wide row: four 4-wide counts
-// and a 5-wide goal difference.
+// recordWidth: four 4-wide counts and a 5-wide goal difference.
 const recordWidth = 4*4 + 5
 
-// wideNameMax caps the club column on a wide row; any width past it goes
-// to the points bar.
+// wideNameMax caps the club column; extra width goes to the points bar.
 const wideNameMax = 26
 
-// wideColumns are the club column and points bar on a wide row: what's
-// left after the position and dot, the record and the points.
 func wideColumns(inner int) (name, bar int) {
 	name = inner - 6 - recordWidth - (2 + wideBarWidth + 1) - 3
 	if name > wideNameMax {
@@ -245,10 +223,7 @@ func (m *Model) tableHeader(inner int) string {
 	return m.deps.Theme.Label.Render(head)
 }
 
-// standingLine is "  1 ● Arsenal ……… ███▌ 85": position, the club's dot,
-// its name (a starred club picked out) and points as a bar and a number.
-// A wide card adds the record between: played, won, drawn, lost and goal
-// difference.
+// standingLine is "  1 ● Arsenal ……… ███▌ 85"; wide cards add the record.
 func (m *Model) standingLine(c Card, r StandingRow, maxPts, inner int) string {
 	th := m.deps.Theme
 	pos := "–"
@@ -272,8 +247,7 @@ func (m *Model) standingLine(c Card, r StandingRow, maxPts, inner int) string {
 	}
 	name = components.Truncate(name, nameWidth)
 	bar := th.Accent.Faint(true).Render(padBar(components.Bar(float64(r.Points), float64(maxPts), barWidth), barWidth))
-	// Padded by display width, not with %-*s, which counts bytes and
-	// would misalign names with accents.
+	// Pad by display width; %-*s counts bytes and misaligns accents.
 	line := th.TableCell.Render(fmt.Sprintf("%3s ", pos)) +
 		components.Dot(th, c.Colors[r.Team.ID].PrimaryHex) + " " +
 		nameStyle.Render(name+strings.Repeat(" ", max(nameWidth-lipgloss.Width(name), 0)))
@@ -309,12 +283,10 @@ func (m *Model) teamLines(c Card, inner int) []string {
 	headStyle := th.Accent.Bold(true)
 	if s.Position != nil {
 		headline = components.Ordinal(*s.Position) + " · " + headline
-		// The bottom three are where a season is going wrong.
 		if c.LeagueSize > 3 && *s.Position > c.LeagueSize-3 {
 			headStyle = th.Negative.Bold(true)
 		}
 	}
-	// Form sits at the headline's right when there's room for both.
 	head := headStyle.Render(components.Truncate(headline, inner))
 	form := components.FormChips(th, c.Summary.Form)
 	if gap := inner - lipgloss.Width(head) - lipgloss.Width(form); form != "" && gap >= 2 {
@@ -325,8 +297,7 @@ func (m *Model) teamLines(c Card, inner int) []string {
 		th.TableCell.Render(components.Truncate(fmt.Sprintf("P%d  W%d  D%d  L%d  GD %s", s.MatchesPlayed, s.Wins, s.Draws, s.Losses, components.Signed(s.GoalDiff)), inner)),
 	)
 	if s.XG != nil {
-		// Expected and actual goals on one scale, so the gap between the
-		// bars is the over- or under-performance.
+		// One scale for xG and goals so the bars compare.
 		scale := max(*s.XG, float64(s.GoalsFor))
 		barWidth := inner - 6 - 6
 		lines = append(lines,
@@ -364,7 +335,6 @@ func (m *Model) playerLines(c Card, inner int) []string {
 		parts = append(parts, "xA "+components.Float(s.XA, 1))
 	}
 	parts = append(parts, fmt.Sprintf("%d apps", s.Appearances))
-	// Minutes only where they fit whole.
 	if mins := strconv.Itoa(s.Minutes) + " min"; s.Minutes > 0 && lipgloss.Width(strings.Join(append(parts, mins), " · ")) <= inner {
 		parts = append(parts, mins)
 	}
@@ -375,15 +345,13 @@ func (m *Model) playerLines(c Card, inner int) []string {
 	)
 }
 
-// age is how current a card's numbers are, short enough for its heading
-// ("3h"), or that they're being brought up to date right now.
 func (m *Model) age(c Card) string {
 	th := m.deps.Theme
 	if c.Missing {
 		return ""
 	}
 	if c.Kind == models.FavoritePlayer {
-		// A player's own refresh (their season detail) is theirs alone.
+		// A player's season-detail refresh is keyed to them alone.
 		key := core.RefreshRequest{PlayerID: c.ID}.Key()
 		switch {
 		case m.active[key]:
@@ -411,8 +379,7 @@ func (m *Model) age(c Card) string {
 	return th.Muted.Render(shortAge(c.LastSync.FinishedAt))
 }
 
-// shortAge is how long ago something was, in one unit: "now", "5m",
-// "3h", "2d", "4mo".
+// shortAge uses one unit: "now", "5m", "3h", "2d", "4mo".
 func shortAge(then time.Time) string {
 	d := now().Sub(then)
 	switch {
@@ -428,7 +395,6 @@ func shortAge(then time.Time) string {
 	return strconv.Itoa(int(d.Hours()/24/30)) + "mo"
 }
 
-// padBar pads a bar to width so the number after it lines up.
 func padBar(bar string, width int) string {
 	return bar + strings.Repeat(" ", max(width-lipgloss.Width(bar), 0))
 }

@@ -41,9 +41,7 @@ func newRefreshCmd(g *globalFlags) *cobra.Command {
 			"in one competition-season does not abort the rest of the run; the summary at the end " +
 			"lists exactly what failed.\n\n" +
 			"See `footui competitions` for valid --competition values.",
-		// A failed fetch or an unknown competition is a runtime problem,
-		// not a usage error — printing the whole usage block on top of it
-		// buries the actual message.
+		// Fetch failures aren't usage errors; usage would bury the message.
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if f.team != "" {
@@ -71,11 +69,7 @@ func newRefreshCmd(g *globalFlags) *cobra.Command {
 			defer db.Close()
 
 			fmt.Fprintf(out, "Refreshing %d competition-season(s)…\n\n", sync.Units(jobs))
-			// Each unit and each retry is printed as it happens rather
-			// than batched into the report: a full refresh is mostly
-			// network wait, and silence for minutes — or for three
-			// 15-second timeouts in a row — is indistinguishable from a
-			// hang.
+			// Print as it happens: minutes of silence looks like a hang.
 			noted := false
 			results := runRefresh(cmdContext(cmd), store, jobs, f.maxAge, refreshEvents{
 				unit: func(u sync.UnitResult) { printUnit(out, u) },
@@ -116,7 +110,6 @@ func newRefreshCmd(g *globalFlags) *cobra.Command {
 	return cmd
 }
 
-// resolveCompetitions turns the competition flags into the list to sync.
 func (f *refreshFlags) resolveCompetitions() ([]models.Competition, error) {
 	if f.season != "" {
 		if _, err := strconv.Atoi(f.season); err != nil {
@@ -139,12 +132,8 @@ func (f *refreshFlags) resolveCompetitions() ([]models.Competition, error) {
 	return []models.Competition{comp}, nil
 }
 
-// plan pairs each competition with the seasons to fetch for it. An
-// explicit --season pins one season and overrides --years, since asking
-// for a specific season and a count of recent seasons at once has no
-// coherent meaning. Otherwise each competition counts back from its own
-// current season — a calendar-year league's differs from a European
-// one's — and stops at the first season its provider has.
+// plan: --season overrides --years; otherwise each competition counts back
+// from its own current season.
 func (f *refreshFlags) plan(comps []models.Competition, now time.Time) []sync.Job {
 	jobs := make([]sync.Job, 0, len(comps))
 	for _, c := range comps {
@@ -169,8 +158,6 @@ func printPlan(out io.Writer, jobs []sync.Job, dbPath string) {
 	}
 }
 
-// displaySeasons renders stored start-year labels the way a user thinks of
-// them ("2025-26"), matching what the TUI shows.
 func displaySeasons(c models.Competition, seasons []string) []string {
 	out := make([]string, 0, len(seasons))
 	for _, s := range seasons {
@@ -179,10 +166,6 @@ func displaySeasons(c models.Competition, seasons []string) []string {
 	return out
 }
 
-// report prints a per-unit result table and a summary, returning an error
-// only if every unit failed — a partial success still leaves the cache
-// more populated than it was, and exiting non-zero would misreport that to
-// a cron job.
 func printUnit(out io.Writer, r sync.UnitResult) {
 	label := fmt.Sprintf("%-24s %-8s", r.Competition.ID, components.SeasonName(r.Season))
 	switch {
@@ -202,8 +185,7 @@ func printUnit(out io.Writer, r sync.UnitResult) {
 	}
 }
 
-// runTeam is `footui refresh --team`: the yearly match lists the nation's
-// competitions publish, shared with every other nation.
+// runTeam is `footui refresh --team`, for a nation or a cached club.
 func (f *refreshFlags) runTeam(cmd *cobra.Command, g *globalFlags) error {
 	out := cmd.OutOrStdout()
 	ctx := cmdContext(cmd)
@@ -217,8 +199,7 @@ func (f *refreshFlags) runTeam(cmd *cobra.Command, g *globalFlags) error {
 	}
 
 	if f.dryRun {
-		// Nothing is fetched, so the nation isn't looked up either: its
-		// gender is all that decides what would be.
+		// The nation isn't looked up; gender alone decides the units.
 		name, gender := parseNationQuery(f.team)
 		units := sync.NationUnits(gender, years)
 		fmt.Fprintf(out, "Dry run — nothing will be fetched or written.\n\n")
@@ -245,8 +226,7 @@ func (f *refreshFlags) runTeam(cmd *cobra.Command, g *globalFlags) error {
 	}
 	if _, nation := exactNation(ctx, store, f.team); !nation {
 		if club, ok := exactClub(ctx, store, f.team); ok {
-			// A club's recent games: this year and last, whatever --years
-			// says, since that is what the Team screen shows.
+			// Ignores --years: matches what the Team screen shows.
 			fmt.Fprintf(out, "Refreshing %s's recent games: its league, cups and European matches…\n\n", club.Name)
 			results, err := runClub(ctx, store, club, f.maxAge, ev)
 			if err != nil {
@@ -270,12 +250,11 @@ func (f *refreshFlags) runTeam(cmd *cobra.Command, g *globalFlags) error {
 	return report(out, results, g.dbPathOrDefault())
 }
 
+// report errors only if nothing was fetched or fresh, so a partial success
+// doesn't fail a cron job.
 func report(out io.Writer, results []sync.UnitResult, dbPath string) error {
 	s := sync.Summarize(results)
 
-	// The headline counts every outcome, so a run that fetched nothing
-	// because everything was already fresh doesn't read as "0 succeeded",
-	// which looks like failure when it is the flag working.
 	parts := []string{fmt.Sprintf("%d refreshed", s.Succeeded)}
 	if s.Fresh > 0 {
 		parts = append(parts, fmt.Sprintf("%d already fresh", s.Fresh))
@@ -304,8 +283,6 @@ func report(out io.Writer, results []sync.UnitResult, dbPath string) error {
 		fmt.Fprintf(out, "\n%d competition-season(s) failed; the rest were cached.\n", s.Failed)
 	}
 
-	// Nothing fetched *and* nothing already fresh means the run achieved
-	// nothing, which a cron job should hear about.
 	if s.Succeeded == 0 && s.Fresh == 0 && (s.Failed > 0 || s.Skipped > 0) {
 		return fmt.Errorf("nothing was refreshed (%d failed, %d skipped of %d)", s.Failed, s.Skipped, s.Units)
 	}

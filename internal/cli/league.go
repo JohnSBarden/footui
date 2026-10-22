@@ -15,8 +15,7 @@ func newLeagueCmd(g *globalFlags) *cobra.Command {
 			"two most recent cached seasons. The name is matched against cached competitions, " +
 			"so a partial name like \"premier\" works.",
 		Args: cobra.ExactArgs(1),
-		// The resolution error is the user's own typo or an un-refreshed
-		// competition, not a bug — don't bury it under Cobra's usage dump.
+		// A typo or un-refreshed competition isn't a usage error.
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmdContext(cmd)

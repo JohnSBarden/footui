@@ -87,8 +87,7 @@ func TestPlanCountsBackWithYearsButNotPastTheProvidersHistory(t *testing.T) {
 	}
 }
 
-// Asking for a specific season and "the N most recent" at once has no
-// coherent meaning, so the explicit season wins.
+// An explicit season wins over --years.
 func TestExplicitSeasonOverridesYears(t *testing.T) {
 	got := planFor(t, &refreshFlags{season: "2019", years: 5}, "eng-premier-league")
 	if s := got["eng-premier-league"]; len(s) != 1 || s[0] != "2019" {
@@ -131,8 +130,7 @@ func TestReportFailsOnlyWhenEverythingFailed(t *testing.T) {
 		t.Error("a run where nothing succeeded should report an error")
 	}
 
-	// A partial success still left the cache better off than before;
-	// exiting non-zero would misreport that to a cron job.
+	// A partial success must exit zero, for cron jobs.
 	partial := []sync.UnitResult{
 		{Competition: comp, Season: season, Result: sync.Result{Teams: 20}},
 		{Competition: comp, Season: sync.NewSeason(comp.ID, "2024"), Err: errBoom{}},

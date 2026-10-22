@@ -1,6 +1,5 @@
 // Package games lists a club's last games in every competition, newest
-// first: its league, its cups, Europe. Each can be expanded into a box
-// score, and its opponent opened.
+// first, each expandable into a box score.
 package games
 
 import (
@@ -26,8 +25,7 @@ type Model struct {
 	games []models.Match
 	teams map[string]models.Team
 	comps map[string]models.Competition
-	// cursor is the highlighted game; expanded is the ID of the game whose
-	// box score is open, or "".
+	// expanded is the open box score's game ID, or "".
 	cursor   int
 	expanded string
 
@@ -70,8 +68,7 @@ func (m *Model) FavoriteTarget() (core.FavoriteTarget, bool) {
 	return core.FavoriteTarget{Kind: models.FavoriteTeam, ID: m.team.ID, Name: m.team.Name}, true
 }
 
-// RefreshRequest implements core.RefreshRequester: the club's recent
-// games.
+// RefreshRequest implements core.RefreshRequester: recent games.
 func (m *Model) RefreshRequest() (core.RefreshRequest, bool) {
 	return core.RefreshRequest{TeamID: m.team.ID, Name: m.team.Name}, true
 }
@@ -126,8 +123,7 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 	case tea.KeyMsg:
 		return m, m.handleKey(msg)
 	case core.ClickMsg:
-		// A click selects a game; clicking the selected one opens or
-		// closes its box score, as enter does.
+		// Clicking the selected game toggles its box score, as enter does.
 		row, ok := msg.ClickedIndex("row")
 		if !ok {
 			return m, nil
@@ -142,8 +138,7 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 	return m, nil
 }
 
-// gameAt is the game on a row of the table, which has an open game's box
-// score rows under it; false for a box score row.
+// gameAt skips the open game's box score rows; false on one.
 func (m *Model) gameAt(row int) (int, bool) {
 	r := 0
 	for i, g := range m.games {

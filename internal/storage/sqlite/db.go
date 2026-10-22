@@ -1,6 +1,4 @@
-// Package sqlite provides the local SQLite-backed cache/store for footui,
-// plus repositories that are the only path the CLI and TUI layers use to
-// reach persisted data — neither talks to the database directly.
+// Package sqlite is footui's SQLite-backed store.
 package sqlite
 
 import (
@@ -12,9 +10,8 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-// Open opens (creating if necessary) the SQLite database at path, applies
-// pragmas suited to a single-process CLI/TUI workload, and runs any pending
-// migrations.
+// Open opens or creates the database at path, sets pragmas, and runs
+// pending migrations.
 func Open(path string) (*sql.DB, error) {
 	if dir := filepath.Dir(path); dir != "." {
 		if err := os.MkdirAll(dir, 0o700); err != nil {
@@ -27,8 +24,7 @@ func Open(path string) (*sql.DB, error) {
 		return nil, fmt.Errorf("sqlite: open %s: %w", path, err)
 	}
 
-	// A CLI/TUI process talks to its own local file; one connection avoids
-	// SQLite's writer-lock contention entirely.
+	// One connection avoids SQLite writer-lock contention.
 	db.SetMaxOpenConns(1)
 
 	if _, err := db.Exec(`PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL;`); err != nil {
@@ -41,8 +37,7 @@ func Open(path string) (*sql.DB, error) {
 		return nil, fmt.Errorf("sqlite: migrate: %w", err)
 	}
 
-	// Search columns can't be populated by SQL — folding is Unicode
-	// normalization — so a database predating them is filled in here.
+	// SQL can't fold Unicode, so search columns are backfilled here.
 	if err := backfillFoldedNames(db); err != nil {
 		db.Close()
 		return nil, err

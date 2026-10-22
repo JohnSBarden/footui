@@ -13,8 +13,7 @@ import (
 func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 	switch msg := msg.(type) {
 	case core.ThemeChangedMsg:
-		// This screen draws its own content, so it adopts the new theme
-		// rather than leaving text styled for the old background.
+		// Restyle content drawn for the old background.
 		m.deps.Theme = msg.Theme
 		return m, nil
 
@@ -39,8 +38,7 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 		return m, nil
 
 	case core.RefreshedMsg:
-		// Re-read rather than patch: the refresh may have cached seasons
-		// this screen didn't ask for (the r key, the stale check).
+		// Re-read: the refresh may have cached seasons we didn't ask for.
 		return m, m.load()
 
 	case core.ClickMsg:
@@ -59,8 +57,6 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 	return m, nil
 }
 
-// replayHeld runs the keys pressed while the catalog was loading, in
-// order, now that there is something for them to act on.
 func (m *Model) replayHeld() tea.Cmd {
 	held := m.held
 	m.held = nil
@@ -86,8 +82,6 @@ func (m *Model) handleKey(msg tea.KeyMsg) (core.Screen, tea.Cmd) {
 		m.focus = paneLeagues
 	case " ", "x":
 		if m.focus == paneLeagues {
-			// Space on a league jumps into its seasons, where it means
-			// something.
 			m.focus = paneSeasons
 			return m, nil
 		}
@@ -121,8 +115,6 @@ func (m *Model) toggleFocus() {
 func (m *Model) move(delta int) {
 	if m.focus == paneLeagues {
 		m.league += delta
-		// A new league starts at its most recent season, which is the
-		// one most often wanted.
 		m.season = 0
 	} else {
 		m.season += delta
@@ -171,13 +163,12 @@ func (m *Model) toggleSeason() {
 	}
 	year := l.Seasons[m.season].Year
 	m.setSelected(l.Competition.ID, year, !m.isSelected(l.Competition.ID, year))
-	// Moving on after a toggle makes selecting a run of seasons a
-	// matter of holding space.
+	// So holding space selects a run of seasons.
 	m.move(1)
 }
 
-// selectMissing toggles every not-yet-cached season of the highlighted
-// league: all on, or all off if they already were.
+// selectMissing toggles every uncached season: all on, or all off if they
+// already were.
 func (m *Model) selectMissing() {
 	l, ok := m.currentLeague()
 	if !ok {
@@ -209,9 +200,8 @@ func (m *Model) selectCurrent() {
 	m.setSelected(l.Competition.ID, y, !m.isSelected(l.Competition.ID, y))
 }
 
-// selectCurrentEverywhere toggles the most recent season of every league
-// in the starter set: all on, or all off if they already were. It is the
-// catalog's counterpart to footui refresh --all.
+// selectCurrentEverywhere toggles the starter set's current seasons, like
+// footui refresh --all.
 func (m *Model) selectCurrentEverywhere() {
 	allOn := true
 	for _, l := range m.leagues {
@@ -227,10 +217,8 @@ func (m *Model) selectCurrentEverywhere() {
 	}
 }
 
-// download queues every selected season and clears the selection. With
-// nothing selected, enter on the league list moves into its seasons and
-// on the season list selects the highlighted one — so enter, enter is the
-// shortest path from "I want this season" to fetching it.
+// download queues and clears the selection. With nothing selected, enter
+// moves into the seasons, then selects the highlighted one.
 func (m *Model) download() tea.Cmd {
 	if n, _ := m.SelectedCount(); n == 0 {
 		if m.focus == paneLeagues {
@@ -246,8 +234,7 @@ func (m *Model) download() tea.Cmd {
 
 	var reqs []core.RefreshRequest
 	seasons := 0
-	// Catalog order rather than map order, so the queue runs leagues in
-	// the order the user sees them.
+	// Catalog order, not map order, so the queue runs in on-screen order.
 	for _, l := range m.leagues {
 		var years []string
 		for _, s := range l.Seasons {
@@ -274,12 +261,10 @@ func (m *Model) download() tea.Cmd {
 	)
 }
 
-// click selects a league or a season; clicking the selected season
-// ticks it, as space does.
+// click on the selected season ticks it, as space does.
 func (m *Model) click(msg core.ClickMsg) tea.Cmd {
 	if i, ok := msg.ClickedIndex("league"); ok {
-		// The International heading is a row of the table but not a
-		// league.
+		// The International heading is a row but not a league.
 		if h := slices.IndexFunc(m.leagues, League.international); h >= 0 && i >= h {
 			if i == h {
 				return nil

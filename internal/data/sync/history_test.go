@@ -21,9 +21,7 @@ func (f fakeCareer) AthleteCareer(context.Context, string) ([]provider.CareerSea
 
 var october2026 = time.Date(2026, 10, 19, 12, 0, 0, 0, time.UTC)
 
-// Griezmann: Liga 2 in 2009 is before footui's coverage of it, the cup
-// and the friendly aren't tables, and the rest become one job per
-// competition in the catalog's order, most recent season first.
+// Griezmann: seasons before coverage, cups and friendlies are dropped.
 func TestPlayerCareerJobs(t *testing.T) {
 	ctx := context.Background()
 	repos := storagetest.New(t)

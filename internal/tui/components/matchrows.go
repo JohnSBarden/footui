@@ -11,9 +11,8 @@ import (
 	"github.com/JohnSBarden/footui/internal/tui/styles"
 )
 
-// MatchColumns are the leading columns of a team's match list: the
-// result's glyph, date, competition, venue, opponent and score. Callers
-// append their own last column (a round, expected goals).
+// MatchColumns are the leading columns of a team's match list; callers
+// append their own last column.
 func MatchColumns(opponentWidth int) []Column {
 	return []Column{
 		{Title: "", Width: 1},
@@ -22,12 +21,8 @@ func MatchColumns(opponentWidth int) []Column {
 	}
 }
 
-// MatchCells is one match in a team's list, from teamID's side: its
-// result as a glyph, the competition coloured by kind (Europe and other
-// international competitions, cups, leagues), H, A or N for where it was
-// played, the score with its goals first and coloured by the result, and
-// last as the final cell. A fixture still to come shows its kickoff
-// instead of a score.
+// MatchCells is one match in a team's list, from teamID's side, with last
+// as the final cell. A fixture shows its kickoff instead of a score.
 func MatchCells(th styles.Theme, m models.Match, teamID string, comp models.Competition, opponent, last string) []Cell {
 	venue := "A"
 	switch {
@@ -71,15 +66,13 @@ func MatchCells(th styles.Theme, m models.Match, teamID string, comp models.Comp
 	}
 }
 
-// matchXGScale is the xG a match bar is drawn against: few sides create
-// more than three goals' worth in a game.
+// matchXGScale is the full-bar xG; few sides create more than three.
 const matchXGScale = 3
 
 // MatchXGWidth is how wide MatchXGBar's column needs to be.
 const MatchXGWidth = 17
 
-// MatchXGBar is MatchXG led by a short bar of teamID's own xG, so a column
-// of matches shows at a glance which games were one-sided.
+// MatchXGBar is MatchXG led by a short bar of teamID's own xG.
 func MatchXGBar(th styles.Theme, m models.Match, teamID string) string {
 	xg := MatchXG(m, teamID)
 	if xg == "" {
@@ -110,8 +103,7 @@ func MatchXG(m models.Match, teamID string) string {
 }
 
 // BoxScore is the two sides' numbers from one match, teamID's first, as
-// rows under the match in a list: lead blank cells, then a label and the
-// pair. Expected goals are shown when either side has them.
+// rows of lead blank cells, a label and the pair.
 func BoxScore(th styles.Theme, m models.Match, teamID string, lead int) [][]Cell {
 	_, _, ours := m.For(teamID)
 	_, _, theirs := m.For(m.Opponent(teamID))
@@ -162,9 +154,8 @@ func BoxScore(th styles.Theme, m models.Match, teamID string, lead int) [][]Cell
 	for _, l := range counts {
 		espn = espn || has(l.has)
 	}
-	// ESPN's counts are shown as a set when either side has any; expected
-	// goals only where a source has them — an understat league match has
-	// nothing else.
+	// ESPN's counts show as a set when either side has any; an understat
+	// match has only xG.
 	var show []line
 	if espn {
 		show = counts

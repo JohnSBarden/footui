@@ -14,8 +14,7 @@ func TestCurrentSeasonStartYearRollsOverInAugust(t *testing.T) {
 		{time.Date(2026, time.January, 15, 0, 0, 0, 0, time.UTC), "2025"},
 		// May, just after a season ends: still that season.
 		{time.Date(2026, time.May, 30, 0, 0, 0, 0, time.UTC), "2025"},
-		// July, between seasons: the new season has no matches yet, so the
-		// completed one is still what a refresh should fetch.
+		// July, between seasons: still the completed one.
 		{time.Date(2026, time.July, 20, 0, 0, 0, 0, time.UTC), "2025"},
 		// August onwards: the new season.
 		{time.Date(2026, time.August, 15, 0, 0, 0, 0, time.UTC), "2026"},

@@ -14,8 +14,7 @@ import (
 	"github.com/JohnSBarden/footui/internal/tui/tuitest"
 )
 
-// intlDashboard stars, in this order: a nation, a club league, a
-// tournament.
+// intlDashboard stars a nation, a club league, a tournament, in order.
 func intlDashboard(t *testing.T) (*dashboard.Model, storage.Repositories) {
 	t.Helper()
 	repos := storagetest.New(t)
@@ -48,15 +47,13 @@ func TestGroupsRunLeaguesTournamentsClubsNationsPlayers(t *testing.T) {
 		t.Fatalf("groups %v, want %v", groups, want)
 	}
 	out := m.View()
-	// Each wears its kind's badge: a goal net, a trophy, a flag (or a
-	// plain one for a nation we have no flag for).
+	// ⚑ is the fallback for a nation with no flag.
 	l, tn, n := strings.Index(out, "🥅 Premier League"), strings.Index(out, "🏆 FIFA World Cup"), strings.Index(out, "⚑ Arcadia")
 	if l < 0 || tn < l || n < tn {
 		t.Errorf("cards out of order:\n%s", out)
 	}
 }
 
-// After the group stage, a tournament card shows the latest round.
 func TestATournamentCardShowsTheLatestRoundOnceKnockoutsBegin(t *testing.T) {
 	m, _ := intlDashboard(t)
 	card := m.Cards()[1]
@@ -68,12 +65,10 @@ func TestATournamentCardShowsTheLatestRoundOnceKnockoutsBegin(t *testing.T) {
 	}
 }
 
-// During the group stage it shows the starred nation's group.
 func TestATournamentCardShowsAStarredNationsGroupDuringTheGroupStage(t *testing.T) {
 	repos := storagetest.New(t)
 	storagetest.SeedInternational(t, repos)
-	// The same tournament, before the knockouts: the quarterfinal hasn't
-	// been played yet.
+	// Before the knockouts: the quarterfinal is unplayed.
 	ms := storagetest.SampleMatches()
 	qf := ms[6]
 	qf.Status, qf.HomeScore, qf.AwayScore, qf.HomePens, qf.AwayPens = models.MatchScheduled, nil, nil, nil, nil
@@ -110,7 +105,6 @@ func TestANationCardShowsResultsNextFixtureAndForm(t *testing.T) {
 	}
 }
 
-// The card counts what the nation screen's saved filter counts.
 func TestANationCardFollowsTheSavedFilter(t *testing.T) {
 	repos := storagetest.New(t)
 	storagetest.SeedInternational(t, repos)
@@ -143,8 +137,6 @@ func TestANationCardRefreshesItsMatchesAndSaysSo(t *testing.T) {
 	}
 }
 
-// Along the top run the scores: a starred nation's last two games and
-// its next, and a starred tournament's next round, oldest first.
 func TestScoresRunAlongTheTop(t *testing.T) {
 	m, _ := intlDashboard(t)
 	out := m.View()
@@ -154,8 +146,7 @@ func TestScoresRunAlongTheTop(t *testing.T) {
 			t.Errorf("strip missing %q:\n%s", want, strip)
 		}
 	}
-	// m02 and m03 (qualifiers), m04 (the next friendly), m05 (the World
-	// Cup's first round): the earlier friendly and later rounds stay off.
+	// m02, m03 (WCQ), m04 (next FRND), m05 (WC round 1); nothing else.
 	if strings.Count(strip, "WCQ") != 2 || strings.Count(strip, "FRND") != 1 {
 		t.Errorf("strip:\n%s", strip)
 	}

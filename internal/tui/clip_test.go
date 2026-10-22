@@ -26,8 +26,7 @@ func (s tallScreen) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 	return s, cmd
 }
 
-// A screen taller than the terminal loses its bottom, never its top: the
-// terminal would otherwise scroll the header — the club's band — away.
+// A screen taller than the terminal loses its bottom, never its header.
 func TestATallScreenIsClippedFromTheBottom(t *testing.T) {
 	app := newApp(tallScreen{newFake("Team")})
 	app = send(app, tea.WindowSizeMsg{Width: 120, Height: 40})

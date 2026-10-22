@@ -28,8 +28,7 @@ func settled(t *testing.T, deps core.Deps, teamID string) core.Screen {
 	return tuitest.Resize(t, s, 112, 34)
 }
 
-// seedTwoCompetitions gives Haaland a league season and a cup season with
-// deliberately different numbers, so career totals can be checked for
+// seedTwoCompetitions uses different league and cup numbers to catch
 // blending.
 func seedTwoCompetitions(t *testing.T) storage.Repositories {
 	t.Helper()
@@ -59,8 +58,6 @@ func TestCompetitionsAppearAsSeparateTabs(t *testing.T) {
 	}
 }
 
-// The same rule as the Team screen: a striker's league and cup returns are
-// different numbers and summing them misrepresents both.
 func TestCareerTotalsAreNotBlendedAcrossCompetitions(t *testing.T) {
 	s := settled(t, newDeps(seedTwoCompetitions(t)), "")
 
@@ -101,8 +98,6 @@ func TestPer90RatesAccompanyRawTotals(t *testing.T) {
 	}
 }
 
-// Under 90 minutes a single goal implies an absurd rate; that's noise, not
-// insight, so the rate is suppressed.
 func TestPer90IsSuppressedForTinySampleSizes(t *testing.T) {
 	repos := storagetest.New(t)
 	storagetest.SeedCompetition(t, repos, storagetest.PremierLeague(), "2025",
@@ -172,8 +167,6 @@ func TestEmptyStateWhenPlayerHasNoCachedSeasons(t *testing.T) {
 	}
 }
 
-// A player whose provider supplied no expected-goals data must show the
-// missing marker, not a career xG of 0.0.
 func TestCareerWithoutExpectedGoalsOmitsThoseTotals(t *testing.T) {
 	repos := storagetest.New(t)
 	storagetest.SeedCompetition(t, repos, storagetest.PremierLeague(), "2025",
@@ -204,8 +197,6 @@ func TestCareerWithoutExpectedGoalsOmitsThoseTotals(t *testing.T) {
 	}
 }
 
-// A player's history spans clubs, and two clubs sharing a prefix must stay
-// distinguishable at any width.
 func TestNarrowTerminalsKeepClubNamesIntact(t *testing.T) {
 	repos := storagetest.New(t)
 	storagetest.SeedCompetition(t, repos, storagetest.PremierLeague(), "2025", []storagetest.TeamRow{

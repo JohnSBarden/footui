@@ -9,8 +9,8 @@ import (
 	"github.com/JohnSBarden/footui/internal/config"
 )
 
-// skipSettings marks a command that must run without resolving settings
-// first, because it is how a broken settings file gets inspected or fixed.
+// skipSettings marks a command that must run without resolving settings,
+// so a broken settings file can be inspected or fixed.
 const skipSettings = "footui/skip-settings"
 
 func newConfigCmd(g *globalFlags) *cobra.Command {

@@ -17,8 +17,7 @@ import (
 	"github.com/JohnSBarden/footui/internal/tui/tuitest"
 )
 
-// seedGames gives Arsenal six finished games across the league, a cup and
-// Europe, and a fixture still to come, against fictional opponents.
+// seedGames: six finished games across competitions plus one fixture.
 func seedGames(t *testing.T, repos storage.Repositories) {
 	t.Helper()
 	ctx := context.Background()
@@ -71,8 +70,7 @@ func TestTheRecentLineShowsFormOverTheLastFiveGames(t *testing.T) {
 	repos := seedTwoCompetitions(t)
 	seedGames(t, repos)
 	deps := newDeps(repos)
-	// The stored leagues have no short names, as in a database cached
-	// before they did; the catalog supplies them.
+	// Stored leagues lack short names; the catalog supplies them.
 	deps.Catalog = []core.CatalogEntry{
 		{Competition: models.Competition{ID: "eng-premier-league", ShortName: "PL"}},
 		{Competition: models.Competition{ID: "uefa-champions-league", ShortName: "UCL"}},
@@ -83,27 +81,22 @@ func TestTheRecentLineShowsFormOverTheLastFiveGames(t *testing.T) {
 	if got := s.(*team.Model).RecentGames(); len(got) != 5 || got[0].ID != "g6" {
 		t.Fatalf("recent games %v", got)
 	}
-	// Oldest first, so it reads left to right in time: g2 D, g3 W, g4 D on
-	// penalties, g5 L, g6 W.
+	// Oldest first: g2 D, g3 W, g4 D (pens), g5 L, g6 W.
 	if !strings.Contains(out, "RECENT  D W D L W") {
 		t.Errorf("form missing\n---\n%s", out)
 	}
-	// Just the line: the games themselves are in the scores along the top,
-	// so none is listed again beneath it.
+	// The games are in the strip, not repeated beneath the form line.
 	recent := out[strings.Index(out, "RECENT"):]
 	for _, unwanted := range []string{"Northbridge", "Wessex Rovers", "2–0", "xG 2.1–0.8"} {
 		if strings.Contains(recent, unwanted) {
 			t.Errorf("the recent games are listed again: %s\n---\n%s", unwanted, out)
 		}
 	}
-	// The club's tables are still there beneath it.
 	if !strings.Contains(out, "Premier League") {
 		t.Errorf("the seasons are gone\n---\n%s", out)
 	}
 }
 
-// Along the top run the club's scores in every competition, its fixture
-// to come among them, scrolled with < and >.
 func TestScoresRunAlongTheTop(t *testing.T) {
 	repos := seedTwoCompetitions(t)
 	seedGames(t, repos)
@@ -126,12 +119,9 @@ func TestScoresRunAlongTheTop(t *testing.T) {
 	}
 }
 
-// The strip takes rows from the tables beneath it, so the screen still
-// fits the window and its header isn't pushed off the top.
 func TestTheStripStillFitsTheScreen(t *testing.T) {
 	repos := seedTwoCompetitions(t)
 	seedGames(t, repos)
-	// Enough seasons and players to fill both tables.
 	for y := 2010; y < 2025; y++ {
 		storagetest.SeedCompetition(t, repos, storagetest.PremierLeague(), strconv.Itoa(y), []storagetest.TeamRow{
 			{ID: arsenal.ID, Name: "Arsenal", Position: 2, MP: 38, W: 20, D: 9, L: 9, GF: 60, GA: 40, Pts: 69},
@@ -162,7 +152,6 @@ func TestTheStripStillFitsTheScreen(t *testing.T) {
 	}
 }
 
-// initMsgs runs a screen's Init batch and returns the messages it yields.
 func initMsgs(t *testing.T, s core.Screen) []tea.Msg {
 	t.Helper()
 	var out []tea.Msg
@@ -224,8 +213,6 @@ func TestTheStripSaysWhenItsGamesAreBeingFetched(t *testing.T) {
 	}
 }
 
-// A cup opponent has games but no table: the strip is the screen, and its
-// refresh is its recent games.
 func TestAClubKnownOnlyFromItsGamesShowsThem(t *testing.T) {
 	repos := seedTwoCompetitions(t)
 	seedGames(t, repos)

@@ -1,23 +1,11 @@
 package components
 
-// FitColumns decides which optional column groups fit at the current
-// terminal width.
-//
-// The rule it encodes: a narrow terminal gives up detail, never identity.
-// Squeezing a name column turns "Manchester United" and "Manchester City"
-// into two identical truncated rows, which makes a table actively wrong
-// rather than merely less detailed — so the name column keeps its width
-// and derived statistics are dropped instead, cheapest first.
-//
-// Groups are dropped whole. Some statistics only mean something in pairs:
-// attacking output without what the team conceded is a column nobody can
-// read a season from, so xG and xGA travel together.
-//
-// base are the columns that always render. nameWidth is what the name
-// column needs. groups are tried in order and appended while they fit.
+// FitColumns appends optional column groups, in order, while they fit.
+// A narrow terminal gives up detail, never identity: the name column keeps
+// nameWidth (squeezed names become indistinguishable), and groups drop
+// whole because some stats only mean something in pairs (xG with xGA).
 func FitColumns(width int, base []Column, nameWidth int, groups [][]Column) []Column {
-	// Each column costs its own width plus the single space separating it
-	// from the next, and a little slop for the leading indent.
+	// Each column costs its width plus a separating space; slop is the indent.
 	const slop = 2
 	used := slop + nameWidth + 1
 	for _, c := range base {
@@ -33,9 +21,8 @@ func FitColumns(width int, base []Column, nameWidth int, groups [][]Column) []Co
 			cost += c.Width + 1
 		}
 		if used+cost > width {
-			// Later groups are progressively wider or equally optional;
-			// stopping here keeps the drop order predictable rather than
-			// letting a narrow column sneak in after a wide one was cut.
+			// Stop at the first misfit so a narrower later group can't
+			// sneak in after a wider one was cut.
 			break
 		}
 		used += cost
@@ -45,9 +32,7 @@ func FitColumns(width int, base []Column, nameWidth int, groups [][]Column) []Co
 	return out
 }
 
-// TrimRow shortens a row to the number of columns actually being
-// rendered. Rows are built with every cell so the builder stays simple;
-// this drops the ones whose columns didn't fit.
+// TrimRow drops cells whose columns didn't fit.
 func TrimRow(row []Cell, columns int) []Cell {
 	if len(row) > columns {
 		return row[:columns]

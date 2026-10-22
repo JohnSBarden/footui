@@ -1,12 +1,6 @@
-// Package espn fetches competitions from ESPN's public JSON API: MLS,
-// NWSL, the women's leagues, the European second divisions, the European
-// club competitions, and international football — everything
-// understat.com doesn't cover.
-//
-// The API is undocumented and keyless. It has no expected goals, and no
-// minutes played per player, but it does have possession, corners, and
-// fouls, which understat never had. Everything here is read-only and
-// rate-limited; nothing is fetched that a refresh doesn't need.
+// Package espn fetches everything understat doesn't cover from ESPN's
+// undocumented, keyless JSON API. It has no xG or per-player minutes, but
+// does have possession, corners and fouls.
 package espn
 
 import (
@@ -28,39 +22,29 @@ import (
 )
 
 const (
-	siteBaseURL = "https://site.api.espn.com/apis"
-	coreBaseURL = "https://sports.core.api.espn.com/v2/sports/soccer/leagues"
-	// searchBaseURL is ESPN's site-wide search, which finds players
-	// whatever they play in.
+	siteBaseURL   = "https://site.api.espn.com/apis"
+	coreBaseURL   = "https://sports.core.api.espn.com/v2/sports/soccer/leagues"
 	searchBaseURL = "https://site.web.api.espn.com/apis/common/v3/search"
 
-	// CacheDirEnv is shared with the understat client: one directory of
-	// raw responses for development, so iterating doesn't hammer either
-	// host.
+	// CacheDirEnv names a dev cache of raw responses, shared with the
+	// understat client.
 	CacheDirEnv = "FOOTUI_HTTP_CACHE"
 
 	requestTimeout = 15 * time.Second
 	maxAttempts    = 3
 	baseBackoff    = 500 * time.Millisecond
-	// defaultMinGap spaces requests out. A league refresh is a roster and
-	// a statistics request per club, so this is what keeps a 30-team
-	// league from being 60 requests in a burst.
+	// defaultMinGap spaces requests: a league refresh is two per club.
 	defaultMinGap = 150 * time.Millisecond
-	// scoreboardGap spaces out the big requests: a year of a competition's
-	// matches is up to a couple of megabytes, and a nation's first
-	// download is thirty of them.
+	// scoreboardGap spaces out the big (multi-MB) scoreboard requests.
 	scoreboardGap = time.Second
-	// maxRetryAfter caps how long a Retry-After header can make footui
-	// wait in one go; a longer ask is treated as "not now" and gives up.
+	// maxRetryAfter caps a Retry-After wait; a longer ask gives up.
 	maxRetryAfter = 2 * time.Minute
-	// breakerOpen is how long every request is refused after ESPN kept
-	// rate-limiting footui through all its retries.
+	// breakerOpen is how long requests are refused after repeated 429s.
 	breakerOpen = time.Hour
 )
 
-// rateLimitBackoff is how long to wait after each successive 429 when
-// ESPN doesn't say: generous, because a 429 means footui was already
-// asking too much.
+// rateLimitBackoff is the wait after each successive 429 without a
+// Retry-After.
 var rateLimitBackoff = []time.Duration{5 * time.Second, 20 * time.Second, 60 * time.Second}
 
 // Client is a polite, retrying JSON fetcher for ESPN's two API hosts.
@@ -72,12 +56,10 @@ type Client struct {
 	minGap     time.Duration
 	slowGap    time.Duration
 	cacheDir   string
-	// OnRetry, if set, is told about each failed attempt that will be
-	// retried, so a slow refresh can say why it's slow.
+	// OnRetry, if set, is told about each failed attempt to be retried.
 	OnRetry func(attempt, of int, err error)
 
-	// rateWaits is the 429 backoff schedule, and wait how a backoff is
-	// slept; tests shorten both.
+	// rateWaits and wait are swapped out by tests.
 	rateWaits []time.Duration
 	wait      func(ctx context.Context, d time.Duration) error
 	breaker   *breaker
@@ -102,8 +84,8 @@ func NewClient() *Client {
 	}
 }
 
-// withBaseURLs points the client at a test server, with no pacing, no
-// disk cache, and a breaker of its own.
+// withBaseURLs points the client at a test server, unpaced, uncached, with
+// its own breaker.
 func (c *Client) withBaseURLs(site, core string) *Client {
 	c.siteURL, c.coreURL, c.minGap, c.slowGap, c.cacheDir = site, core, 0, 0, ""
 	c.searchURL = site + "/search"
@@ -112,23 +94,19 @@ func (c *Client) withBaseURLs(site, core string) *Client {
 	return c
 }
 
-// site fetches a path under the site API into out.
 func (c *Client) site(ctx context.Context, path string, out any) error {
 	return c.getJSON(ctx, c.siteURL+path, c.minGap, out)
 }
 
-// scoreboard fetches a scoreboard path under the site API into out, paced
-// more widely than other requests.
+// scoreboard is site with the wider scoreboard pacing.
 func (c *Client) scoreboard(ctx context.Context, path string, out any) error {
 	return c.getJSON(ctx, c.siteURL+path, c.slowGap, out)
 }
 
-// search runs a site-wide search query string into out.
 func (c *Client) search(ctx context.Context, query string, out any) error {
 	return c.getJSON(ctx, c.searchURL+"?"+query, c.minGap, out)
 }
 
-// core fetches a path under the core API into out.
 func (c *Client) core(ctx context.Context, path string, out any) error {
 	return c.getJSON(ctx, c.coreURL+path, c.minGap, out)
 }
@@ -144,8 +122,7 @@ func (c *Client) getJSON(ctx context.Context, url string, gap time.Duration, out
 	return nil
 }
 
-// ErrNotFound is a 404: the competition, season, or team doesn't exist
-// at ESPN. It is not retried.
+// ErrNotFound is a 404. It is not retried.
 var ErrNotFound = fmt.Errorf("espn: %w", provider.ErrNotFound)
 
 // TimeoutError is a request that got no response in time.
@@ -179,8 +156,7 @@ func (e *TimeoutError) TimedOutAfter() time.Duration { return e.After }
 type statusError struct {
 	URL    string
 	Status int
-	// RetryAfter is what a 429's Retry-After header asked for, zero when
-	// it said nothing usable.
+	// RetryAfter is a 429's Retry-After, zero when unusable.
 	RetryAfter time.Duration
 }
 
@@ -188,14 +164,11 @@ func (e *statusError) Error() string {
 	return fmt.Sprintf("espn: %s returned HTTP %d", e.URL, e.Status)
 }
 
-// errRateLimited is what every request gets once ESPN has kept refusing
-// footui: no request is made at all.
+// errRateLimited is returned without a request while the breaker is open.
 var errRateLimited = fmt.Errorf("espn is rate-limiting footui; try again later: %w", provider.ErrRateLimited)
 
-// get fetches url, retrying what is worth retrying. A 429 is handled on
-// its own schedule: Retry-After when ESPN gives one, otherwise a backoff
-// far longer than for a dropped connection, and if it keeps refusing,
-// the breaker opens and nothing more is asked of it for an hour.
+// get fetches url with retries. 429s follow their own, longer schedule
+// and, if they persist, trip the breaker.
 func (c *Client) get(ctx context.Context, url string, gap time.Duration) ([]byte, error) {
 	if body, ok := c.readCache(url); ok {
 		return body, nil
@@ -292,9 +265,8 @@ func retryAfter(h string, now time.Time) time.Duration {
 	return 0
 }
 
-// retryable reports whether a failure is worth another attempt: timeouts,
-// dropped connections, and server errors are; a 404, a 4xx, or the user
-// cancelling are not. (A 429 has its own handling in get.)
+// retryable reports whether a failure is worth another attempt. 429s are
+// handled separately in get.
 func retryable(ctx context.Context, err error) bool {
 	if ctx.Err() != nil || errors.Is(err, ErrNotFound) {
 		return false
@@ -317,7 +289,6 @@ func sleep(ctx context.Context, d time.Duration) error {
 	}
 }
 
-// throttle waits until gap has passed since the previous request.
 func (c *Client) throttle(ctx context.Context, gap time.Duration) error {
 	c.mu.Lock()
 	wait := gap - time.Since(c.lastFetch)
@@ -333,10 +304,8 @@ func (c *Client) throttle(ctx context.Context, gap time.Duration) error {
 	return nil
 }
 
-// breaker remembers that ESPN rate-limited footui through every retry, so
-// that nothing else in the process asks again for a while. One is shared
-// by every client: the TUI builds a provider per queued refresh, and the
-// next one in the queue must not start the whole dance again.
+// breaker stops all requests for a while after persistent 429s. It is
+// process-wide because the TUI builds a provider per queued refresh.
 type breaker struct {
 	mu    sync.Mutex
 	until time.Time
@@ -350,8 +319,7 @@ func (b *breaker) trip(now time.Time) {
 	b.mu.Unlock()
 }
 
-// PausedUntil is when ESPN may be asked again after it rate-limited footui
-// through every retry, or zero when it isn't paused.
+// PausedUntil is when the rate-limit breaker closes, or zero if not open.
 func PausedUntil() time.Time { return sharedBreaker.pausedUntil(time.Now()) }
 
 func (b *breaker) pausedUntil(now time.Time) time.Time {

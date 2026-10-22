@@ -13,24 +13,15 @@ import (
 )
 
 // DefaultStaleAfter is how old a cached current season may get before
-// opening the TUI refreshes it. Six hours keeps a matchday's results from
-// going unseen for long without re-fetching on every launch.
+// opening the TUI refreshes it.
 const DefaultStaleAfter = 6 * time.Hour
 
-// failureBackoff stops a launch from retrying a refresh that failed only
-// moments ago — opening footui twice while understat is down shouldn't
-// mean two doomed attempts.
+// failureBackoff stops a launch retrying a refresh that just failed.
 const failureBackoff = 10 * time.Minute
 
-// tuiCatalog lists every competition footui can fetch, with every season
-// the provider offers, for the league catalog screen.
-//
-// International competitions follow the clubs: tournaments by edition,
-// qualifiers and nations leagues by calendar year. Friendlies aren't
-// offered on their own — they come with a nation — and nor are domestic
-// cups, which come with a club. Each gender gets a
-// national teams line, whose years are every international competition's
-// match lists for that year.
+// tuiCatalog lists every fetchable competition and season for the catalog
+// screen. Friendlies come with a nation and cups with a club, so neither
+// is listed on its own.
 func tuiCatalog(now time.Time) []core.CatalogEntry {
 	out := make([]core.CatalogEntry, 0, len(sync.Coverages)+2)
 	for _, c := range sync.Coverages {
@@ -67,32 +58,19 @@ func tuiCatalog(now time.Time) []core.CatalogEntry {
 	return out
 }
 
-// staleRefreshes finds the competitions the user follows whose current
-// season is out of date, as refresh requests to queue when the TUI opens.
-//
-// A competition counts as followed when its newest cached season is the
-// current one or the one before it. The second case is the season
-// rollover: someone who had 2025-26 in May wants 2026-27 in September
-// without being told to fetch it. A competition whose newest season is
-// years old was downloaded for its history, and is left alone — unless
-// it's a favourite league, which is always followed.
-//
-// The leagues of favourite clubs and players need no rule of their own: a
-// club with a line in this season or last is in a league whose newest
-// cached season is one of those two, which the rule above already follows.
+// staleRefreshes returns refresh requests to queue when the TUI opens. A
+// competition is followed when its newest downloaded season is the current
+// or previous one (the latter covers season rollover), or it's a favourite.
 func staleRefreshes(ctx context.Context, repos storage.Repositories, now time.Time, maxAge time.Duration) []core.RefreshRequest {
 	if maxAge <= 0 {
 		return nil
 	}
-	// A provider that rate-limited footui recently gets left alone: nothing
-	// automatic runs until the pause is over.
 	if at, err := repos.LastRateLimited(ctx); err == nil && now.Sub(at) < rateLimitPause {
 		return nil
 	}
 	comps, err := repos.ListCompetitions(ctx)
 	if err != nil {
-		// The TUI will surface a broken database itself; a missed
-		// background refresh is not worth refusing to start over.
+		// The TUI surfaces a broken database itself.
 		return nil
 	}
 	favorites := favoriteLeagues(ctx, repos)
@@ -101,12 +79,9 @@ func staleRefreshes(ctx context.Context, repos storage.Repositories, now time.Ti
 	for _, comp := range comps {
 		cov, covered := sync.FindCoverage(comp.ID)
 		if !covered || comp.International() || comp.Cup() {
-			// International competitions follow the nations and
-			// tournaments starred, below; cups follow starred clubs.
+			// Handled by internationalRefreshes and clubRefreshes.
 			continue
 		}
-		// Each competition's own calendar: in February MLS's current
-		// season is last year's, the Premier League's is this one.
 		current := cov.CurrentSeason(now)
 		previous := previousSeason(current)
 		newest := newestDownloaded(ctx, repos, comp.ID)
@@ -128,10 +103,8 @@ func staleRefreshes(ctx context.Context, repos storage.Repositories, now time.Ti
 	return append(out, playerRefreshes(ctx, repos)...)
 }
 
-// playerRefreshes asks for every starred player's season detail, after
-// the leagues so the dashboard's tables come first. Each is automatic:
-// the sync layer fetches only what is missing or stale, so a player
-// refreshed an hour ago costs nothing.
+// playerRefreshes queues starred players after the leagues so tables come
+// first; the sync layer skips anything still fresh.
 func playerRefreshes(ctx context.Context, repos storage.Repositories) []core.RefreshRequest {
 	favs, err := repos.ListFavorites(ctx)
 	if err != nil {
@@ -151,11 +124,8 @@ func playerRefreshes(ctx context.Context, repos storage.Repositories) []core.Ref
 	return out
 }
 
-// newestDownloaded is the newest season of a competition that was
-// downloaded as a season — refreshed for its table — or "" if none was.
-// A season row can also exist because a club's matches were fetched from
-// it (a Champions League tie), which is not someone following the
-// competition.
+// newestDownloaded is the newest season refreshed for its table, or "".
+// A season row from a club's matches alone doesn't count as following.
 func newestDownloaded(ctx context.Context, repos storage.Repositories, compID string) string {
 	seasons, err := repos.ListSeasons(ctx, compID)
 	if err != nil {
@@ -173,15 +143,8 @@ func newestDownloaded(ctx context.Context, repos storage.Repositories, compID st
 // provider rate-limited footui.
 const rateLimitPause = time.Hour
 
-// internationalRefreshes is the stale check for international football:
-//
-//   - the directory of national teams, once, so search finds every nation
-//   - for each gender with a starred nation, this year's and last year's
-//     match lists, when any is due by the politeness rules (usually none)
-//   - for each starred international competition, its current season
-//
-// Clubs' rule — follow what was downloaded recently — doesn't apply: a
-// nation's matches are downloaded for the nations someone stars.
+// internationalRefreshes follows starred nations and competitions only,
+// plus a one-off national teams directory.
 func internationalRefreshes(ctx context.Context, repos storage.Repositories, now time.Time, maxAge time.Duration) []core.RefreshRequest {
 	var out []core.RefreshRequest
 	if nations, err := repos.NationalTeams(ctx, ""); err == nil && len(nations) == 0 {
@@ -236,8 +199,7 @@ func internationalRefreshes(ctx context.Context, repos storage.Repositories, now
 	return out
 }
 
-// favoriteLeagues is the set of favourite competition IDs. An unreadable
-// favourites table means none: the stale check is best-effort.
+// favoriteLeagues treats an unreadable favourites table as none.
 func favoriteLeagues(ctx context.Context, repos storage.Repositories) map[string]bool {
 	out := map[string]bool{}
 	favs, err := repos.ListFavorites(ctx)
@@ -252,14 +214,12 @@ func favoriteLeagues(ctx context.Context, repos storage.Repositories) map[string
 	return out
 }
 
-// currentSeasonStaleness reports whether one competition-season needs
-// refreshing, and a short reason to show the user.
+// currentSeasonStaleness returns a reason to show and whether it's stale.
 func currentSeasonStaleness(ctx context.Context, repos storage.Repositories, compID, seasonID string,
 	now time.Time, maxAge time.Duration) (string, bool) {
 
 	run, err := repos.LatestSyncRun(ctx, compID, seasonID)
 	if err != nil {
-		// Never attempted (or unreadable): fetch it.
 		return "not cached yet", true
 	}
 	age := now.Sub(run.FinishedAt)
@@ -275,7 +235,6 @@ func currentSeasonStaleness(ctx context.Context, repos storage.Repositories, com
 	return "cached " + components.Freshness(run.FinishedAt, now), true
 }
 
-// previousSeason is the start year before season.
 func previousSeason(season string) string {
 	y, err := strconv.Atoi(season)
 	if err != nil {

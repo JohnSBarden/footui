@@ -2,11 +2,8 @@ package components
 
 import "strings"
 
-// Flag is a national team's flag as an emoji, two cells wide, from its
-// team ID ("nat-france", "nat-france-women", "nat-usa-u23"); "" when the
-// side has no flag of its own (the Basque Country) or isn't one we know.
-// A terminal without a flag font shows the two letters instead, which
-// still say which country it is.
+// Flag is a national team's emoji flag, two cells wide, from its team ID
+// ("nat-france-women"); "" when unknown or flagless.
 func Flag(teamID string) string {
 	slug := strings.TrimPrefix(teamID, "nat-")
 	slug = strings.TrimSuffix(slug, "-women")
@@ -45,9 +42,8 @@ var subdivisionFlags = map[string]string{
 	"wales":    "gbwls",
 }
 
-// nationCodes maps a nation's slug to its ISO 3166-1 alpha-2 code (XK for
-// Kosovo, which every flag font carries). Northern Ireland, the Basque
-// Country, Catalonia and Zanzibar have no emoji flag and are left out.
+// nationCodes maps a nation's slug to its ISO 3166-1 alpha-2 code. Nations
+// with no emoji flag (Northern Ireland, Catalonia...) are left out.
 var nationCodes = map[string]string{
 	"afghanistan": "AF", "albania": "AL", "algeria": "DZ", "american-samoa": "AS",
 	"andorra": "AD", "angola": "AO", "anguilla": "AI", "antigua-and-barbuda": "AG",

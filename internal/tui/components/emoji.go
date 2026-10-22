@@ -5,9 +5,8 @@ import (
 	"strings"
 )
 
-// Emoji reports whether the terminal can draw colour emoji. The Linux
-// console and dumb or VT-style terminals can't, so screens fall back to
-// plain glyphs there. A variable so tests can pin it.
+// Emoji reports whether the terminal can draw colour emoji (not the Linux
+// console or dumb/VT terminals). A variable so tests can pin it.
 var Emoji = emojiTerminal(os.Getenv("TERM"))
 
 func emojiTerminal(term string) bool {

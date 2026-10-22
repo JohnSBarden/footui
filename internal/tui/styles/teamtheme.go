@@ -7,24 +7,16 @@ import (
 	"github.com/lucasb-eyer/go-colorful"
 )
 
-// A club's brand colours are chosen for shirts and crests, not for text on a
-// terminal. Navy on black and yellow on white are both unreadable, and a
-// terminal's background is not knowable in advance — it may be light, dark,
-// or change while the program is running. So brand colours are never used
-// raw: they are adjusted per terminal background, and the two adjusted
-// variants are handed to Lip Gloss as an AdaptiveColor.
+// Brand colours are never used raw: the terminal background is unknown, so
+// each is adjusted for light and dark and handed over as an AdaptiveColor.
 const (
-	// minContrast is the WCAG AA ratio for normal-size text. Brand colours
-	// are lightened or darkened until they clear it.
+	// minContrast is the WCAG AA ratio for normal-size text.
 	minContrast = 4.5
-	// minLargeContrast is WCAG AA for large text, applied to the header
-	// bar where the club colour is a background behind bold text. Holding
-	// the header to the full 4.5 would wash out nearly every club's
-	// primary into something unrecognizable.
+	// minLargeContrast is WCAG AA for large text; holding marks and bold
+	// text to 4.5 would wash out most club primaries.
 	minLargeContrast = 3.0
 
-	// The backgrounds adjustment targets. Terminals are rarely pure white
-	// or pure black, so these are the realistic extremes.
+	// Realistic terminal extremes; few are pure white or black.
 	lightBackground = "#ffffff"
 	darkBackground  = "#0b0b0b"
 )
@@ -36,8 +28,6 @@ func TeamPalette(primaryHex, secondaryHex string) Palette {
 
 	primary, ok := parseHex(primaryHex)
 	if !ok {
-		// An unparseable or missing brand colour falls back to the neutral
-		// palette rather than rendering a club in an arbitrary colour.
 		return base
 	}
 
@@ -46,8 +36,6 @@ func TeamPalette(primaryHex, secondaryHex string) Palette {
 	base.Highlight = selectionBackground(primary)
 
 	if secondary, ok := parseHex(secondaryHex); ok {
-		// The secondary colour is used where a second brand accent helps
-		// (panel borders); it gets the same readability treatment.
 		base.Border = adaptiveForeground(secondary, minLargeContrast)
 	}
 
@@ -64,10 +52,8 @@ func ClubForeground(hex string) (lipgloss.TerminalColor, bool) {
 	return adaptiveForeground(c, minLargeContrast), true
 }
 
-// HeroStyles are a club screen's header band and the rule beneath it. The
-// band is the club's primary with black or white text, whichever reads;
-// in strong mode the whole screen already is the primary, so the band
-// inverts. A club without a usable colour gets footui's accent.
+// HeroStyles are a club screen's header band and the rule beneath it. In
+// strong mode the screen already is the primary, so the band inverts.
 func HeroStyles(th Theme, primaryHex, secondaryHex string, mode Mode) (fill, rule lipgloss.Style) {
 	if th.NoColor {
 		return lipgloss.NewStyle(), lipgloss.NewStyle()
@@ -104,14 +90,9 @@ func TeamThemeFor(primaryHex, secondaryHex string, mode Mode) Theme {
 	return TeamTheme(primaryHex, secondaryHex)
 }
 
-// StrongTeamTheme builds a theme whose background is the club's primary
-// colour, cut into mowing stripes: the primary itself alternating with a
-// shade of it, like a pitch. Unlike the weak theme the background is known
-// exactly, so every colour is solved against both shades once rather than
-// adapted per terminal: text is black or white, whichever contrasts more;
-// the secondary colour becomes the accent if it can be made readable on
-// the primary; and the selected row and title bar are drawn inverse, the
-// strongest contrast available.
+// StrongTeamTheme builds a theme whose background is the club's primary,
+// cut into mowing stripes. The background is known exactly, so colours are
+// solved against both stripes rather than adapted per terminal.
 func StrongTeamTheme(primaryHex, secondaryHex string) (Theme, bool) {
 	primary, ok := parseHex(primaryHex)
 	if !ok {
@@ -120,16 +101,12 @@ func StrongTeamTheme(primaryHex, secondaryHex string) (Theme, bool) {
 	return strongTheme(primary, primary, mowingShade(primary), secondaryHex), true
 }
 
-// stripeSpread is how far apart in lightness the two mowing shades sit:
-// about the gap between the kickabout's two greens, enough to see the cut
-// without the stripes competing with the text on them.
+// stripeSpread is the HSL lightness gap between the two mowing shades,
+// about the gap between the kickabout's two greens.
 const stripeSpread = 0.044
 
-// mowingShade is the second stripe for a primary: the same hue moved away
-// from whichever of black or white text reads on it — darker under white
-// text, lighter under black — so the cut never costs the text contrast.
-// A primary already at that extreme goes the other way, where there's
-// contrast to spare.
+// mowingShade moves the primary away from its text colour (darker under
+// white, lighter under black) so the cut never costs contrast.
 func mowingShade(c colorful.Color) colorful.Color {
 	h, s, l := c.Hsl()
 	darker := contrastRatio(mustHex("#ffffff"), c) >= contrastRatio(mustHex("#000000"), c)
@@ -142,8 +119,8 @@ func mowingShade(c colorful.Color) colorful.Color {
 	return quantize(colorful.Hsl(h, s, l+stripeSpread))
 }
 
-// strongTheme builds a strong theme on stripes a and b. primary is the
-// colour drawn on inverse elements (the title bar, keys, the selected row).
+// strongTheme builds a strong theme on stripes a and b. primary is drawn
+// on inverse elements (title bar, keys, selected row).
 func strongTheme(primary, a, b colorful.Color, secondaryHex string) Theme {
 	bgs := []colorful.Color{a, b}
 	text := mustHex("#ffffff")
@@ -175,8 +152,7 @@ func strongTheme(primary, a, b colorful.Color, secondaryHex string) Theme {
 	t.Title = t.Title.Foreground(hex(primary)).Background(hex(text))
 	t.TableSelected = lipgloss.NewStyle().Foreground(hex(primary)).Background(hex(text)).Bold(true)
 	// Highlight is the text colour here, so New's keycap (text on
-	// Highlight) and idle tab (muted on Highlight) would vanish: keys are
-	// drawn inverse like the title, idle tabs sit unfilled on the screen.
+	// Highlight) and idle tab (muted on Highlight) would vanish.
 	t.Keycap = t.Keycap.Foreground(hex(primary)).Background(hex(text))
 	t.TabIdle = lipgloss.NewStyle().Foreground(p.Muted)
 	if worstContrast(accent, bgs) < minContrast {
@@ -186,9 +162,7 @@ func strongTheme(primary, a, b colorful.Color, secondaryHex string) Theme {
 	return t
 }
 
-// panelShade is a selected panel's fill on stripe a: two cuts' worth of
-// lightness away from the text — darker under white, lighter under black
-// — so the fill only ever adds contrast.
+// panelShade moves away from the text so the fill only adds contrast.
 func panelShade(a, text colorful.Color) colorful.Color {
 	h, s, l := a.Hsl()
 	if text.Hex() == "#ffffff" {
@@ -197,12 +171,8 @@ func panelShade(a, text colorful.Color) colorful.Color {
 	return quantize(colorful.Hsl(h, s, min(l+2*stripeSpread, 1)))
 }
 
-// strongAccent is the accent on stripes bgs: the club's secondary if it
-// can be made readable there; otherwise whichever of black and white the
-// body text isn't, if it reads as bold text (minLargeContrast); and
-// only failing both the body text itself. On a bright red neither text
-// colour nor a navy secondary reaches 4.5:1, and an accent the same as
-// the text would mark nothing.
+// strongAccent is the secondary if readable on bgs, else the opposite of
+// the body text if it reads as bold, else the body text itself.
 func strongAccent(text colorful.Color, bgs []colorful.Color, secondaryHex string) colorful.Color {
 	if secondary, ok := parseHex(secondaryHex); ok {
 		if c := solveOn(secondary, bgs, minContrast); worstContrast(c, bgs) >= minContrast {
@@ -219,8 +189,6 @@ func strongAccent(text colorful.Color, bgs []colorful.Color, secondaryHex string
 	return text
 }
 
-// worstContrast is c's contrast against whichever of bgs it reads least
-// well on.
 func worstContrast(c colorful.Color, bgs []colorful.Color) float64 {
 	worst := math.Inf(1)
 	for _, bg := range bgs {
@@ -229,9 +197,8 @@ func worstContrast(c colorful.Color, bgs []colorful.Color) float64 {
 	return worst
 }
 
-// solveOn adjusts c's lightness until it reads against every one of bgs,
-// trying both directions — on a mid-tone background either may be the one
-// that works — and keeping whichever gets closer.
+// solveOn adjusts c's lightness until it reads on every bg, trying both
+// directions since either may work on a mid-tone.
 func solveOn(c colorful.Color, bgs []colorful.Color, threshold float64) colorful.Color {
 	if worstContrast(c, bgs) >= threshold {
 		return c
@@ -243,8 +210,6 @@ func solveOn(c colorful.Color, bgs []colorful.Color, threshold float64) colorful
 			candidate := quantize(colorful.Hsl(h, s, v))
 			r := worstContrast(candidate, bgs)
 			if r >= threshold {
-				// The first passing step in this direction is the least
-				// change; prefer it over a bigger change the other way.
 				if bestRatio < threshold || colorDistance(candidate, c) < colorDistance(best, c) {
 					best, bestRatio = candidate, r
 				}
@@ -258,19 +223,15 @@ func solveOn(c colorful.Color, bgs []colorful.Color, threshold float64) colorful
 	return best
 }
 
-// quantize rounds a colour to what it will actually be rendered as: an
-// in-gamut, 8-bit-per-channel hex value. Contrast is checked on this,
-// not on the float colour, or a blend that clears the threshold
-// in-memory can miss it once written out.
+// quantize rounds to the rendered 8-bit hex; contrast must be checked on
+// this, or a float blend that passes can fail once written out.
 func quantize(c colorful.Color) colorful.Color {
 	return mustHex(c.Clamped().Hex())
 }
 
 func colorDistance(a, b colorful.Color) float64 { return a.DistanceLab(b) }
 
-// muted blends text toward the background as far as it can while staying
-// readable on every stripe, giving secondary text that recedes without
-// disappearing.
+// muted blends text toward the background while staying readable.
 func muted(text colorful.Color, bgs []colorful.Color) colorful.Color {
 	best := text
 	for f := 0.05; f < 1; f += 0.05 {
@@ -283,8 +244,7 @@ func muted(text colorful.Color, bgs []colorful.Color) colorful.Color {
 	return best
 }
 
-// parseHex parses "#rrggbb" (or "rrggbb"), reporting false for anything
-// malformed.
+// parseHex accepts "#rrggbb" or "rrggbb".
 func parseHex(hex string) (colorful.Color, bool) {
 	if hex == "" {
 		return colorful.Color{}, false
@@ -299,11 +259,7 @@ func parseHex(hex string) (colorful.Color, bool) {
 	return c, true
 }
 
-// adaptiveForeground returns the brand colour adjusted separately for light
-// and dark terminals, each lightened or darkened only as far as needed to
-// clear the contrast threshold. Adjusting in HSL keeps the hue — the part
-// that makes the colour recognizably the club's — while moving only
-// lightness.
+// adaptiveForeground moves only HSL lightness, keeping the club's hue.
 func adaptiveForeground(c colorful.Color, threshold float64) lipgloss.TerminalColor {
 	return lipgloss.AdaptiveColor{
 		Light: adjustForBackground(c, mustHex(lightBackground), threshold).Hex(),
@@ -311,16 +267,12 @@ func adaptiveForeground(c colorful.Color, threshold float64) lipgloss.TerminalCo
 	}
 }
 
-// adjustForBackground walks a colour's lightness toward the opposite end
-// from bg until it meets the contrast threshold, giving up at the extreme.
 func adjustForBackground(c, bg colorful.Color, threshold float64) colorful.Color {
 	if contrastRatio(c, bg) >= threshold {
 		return c
 	}
 
 	h, s, l := c.Hsl()
-	// Move away from the background: darken on a light background, lighten
-	// on a dark one.
 	step := 0.02
 	if relativeLuminance(bg) > 0.5 {
 		step = -step
@@ -338,15 +290,11 @@ func adjustForBackground(c, bg colorful.Color, threshold float64) colorful.Color
 			return candidate
 		}
 	}
-	// Nothing in this hue cleared the threshold — return the most extreme
-	// version tried, which is still the closest to readable.
+	// Nothing cleared the threshold; the most extreme is closest.
 	return best
 }
 
-// readableTextOn picks black or white for text drawn on top of a brand
-// colour, whichever contrasts more. This is what keeps the header bar
-// legible for both a near-black club (Newcastle) and a near-white one
-// (Real Madrid).
+// readableTextOn picks black or white, whichever contrasts more.
 func readableTextOn(bg colorful.Color) lipgloss.TerminalColor {
 	black, white := mustHex("#000000"), mustHex("#ffffff")
 	if contrastRatio(white, bg) >= contrastRatio(black, bg) {
@@ -355,8 +303,7 @@ func readableTextOn(bg colorful.Color) lipgloss.TerminalColor {
 	return lipgloss.Color("#000000")
 }
 
-// TextOn is black or white, whichever reads on bg, for text drawn on a
-// fill of a theme colour. An adaptive bg (any weak-theme colour) has no
+// TextOn is black or white, whichever reads on bg. An adaptive bg has no
 // single value to solve against, and gets fallback.
 func TextOn(bg, fallback lipgloss.TerminalColor) lipgloss.TerminalColor {
 	if c, ok := parseHex(colorHex(bg)); ok {
@@ -365,9 +312,7 @@ func TextOn(bg, fallback lipgloss.TerminalColor) lipgloss.TerminalColor {
 	return fallback
 }
 
-// selectionBackground derives the selected-row background from the brand
-// colour: heavily desaturated and pushed toward the terminal background, so
-// it tints the row without competing with the text on it.
+// selectionBackground tints the row without competing with its text.
 func selectionBackground(c colorful.Color) lipgloss.TerminalColor {
 	h, s, _ := c.Hsl()
 	return lipgloss.AdaptiveColor{
@@ -392,7 +337,6 @@ func relativeLuminance(c colorful.Color) float64 {
 		if v <= 0.03928 {
 			return v / 12.92
 		}
-		// The WCAG gamma expansion.
 		return math.Pow((v+0.055)/1.055, 2.4)
 	}
 	return 0.2126*channel(c.R) + 0.7152*channel(c.G) + 0.0722*channel(c.B)
@@ -411,8 +355,7 @@ func contrastRatio(a, b colorful.Color) float64 {
 func mustHex(hex string) colorful.Color {
 	c, err := colorful.Hex(hex)
 	if err != nil {
-		// Only ever called with the literals above, so this cannot fire
-		// at runtime; panicking beats silently returning black.
+		// Only called with literals; panicking beats silently returning black.
 		panic("styles: bad built-in color " + hex)
 	}
 	return c

@@ -2,8 +2,7 @@ package components
 
 import "strings"
 
-// digitFont draws 0–9 three rows tall in half blocks, for the one number on
-// a screen worth reading from across the room.
+// digitFont draws 0–9 three rows tall in half blocks.
 var digitFont = map[rune][3]string{
 	'0': {"█▀█", "█ █", "▀▀▀"}, '1': {"▀█ ", " █ ", "▀▀▀"},
 	'2': {"▀▀█", "█▀▀", "▀▀▀"}, '3': {"▀▀█", " ▀█", "▀▀▀"},
@@ -12,8 +11,7 @@ var digitFont = map[rune][3]string{
 	'8': {"█▀█", "█▀█", "▀▀▀"}, '9': {"█▀█", "▀▀█", "▀▀▀"},
 }
 
-// BlockDigits renders s's digits in digitFont, one space between them. Any
-// non-digit makes the whole number unrenderable: an empty result.
+// BlockDigits renders s's digits in digitFont; any non-digit yields "".
 func BlockDigits(s string) [3]string {
 	var rows [3][]string
 	for _, r := range s {

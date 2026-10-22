@@ -10,9 +10,7 @@ import (
 	"time"
 )
 
-// The distinction that matters is transient versus settled: retrying a
-// timeout may work, retrying a 404 just multiplies the wait before the
-// user learns the same thing.
+// Transient failures are retried; settled ones (a 404) are not.
 func TestRetryableClassification(t *testing.T) {
 	cases := []struct {
 		name string
@@ -44,8 +42,7 @@ func TestRetryableSeesThroughWrapping(t *testing.T) {
 	}
 }
 
-// A done context means the user interrupted, whatever the error says —
-// even one that would otherwise be worth retrying.
+// A done context is never retried, whatever the error.
 func TestRetryableDefersToADoneContext(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -60,8 +57,7 @@ func TestBackoffGrowsAndIsCapped(t *testing.T) {
 	if second <= first {
 		t.Errorf("backoff should grow: %v then %v", first, second)
 	}
-	// However many attempts, the wait must stay bounded — a full refresh
-	// multiplies this by every competition-season in the run.
+	// The wait must stay bounded; a full refresh multiplies it.
 	for attempt := 1; attempt < 20; attempt++ {
 		if got := backoffFor(attempt); got > maxBackoff {
 			t.Fatalf("backoff for attempt %d = %v, exceeds the %v cap", attempt, got, maxBackoff)
