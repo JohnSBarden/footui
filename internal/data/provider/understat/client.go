@@ -220,7 +220,7 @@ func (c *Client) attempt(ctx context.Context, url, leagueKey, season string) ([]
 	if err != nil {
 		return nil, fmt.Errorf("understat: build request: %w", err)
 	}
-	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; footui/0.1; +https://github.com/JohnSBarden/footui)")
+	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; footui; +https://github.com/JohnSBarden/footui)")
 	req.Header.Set("X-Requested-With", "XMLHttpRequest")
 	req.Header.Set("Referer", fmt.Sprintf("%s/league/%s", c.baseURL, leagueKey))
 

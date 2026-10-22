@@ -125,7 +125,7 @@ func (m *Model) logPanel(width, height int) string {
 	if len(lines) > height-2 {
 		lines = lines[:max(height-2, 1)]
 	}
-	return th.Panel.Width(width-2).Height(height-2).BorderForeground(th.Palette.Border).Render(strings.Join(lines, "\n"))
+	return th.Panel.Width(width - 2).Height(height - 2).BorderForeground(th.Palette.Border).Render(strings.Join(lines, "\n"))
 }
 
 // logLine is one entry: its time, a mark for how it went, and its text.

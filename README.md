@@ -1,8 +1,17 @@
-# footui
+<h1 align="center">⚽ footui</h1>
 
-[![CI](https://github.com/JohnSBarden/footui/actions/workflows/ci.yml/badge.svg)](https://github.com/JohnSBarden/footui/actions/workflows/ci.yml)
+<p align="center">
+  <strong>Football stats you can drill into, right in your terminal.</strong><br>
+  Tables, xG, form, squads, careers and every match a nation plays —
+  in your club's colours, from a database on your own machine.
+</p>
 
-A terminal dashboard for drillable football statistics.
+<p align="center">
+  <a href="https://github.com/JohnSBarden/footui/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/JohnSBarden/footui/actions/workflows/ci.yml/badge.svg"></a>
+  <img alt="Go 1.26+" src="https://img.shields.io/badge/go-1.26%2B-00ADD8?logo=go&logoColor=white">
+  <img alt="Linux and macOS" src="https://img.shields.io/badge/platform-linux%20%7C%20macOS-555">
+  <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-C8F25A"></a>
+</p>
 
 ![footui's matchday dashboard: a score strip of recent and upcoming games, MLS and Premier League tables, and favourite club, nation and player cards](docs/screenshots/matchday.png)
 
@@ -13,6 +22,48 @@ squads, honours, and every club's recent games across its league, cups and
 Europe. National teams and international tournaments are covered too: every
 match a nation plays, friendlies included, filterable down to the
 competitions you care about.
+
+## Highlights
+
+- 🏟️ **21 leagues and every national team.** The big five and Russia, MLS,
+  USL, the European second tiers, four women's leagues and the UEFA club
+  competitions, plus seven domestic cups, and the World Cup, Euros, Copa
+  América and their qualifiers.
+- 📈 **The numbers behind the score.** xG, xA, npxG, PPDA and expected points
+  where understat has them, plus possession, shots and box scores from ESPN.
+- 🧭 **Drill anywhere.** League → club → player → a past season → the
+  opponent's page, by keyboard or mouse, with `/` search from every screen.
+- ⭐ **A matchday dashboard of what you follow.** Star leagues, clubs, nations
+  and players, and footui opens on their tables, form, fixtures and scores.
+  New results tick along the bottom as they arrive.
+- 🎨 **Drawn in your club's colours.** Your terminal's own background, or the
+  whole screen striped like a pitch in the club's primary colour, always at
+  WCAG AA contrast. Nothing depends on colour alone.
+- 🔌 **Offline after the first fetch.** One static binary and one SQLite
+  file. No account, no API key, no daemon, no telemetry.
+
+## Quick start
+
+```sh
+go install github.com/JohnSBarden/footui/cmd/footui@latest
+footui refresh --all     # the starter set: big five, MLS, NWSL, WSL, World Cup, UCL, UEL
+footui                   # explore; press ? for every key
+```
+
+<details>
+<summary><strong>Contents</strong></summary>
+
+- [Why footui exists](#why-footui-exists)
+- [Install](#install)
+- [Getting started](#getting-started) · [Keys](#keys) · [Favourites and the dashboard](#favourites-and-the-dashboard)
+- [Players by position](#players-by-position) · [Recent games](#recent-games) · [National teams and tournaments](#national-teams-and-tournaments)
+- [The look](#the-look) · [Themes](#themes) · [Settings](#settings)
+- [What's covered](#whats-covered) · [Commands](#commands) · [Where data lives](#where-data-lives)
+- [How it works](#how-it-works) · [How it's built](#how-its-built) · [Data sources](#data-sources)
+
+</details>
+
+A club's page, in plain text:
 
 ```
  Arsenal   England · men
@@ -144,6 +195,7 @@ Every screen shows its bindings along the bottom; `?` expands the full set.
 | `r` | Refresh what's on screen — a competition, a club's or a nation's games; progress shows on the status line |
 | `d` | Open the league catalog |
 | `t` | Switch theme, and remember the choice |
+| `L` | Show the download log: what was queued, fetched, stopped or failed, and when |
 | `?` | Show every key |
 | `q` | Quit |
 | `ctrl+k` | A surprise, listed only under `?` |
@@ -151,6 +203,9 @@ Every screen shows its bindings along the bottom; `?` expands the full set.
 The search box takes letters as text, so while you type there use `ctrl+f`,
 `ctrl+r`, `ctrl+g`, `ctrl+t` and `ctrl+c` instead, or press `tab` to move
 into the results, where `j`/`k` and the plain keys work again.
+
+The mouse works too: click a table row, search result, card, tab, season or
+group to select or open it, and scroll with the wheel.
 
 | Screen | Keys |
 |---|---|
