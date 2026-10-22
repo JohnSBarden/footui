@@ -1,114 +1,13 @@
-<h1 align="center">⚽ footui</h1>
+# footui
 
-<p align="center">
-  <strong>Football stats you can drill into, right in your terminal.</strong><br>
-  Tables, xG, form, squads, careers and every match a nation plays —
-  in your club's colours, from a database on your own machine.
-</p>
+[![CI](https://github.com/JohnSBarden/footui/actions/workflows/ci.yml/badge.svg)](https://github.com/JohnSBarden/footui/actions/workflows/ci.yml)
 
-<p align="center">
-  <a href="https://github.com/JohnSBarden/footui/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/JohnSBarden/footui/actions/workflows/ci.yml/badge.svg"></a>
-  <img alt="Go 1.26+" src="https://img.shields.io/badge/go-1.26%2B-00ADD8?logo=go&logoColor=white">
-  <img alt="Linux and macOS" src="https://img.shields.io/badge/platform-linux%20%7C%20macOS-555">
-  <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-C8F25A"></a>
-</p>
+A terminal UI for football stats. footui downloads league, club, player and
+match data into a local SQLite database, then lets you browse it: league
+tables, club pages, player careers, recent games and box scores, xG where
+the source has it, and national teams' full match records.
 
-![footui's matchday dashboard: a score strip of recent and upcoming games, MLS and Premier League tables, and favourite club, nation and player cards](docs/screenshots/matchday.png)
-
-`footui` fetches league, team, player and match data into a
-local SQLite database and lets you drill through it in an interactive TUI:
-**Browse → League → Team → Player**, with expected goals, pressing metrics,
-squads, honours, and every club's recent games across its league, cups and
-Europe. National teams and international tournaments are covered too: every
-match a nation plays, friendlies included, filterable down to the
-competitions you care about.
-
-## Highlights
-
-- 🏟️ **21 leagues and every national team.** The big five and Russia, MLS,
-  USL, the European second tiers, four women's leagues and the UEFA club
-  competitions, plus seven domestic cups, and the World Cup, Euros, Copa
-  América and their qualifiers.
-- 📈 **The numbers behind the score.** xG, xA, npxG, PPDA and expected points
-  where understat has them, plus possession, shots and box scores from ESPN.
-- 🧭 **Drill anywhere.** League → club → player → a past season → the
-  opponent's page, by keyboard or mouse, with `/` search from every screen.
-- ⭐ **A matchday dashboard of what you follow.** Star leagues, clubs, nations
-  and players, and footui opens on their tables, form, fixtures and scores.
-  New results tick along the bottom as they arrive.
-- 🎨 **Drawn in your club's colours.** Your terminal's own background, or the
-  whole screen striped like a pitch in the club's primary colour, always at
-  WCAG AA contrast. Nothing depends on colour alone.
-- 🔌 **Offline after the first fetch.** One static binary and one SQLite
-  file. No account, no API key, no daemon, no telemetry.
-
-## Quick start
-
-```sh
-go install github.com/JohnSBarden/footui/cmd/footui@latest
-footui refresh --all     # the starter set: big five, MLS, NWSL, WSL, World Cup, UCL, UEL
-footui                   # explore; press ? for every key
-```
-
-<details>
-<summary><strong>Contents</strong></summary>
-
-- [Why footui exists](#why-footui-exists)
-- [Install](#install)
-- [Getting started](#getting-started) · [Keys](#keys) · [Favourites and the dashboard](#favourites-and-the-dashboard)
-- [Players by position](#players-by-position) · [Recent games](#recent-games) · [National teams and tournaments](#national-teams-and-tournaments)
-- [The look](#the-look) · [Themes](#themes) · [Settings](#settings)
-- [What's covered](#whats-covered) · [Commands](#commands) · [Where data lives](#where-data-lives)
-- [How it works](#how-it-works) · [How it's built](#how-its-built) · [Data sources](#data-sources)
-
-</details>
-
-A club's page, in plain text:
-
-```
- Arsenal   England · men
-[Premier League (3)]  Champions League (3)    updated 34 minutes ago
-
-  Sat 19 Sep          Sat 10 Oct          Tue 13 Oct          Today
-  PL             FT │ PL             FT │ UCL            FT │ PL          15:00
-‹ ● Brighton      3 │ ● Arsenal       2 │ ● Arsenal       3 │ ● Arsenal          ›
-  ● Arsenal       0 │ ● Leeds         1 │ ● Lille         0 │ ● Fulham
-
-Recent  W W L W W  m all games
-
-╭───────────────╮╭───────────────╮╭───────────────╮╭───────────────╮╭───────────────╮
-│ Position      ││ Points        ││ Record        ││ Goals         ││ xG            │
-│ 2             ││ 15            ││ 5-0-1         ││ 10:5          ││ 11.7          │
-│ 2026-27       ││ 6 played      ││ W-D-L         ││ +5            ││ -1.7 vs GF    │
-╰───────────────╯╰───────────────╯╰───────────────╯╰───────────────╯╰───────────────╯
-```
-
-## Why footui exists
-
-The numbers that explain football — expected goals, pressing, a club's form
-across every competition, a nation's record with the friendlies taken out —
-are scattered across websites built for one match or one season at a time.
-footui puts them in one place you can move through with the keyboard, from a
-league table to a club to a player and back, across as many seasons as you
-care to download.
-
-A few principles shape everything in it:
-
-- **Your data, on your machine.** Everything footui shows comes from a local
-  database. It works offline, opens instantly, and keeps history that the
-  sources themselves page away.
-- **Honest numbers.** A figure footui doesn't have is shown as missing, never
-  as zero. Competitions are never blended: a club's Premier League and
-  Champions League seasons are separate lines. An impossible figure from a
-  source is dropped rather than displayed.
-- **Polite to free sources.** Both data sources are free and undocumented.
-  footui fetches in shared batches, never re-fetches what can't have
-  changed, and stops at once when asked to.
-- **One identity per club and player.** Arsenal reached through two sources
-  is one club, and Saka has one career.
-- **Keyboard-first and readable.** Every action is reachable from the TUI,
-  every screen lists its keys, and a club's screens are drawn in its
-  colours at accessible contrast.
+![footui's matchday dashboard](docs/screenshots/matchday.png)
 
 ## Install
 
@@ -118,440 +17,142 @@ Requires Go 1.26 or newer.
 go install github.com/JohnSBarden/footui/cmd/footui@latest
 ```
 
-Or build from a clone:
+Or from a clone: `make static` builds `bin/footui`, and `make release`
+cross-compiles for Linux and macOS into `dist/`. The binary is pure Go
+with no other dependencies.
+
+## Quick start
+
+footui ships with no data. Either fetch some from the shell:
 
 ```sh
-make static      # single static binary at bin/footui
-make release     # cross-compiled binaries for linux and macOS in dist/
+footui refresh --all    # current season of the big five, MLS, NWSL, WSL, World Cup, UCL, UEL
+footui                  # open the TUI
 ```
 
-The SQLite driver is [`modernc.org/sqlite`](https://modernc.org/sqlite), a
-pure-Go implementation, so the result is one static binary with nothing to
-install alongside it.
+or open `footui`, press `d` for the league catalog, tick the seasons you
+want and press `enter`. Downloads run in the background.
 
-## Getting started
+After that, footui refreshes the leagues and teams you follow when you open
+it, once their data is more than 6 hours old (`--stale-after` changes this,
+`0` turns it off).
 
-`footui` ships with no data. The easiest start is the in-app league catalog:
-open `footui`, press `ctrl+g` (or `d` on any screen without a search box),
-pick a league, tick the seasons you want and press `enter`. Downloads run in
-the background, one league at a time, with progress on the status line, so
-you can keep browsing while they finish.
-
-Each launch opens on footui's wordmark for a moment, listing the leagues it
-is bringing up to date (and saying so if ESPN has paused footui for asking
-too often); any key skips it.
-
-From then on, opening footui keeps what you follow current. A league whose
-current season you have is refreshed once it's more than six hours old, and
-when a new season starts, the one you followed last season gets it.
-Starred clubs and nations have their games kept current the same way.
-`--stale-after 2h` changes the threshold and `--stale-after 0` turns this
-off.
-
-Or fetch from the shell:
+## Usage
 
 ```sh
-footui refresh                        # current season of the Premier League
-footui refresh --competition esp-la-liga --years 3   # La Liga, this season and two before
-footui refresh --all                  # current season of the starter set (big five, MLS, NWSL, WSL, World Cup, UCL, UEL)
-footui refresh --all --years 5 --dry-run   # show what that would fetch, and stop
-footui refresh --team england         # a national team's matches, this year and last
-footui refresh --team arsenal         # a cached club's recent games
-footui refresh --competition world-cup --season 2022   # a tournament edition
+footui                                   # dashboard of favourites, or browse
+footui league premier                    # a league table
+footui team arsenal                      # a club
+footui team england                      # a national team ("england women" for the women's side)
+footui player saka                       # a player's career
+footui league world-cup                  # a tournament
 ```
 
-For a scheduled refresh, `--max-age` skips whatever is already current:
+Names match what you've downloaded, ignoring case and accents.
 
 ```sh
-footui refresh --all --years 10 --max-age 24h
+footui refresh                                     # Premier League, current season
+footui refresh --competition esp-la-liga --years 3 # La Liga, last 3 seasons
+footui refresh --competition world-cup --season 2022
+footui refresh --team england                      # a nation's matches, this year and last
+footui refresh --all --years 5 --dry-run           # show what would be fetched
+footui refresh --all --max-age 24h                 # skip anything fetched in the last day
 ```
 
-`footui status` shows what you have and how fresh it is. Then explore:
-
-```sh
-footui                          # your favourites, or browse everything cached
-footui league "premier"         # standings table
-footui team "Arsenal"           # club dashboard
-footui team england             # a national team ("england women" for the women's side)
-footui league world-cup         # a tournament: groups, then fixtures by round
-footui player "Saka"            # player career
-```
-
-Names are matched against what you've cached, ignoring case and accents, so
-partial names work — `footui player martin` finds Martín Zubimendi. A name
-matching several results opens the browse screen filtered to them rather
-than guessing.
-
-### Keys
-
-Every screen shows its bindings along the bottom; `?` expands the full set.
-
-| Key | Anywhere |
+| Command | |
 |---|---|
-| `/` | Search, from any screen |
-| `enter` | Open the highlighted league, club, nation, player, season or card |
-| `esc` | Back (clears a search query first) |
-| `f` | Star or un-star the league, club, nation or player on screen, or the highlighted result or card |
-| `r` | Refresh what's on screen — a competition, a club's or a nation's games; progress shows on the status line |
-| `d` | Open the league catalog |
-| `t` | Switch theme, and remember the choice |
-| `L` | Show the download log: what was queued, fetched, stopped or failed, and when |
-| `?` | Show every key |
+| `footui status` | What's downloaded and how fresh it is |
+| `footui competitions` | Every competition and its ID |
+| `footui colors` | Apply the curated club colours |
+| `footui config` | Show settings (`init` writes a commented file, `path` prints its location) |
+| `footui completion <shell>` | Shell completions |
+
+Global flags: `--db PATH`, `--theme weak|strong`, `--no-color`,
+`--stale-after D`.
+
+## Keys
+
+Every screen lists its keys at the bottom; `?` shows them all. The mouse
+works too.
+
+| Key | |
+|---|---|
+| `/` | Search |
+| `enter` / `esc` | Open / back |
+| `f` | Star the league, club, nation or player under the cursor |
+| `r` | Refresh what's on screen |
+| `d` | League catalog |
+| `L` | Download log |
+| `t` | Toggle theme |
+| `<` `>` | Scroll the scores strip |
+| `←` `→` | Change season, competition or year |
+| `m` | A club's last 30 games, or a tournament's fixtures |
 | `q` | Quit |
-| `ctrl+k` | A surprise, listed only under `?` |
 
-The search box takes letters as text, so while you type there use `ctrl+f`,
-`ctrl+r`, `ctrl+g`, `ctrl+t` and `ctrl+c` instead, or press `tab` to move
-into the results, where `j`/`k` and the plain keys work again.
+While typing in a search box, use the `ctrl+` versions (`ctrl+f`, `ctrl+r`,
+`ctrl+g`, `ctrl+t`), or `tab` into the results.
 
-The mouse works too: click a table row, search result, card, tab, season or
-group to select or open it, and scroll with the wheel.
+## Coverage
 
-| Screen | Keys |
-|---|---|
-| Dashboard | arrows or `hjkl` move between cards, `<`/`>` scroll the scores along the top |
-| League | `←`/`→` change season, `<`/`>` scroll the scores along the top; for a tournament, `[`/`]` step through groups and `m` lists every fixture by round |
-| Team | `←`/`→` change competition, `tab` moves between seasons and squad, `m` opens the last 30 games, `<`/`>` scroll the scores along the top |
-| Games | `enter` opens a box score, `o` opens the opponent |
-| Player | `←`/`→` change competition |
-| Nation | `←`/`→` change year, `tab` moves into the competition filter (`space` applies), `enter` opens a box score, `<`/`>` scroll the scores along the top |
-| Catalog | `space` ticks a season, `a` every missing season of a league, `c` its current season, `C` the current season of every club league, `u` clears, `enter` downloads, `s` stops downloads |
-
-### Favourites and the dashboard
-
-Star what you follow with `f`. It stars whatever is highlighted: on a league
-table, the league while the cursor is on its header (where the screen
-opens) and the club once you move into the table. Starred names carry a ★.
-Once anything is starred, `footui` opens on a dashboard of cards that flow
-together into columns, leagues first, then tournaments, clubs, nations and
-players. Each card's title carries a badge that says what it is:
-
-- **League** 🥅 — twice the size of the others, two columns wide: the top
-  fifteen of the current table with each club's full record, and your
-  starred clubs picked out even further down.
-- **Tournament** 🏆 — your nation's group during the group stage, the
-  latest round after it.
-- **Club** `◆` in its colour, with its colours in a scarf along the top —
-  position, points and form, record, and xG against goals where understat
-  covers the league.
-- **Nation** — its flag: its last three results, its next fixture and its
-  form, under its saved filter.
-- **Player** `●` in their club's colour — the season's numbers for their
-  position (see below), with a `▲` line when one stands out.
-
-Above the cards run the scores, a tile per game the way a league's website
-shows them: each starred club's and nation's last two games and its next
-(a starred player's club's too), and each starred league's and
-tournament's latest round and the one coming. It opens on what's live and
-next, with the latest results to its left; `<`/`>` scroll it. A league,
-cup or tournament's own page has the same strip for the season on screen,
-with your starred clubs picked out, and a club's or nation's page its
-schedule: its last ten games and next five, in every competition.
-
-Each card says at its top right how fresh its numbers are (`3h`), and when a
-refresh of them is running. Favourites are keyed by footui's own IDs, so a club starred from its
-Premier League page is the same favourite reached through the Champions
-League.
-
-### Players by position
-
-A player is judged on what their position is for. The player page's tiles,
-the chart in its band and its season table follow one of four groups:
-
-| | Tiles | Chart |
-|---|---|---|
-| Keeper | Clean sheets, saves and save %, goals conceded per 90, goals prevented against an xGA estimate | Clean sheets by season |
-| Defender | Clean sheets, tackles, interceptions and clearances per 90, passing | Clean sheets by season |
-| Midfielder | Goals and assists against xG and xA, key passes per 90, tackles plus interceptions per 90, passing | Assists against xA |
-| Forward | Goals and assists against xG and xA, shots per 90, shots on target %, minutes | Goals against xG |
-
-A keeper's expected goals against is their club's xGA scaled by their share
-of its minutes — no free source has xG faced per keeper — and is marked as
-an estimate.
-
-Under the tiles, `▲ unusual for a defender` names a number outside the
-position's own tiles that's in the top 10% of everyone who has played the
-position in that league and season, per 90, over 900 minutes or more —
-"4.6 xG · top 9% of Premier League defenders".
-
-These numbers are fetched per player, when you open one and on launch for
-the players you've starred, so they're never shown on squad or league
-tables, which couldn't keep them current. A past season is fetched once; the
-current one again once it's stale. Seasons the source barely recorded show
-`—` rather than a misleading zero.
-
-### Recent games
-
-A club's screen opens with its games in every competition — its league,
-its country's cups, and Europe — along the top, extra time and shoot-outs
-marked, and its form over the last five beneath them. `m` lists the last
-30 from the club's side, with xG where understat covers the league, each
-with a box score (possession, shots, corners and fouls from ESPN; xG from
-understat).
-
-They arrive on their own: opening a club fetches whatever its games need,
-and nothing if they're current. The first English club costs about ten
-requests — the FA Cup, the League Cup and the three European competitions,
-this year and last — and every English club after it costs none, because
-those lists are shared (see [How it works](#how-it-works)).
-
-The cups are the FA Cup, League Cup, Copa del Rey, DFB-Pokal, Coppa Italia,
-Coupe de France and U.S. Open Cup, men's only. A cup opponent from outside
-the leagues footui covers is a club of its own: open it from a game and you
-get its games, without a table.
-
-### National teams and tournaments
-
-Every nation is searchable from the first launch. Open one and star it: its
-matches for this year and last arrive in the background — friendlies,
-qualifiers, Nations League, tournaments — newest first, with kickoff times
-for fixtures to come and each match's box score a keypress away. The first
-nation costs about 25 requests; every nation after it costs none.
-
-The competition filter above the matches is **All**, **Competitive** (no
-friendlies), **Tournaments**, or a tick per competition. The record and
-averages are worked out from exactly the matches the filter and year keep,
-and the filter is remembered per nation. A shoot-out counts as a draw, as
-FIFA records it. There are no player stats for national teams.
-
-A tournament opens on the League screen: its groups one at a time, or `m`
-for every fixture by round through to the final.
-
-### The look
-
-One night-match palette, called Floodlit: footui's own lime for the
-wordmark, focus and the cursor, and a club's colours wherever the screen
-belongs to a club — the band across the top of its page, the dot beside its
-name in tables and search, the scarf along its dashboard card. Everything
-else carries a number:
-
-- Form is a row of letter chips, **W** green, **D** amber, **L** red. Each
-  game in a list leads with ● won, ◐ drawn or ○ lost.
-- Bars show points against the leader, xG against goals, and expected goal
-  difference either side of zero.
-- On a league table a coloured `▌` marks the Champions League places
-  (cyan), the Europa League place (orange) and relegation (red), where
-  footui knows that season's rule; without colour they're `C`, `E` and `↓`.
-- A goal or assist count is green where it beat its expected value and
-  orange where it fell short.
-
-Nothing depends on colour alone: `--no-color` keeps every letter and glyph.
-
-### Themes
-
-A club's screens are drawn in its colours, in one of two modes:
-
-- **weak** (default): your terminal's own background, with club colours for
-  highlights, headings and borders.
-- **strong**: the whole screen painted in the club's primary colour, cut
-  into mowing stripes like a pitch. Text, accents and win/loss colours are
-  chosen to meet WCAG AA contrast on both stripes. Screens without a club
-  are the kickabout's grass.
-
-`t` switches mode and saves the choice; `--theme` and `FOOTUI_THEME` override
-it for a single run.
-
-### Settings
-
-Settings live in an optional YAML file at
-`$XDG_CONFIG_HOME/footui/config.yaml` (usually `~/.config/footui/config.yaml`;
-`$FOOTUI_CONFIG` points elsewhere):
-
-```sh
-footui config init    # write a commented file with every setting at its default
-footui config         # show the settings in effect and where each came from
-footui config path    # print the file's location
-```
-
-```yaml
-theme: strong        # weak | strong
-accent: terminal     # lime | #rrggbb | terminal (your terminal's own palette)
-stale_after: 2h      # refresh-on-open threshold; 0 turns it off
-db: ~/footui/footui.db # database location
-no_color: false
-```
-
-A flag always wins, then an environment variable (`FOOTUI_THEME`,
-`FOOTUI_ACCENT`, `NO_COLOR`), then the file, then the default. A misspelt key is an error
-naming the file, not a setting silently ignored.
-
-## What's covered
-
-**Read this before relying on it.** footui draws on two sources, and what you
-get for a competition depends on which one serves it (`footui competitions`
-lists each with its source and history):
+Data comes from two sources. `footui competitions` lists every competition
+with its source and how far back it goes.
 
 | | understat.com | ESPN |
 |---|---|---|
-| Competitions | Premier League, La Liga, Bundesliga, Serie A, Ligue 1, Russian Premier League | MLS, USL Championship; Championship, La Liga 2, 2. Bundesliga, Serie B, Ligue 2; Women's Super League, Liga F, Première Ligue, NWSL; Champions League, Europa League, Conference League, Women's Champions League |
-| History | 2014-15 on | 2010-11 on for most; 2016 for NWSL, 2018-19 for the WSL, 2021-22 or later for the newest |
-| Team stats | Results, goals, points, xG, xGA, npxG, PPDA, deep completions, expected points | Results, goals, points, possession, shots, shots on target, corners, fouls, cards |
-| Player stats | Appearances, minutes, goals, assists, shots, key passes, xG, xA, npxG | Appearances, goals, assists, shots, cards — no minutes |
-| Per player, on demand | | Minutes, clean sheets, goals conceded, saves, tackles, interceptions, clearances, passing, shots on target — for ESPN's leagues and understat's |
-| Per match | Score and xG | Score, possession, shots, shots on target, corners, fouls |
-| Not available | Possession, fouls, corners, cards | Expected goals of any kind |
+| Leagues | Premier League, La Liga, Bundesliga, Serie A, Ligue 1, Russian Premier League | MLS, USL Championship, Championship, La Liga 2, 2. Bundesliga, Serie B, Ligue 2, WSL, Liga F, Première Ligue, NWSL, Champions League, Europa League, Conference League, Women's Champions League |
+| History | 2014-15 on | Mostly 2010-11 on |
+| Team stats | Goals, points, xG, xGA, npxG, PPDA, expected points | Goals, points, possession, shots, corners, fouls, cards |
+| Player stats | Minutes, goals, assists, shots, key passes, xG, xA | Goals, assists, shots, cards |
+| Matches | Score, xG | Score, possession, shots, corners, fouls |
 
-International football comes from ESPN: the World Cup, Euros, Copa América,
-Gold Cup, Africa Cup of Nations and Asian Cup; World Cup qualifying in five
-confederations; Euro qualifying; the UEFA and Concacaf Nations Leagues;
-friendlies; and the Women's World Cup, Women's Euro, UEFA Women's Nations
-League and women's friendlies, mostly from 2010-2012 on.
+ESPN also provides per-player detail (minutes, clean sheets, saves,
+tackles, passing) fetched when you open a player; domestic cups (FA Cup,
+League Cup, Copa del Rey, DFB-Pokal, Coppa Italia, Coupe de France, U.S.
+Open Cup) as club games; and international football: World Cup, Euros,
+Copa América, Gold Cup, AFCON, Asian Cup, qualifiers, Nations Leagues,
+friendlies, and the women's equivalents.
 
-Domestic cups are there as clubs' games only, with no tables. Not covered:
-the German and Italian women's leagues, third tiers and below as
-competitions, women's cups, super cups, and player stats for national teams.
-Tables with groups (MLS's conferences, old Champions League group stages)
-are shown as one overall table.
+Club colours (`internal/colors/seed/teamcolors.yaml`) and honours
+(`internal/trophies/seed/trophies.yaml`) are curated by hand. Corrections
+welcome.
 
-Two datasets are hand-curated because no scrapeable source exists, and both
-welcome contributions:
+## Configuration
 
-- **Club colours** (`internal/colors/seed/teamcolors.yaml`) override what
-  ESPN supplies; `footui colors` reports cached clubs that still lack any.
-- **Honours** (`internal/trophies/seed/trophies.yaml`) are deliberately
-  partial — complete European Cup lists and domestic league titles from
-  2000-01 — and the Team screen says so.
+Optional, at `~/.config/footui/config.yaml` (or `$FOOTUI_CONFIG`):
 
-## Commands
-
-| Command | What it does |
-|---|---|
-| `footui` | Open the dashboard of favourites, or browse everything cached |
-| `footui league <name>` | Open a competition's standings |
-| `footui team <name>` | Open a club's dashboard, or a national team's matches |
-| `footui player <name>` | Open a player's career |
-| `footui refresh` | Fetch data (`--competition ID`, `--all`, `--years N`, `--season YYYY`, `--team NATION\|CLUB`, `--max-age D`, `--dry-run`) |
-| `footui status` | Show what's cached and how fresh it is |
-| `footui competitions` | List what can be refreshed |
-| `footui colors` | Apply curated club colours and report coverage |
-| `footui config` | Show settings and their sources (`init`, `path`) |
-| `footui completion <shell>` | Shell completions for bash, zsh, fish, powershell |
-
-Global flags: `--db` for another database, `--no-color` (or `NO_COLOR`),
-`--theme weak|strong`, and `--stale-after D` (default `6h`, `0` disables).
-
-## Where data lives
-
-`$XDG_DATA_HOME/footui/footui.db`, falling back to
-`~/.local/share/footui/footui.db`. It is durable data, not a disposable cache:
-re-fetching several seasons is slow and leans on someone else's server.
-
-There is no daemon; a scheduled refresh is a cron entry or systemd timer
-running `footui refresh --all --max-age 24h`. One competition failing doesn't
-abort the rest, the summary names what failed, and the process exits
-non-zero only if nothing at all was fetched.
-
-## How it works
-
-The code is organised around a few patterns. The details are in
-[`docs/architecture.md`](docs/architecture.md) and
-[`docs/data-model.md`](docs/data-model.md).
-
-**Three boundaries.** Providers (`internal/data/provider`) turn a source's
-payloads into canonical `models` types and know nothing of storage.
-Storage (`internal/storage`) is one `Repositories` interface over SQLite;
-nothing else writes SQL. Sync (`internal/data/sync`) is the only code that
-moves data from one to the other, and it is tested with fakes on each side.
-The TUI reads only from storage; the CLI builds the providers and hands them
-to sync. Screens reach each other through
-injected constructors, so no screen imports another.
-
-**A registry routes competitions.** `sync.Coverages` lists every competition
-footui can fetch, the provider that serves it, and how far back it goes.
-Adding a competition is a row there and its source's slug; adding a source
-is a package implementing the provider interfaces.
-
-**Identity is resolved once and remembered.** Each source has its own IDs.
-Before anything is written, sync maps them to footui's canonical ones —
-matching clubs by normalised name within a country, exactly within Europe,
-players within their club's squad — and records every mapping, so a later
-refresh never re-guesses. A club it can't confidently match is kept separate
-rather than merged into the wrong one, and so is a club the source already
-knows by another of its IDs (Miami FC is not Inter Miami, nor Atlanta United
-2 Atlanta United); a nation is never matched to a club. A player is never
-matched to one born on another day, or to one the source knows by another
-ID unless the names are the same words: a squad is everyone who ever played
-for the club, and 2026's Xavi Espart is not the Xavi of 2014. A refresh
-replaces the season it fetched rather than adding to it.
-
-**Two grains.** Club seasons are stored as table lines per (team,
-competition, season), which keeps competitions from ever being summed. Games
-— a nation's, or a club's recent ones — are stored per match, and records
-and averages are computed from the matches on read, so any filter gives a
-correct record with nothing precomputed to go stale.
-
-**The unit of fetching is shared.** ESPN's scoreboard returns a whole
-competition's calendar year in one request — every nation's friendlies,
-every club's FA Cup ties — so following a second nation or club of the same
-country costs nothing. understat's league payload already lists a season's
-matches, so a club's league games come free with the table.
-
-**Politeness is a rule set, not a hope.** A year fetched after it ended is
-complete and never fetched again. The current year is fetched again only
-when it's stale and a stored match has kicked off since, or once a week for
-new fixtures. Requests to both sources are paced and retried with backoff.
-If ESPN keeps answering 429, footui stops asking it for an hour, the TUI
-drops its queue, and the stale check on open stands down.
-
-**Plan, then fetch.** Whether something needs fetching is decided from the
-sync log without a request: opening a club asks whether its games are due
-and queues a refresh only if they are. Every refresh — from the catalog, the
-`r` key, the stale check on open, or the CLI — goes through one pipeline and
-one queue, so nothing is fetched twice at once.
-
-**Fetch everything, then write.** Each season or competition-year is fetched
-in full before any of it is written, so a failure leaves no half-written
-season behind, and every attempt is logged — failures included — so
-freshness is never overstated.
-
-## How it's built
-
-**Tests at the boundaries.** Providers are tested against hand-written
-payloads in each source's shape, with fictional clubs and nations — never
-captured real responses. Sync is tested with fake providers and a real
-in-memory database, including request budgets (following a second nation
-must cost no requests). Screens are tested by driving them with messages and
-reading their rendered output.
-
-**Schema changes are frozen.** Every migration has a fixture database
-written by the schema it introduced (`internal/storage/sqlite/testdata`).
-Every later build must open, upgrade and read each one, and a new migration
-without a fixture fails CI.
-
-**One gate.** `make check` runs gofmt, vet, staticcheck, a `go mod tidy`
-check and the tests under the race detector. CI runs the same, and a pushed
-`v*` tag publishes release binaries.
-
-**A canary for the sources.** Fixture tests can't notice an undocumented
-source changing shape, so `make live` fetches one real competition from each
-(understat's Premier League, ESPN's NWSL) and checks the payloads still
-parse into teams, scores, xG and squads. CI runs it weekly; a red canary
-means a provider changed, not the code.
-
-**Checked in the real thing.** Features are verified by running footui in a
-terminal against a copy of a real database, not only by tests, with request
-counts checked against what the design promised.
-
-Working on it:
-
-```sh
-make check     # the full gate
-make cover     # test coverage summary
-make live      # the provider canary (FOOTUI_LIVE=1)
+```yaml
+theme: weak          # weak | strong
+accent: lime         # lime | #rrggbb | terminal
+stale_after: 6h      # 0 disables refresh-on-open
+db: ~/footui/footui.db
+no_color: false
 ```
 
-Set `FOOTUI_HTTP_CACHE=/some/dir` while developing to keep raw responses on
-disk and avoid hitting the sources repeatedly. It's off by default, because
-a refresh should mean the current numbers.
+Flags override environment variables (`FOOTUI_THEME`, `FOOTUI_ACCENT`,
+`NO_COLOR`), which override the file.
+
+The database lives at `$XDG_DATA_HOME/footui/footui.db`
+(`~/.local/share/footui/footui.db` by default). For scheduled updates, run
+`footui refresh --all --max-age 24h` from cron or a systemd timer.
+
+## Development
+
+```sh
+make check   # gofmt, vet, staticcheck, go mod tidy, tests with -race
+make cover   # coverage summary
+make live    # fetch one real competition from each source and check it parses
+```
+
+Set `FOOTUI_HTTP_CACHE=/some/dir` to cache raw responses while developing.
+Architecture and schema notes are in [`docs/architecture.md`](docs/architecture.md)
+and [`docs/data-model.md`](docs/data-model.md).
 
 ## Data sources
 
-Data comes from [understat.com](https://understat.com) and ESPN's public
-endpoints. footui is not affiliated with either, and the endpoints are
-undocumented, so they can change without notice. Requests are throttled and
-retried conservatively; please don't reconfigure footui to hammer them.
+footui uses [understat.com](https://understat.com) and ESPN's public
+endpoints. It isn't affiliated with either. The endpoints are undocumented
+and may change. Requests are rate-limited; please keep them that way.
 
 ## License
 
-[MIT](LICENSE). The data footui fetches belongs to its providers and is not
-covered by this license.
+[MIT](LICENSE). The data belongs to its providers.
