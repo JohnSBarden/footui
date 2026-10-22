@@ -18,7 +18,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"os"
@@ -27,6 +26,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/JohnSBarden/footui/internal/data/provider"
 )
 
 // defaultBaseURL is understat.com. It is a Client field rather than a
@@ -248,7 +249,7 @@ func (c *Client) attempt(ctx context.Context, url, leagueKey, season string) ([]
 		}
 	}
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := provider.ReadBody(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("understat: read %s %s: %w", leagueKey, season, err)
 	}

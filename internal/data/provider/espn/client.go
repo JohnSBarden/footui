@@ -16,7 +16,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"os"
@@ -276,7 +275,7 @@ func (c *Client) attempt(ctx context.Context, url string, gap time.Duration) ([]
 		return nil, &statusError{URL: url, Status: resp.StatusCode,
 			RetryAfter: retryAfter(resp.Header.Get("Retry-After"), time.Now())}
 	}
-	return io.ReadAll(resp.Body)
+	return provider.ReadBody(resp.Body)
 }
 
 // retryAfter reads a Retry-After header: seconds, or an HTTP date.

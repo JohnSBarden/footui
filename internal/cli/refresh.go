@@ -118,6 +118,11 @@ func newRefreshCmd(g *globalFlags) *cobra.Command {
 
 // resolveCompetitions turns the competition flags into the list to sync.
 func (f *refreshFlags) resolveCompetitions() ([]models.Competition, error) {
+	if f.season != "" {
+		if _, err := strconv.Atoi(f.season); err != nil {
+			return nil, fmt.Errorf("--season %q isn't a year; a season is its start year, e.g. 2024 for 2024-25", f.season)
+		}
+	}
 	if f.all {
 		return sync.Base, nil
 	}
