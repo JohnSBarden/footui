@@ -25,6 +25,7 @@ import (
 type globalFlags struct {
 	dbPath  string
 	noColor bool
+	debug   bool
 	// staleAfter zero disables the launch refresh.
 	staleAfter time.Duration
 	// theme is "weak" or "strong".
@@ -63,6 +64,9 @@ func (g *globalFlags) launchTUI(ctx context.Context, build func(core.Deps) (core
 
 	now := time.Now()
 	deps := tui.NewDeps(ctx, repos, styles.BaseFor(g.settings.theme, g.settings.noColor))
+	if g.settings.debug {
+		deps.Log.FollowTrace()
+	}
 	deps.Refresh = tuiRefresher(repos, g.settings.staleAfter)
 	if stale := g.settings.staleAfter; stale > 0 {
 		deps.ClubDue = func(club models.Team) (string, bool) {

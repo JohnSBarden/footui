@@ -26,7 +26,6 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 		return m, nil
 
 	case core.RefreshQueueMsg:
-		m.queue = msg
 		m.active, m.pending = map[string]bool{}, map[string]bool{}
 		if msg.Active != nil {
 			m.active[msg.Active.Key()] = true
@@ -57,11 +56,11 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 	case tea.KeyMsg:
 		return m.handleKey(msg)
 
+	case core.LogPanelMsg:
+		m.logOpen = msg.Open
+		return m, nil
+
 	case core.ClickMsg:
-		if msg.ID == "log" {
-			m.showLog = !m.showLog
-			return m, nil
-		}
 		// Clicking the selected card opens it.
 		i, ok := msg.ClickedIndex("card")
 		if !ok || i >= len(m.cards) {
@@ -88,8 +87,6 @@ func (m *Model) handleKey(msg tea.KeyMsg) (core.Screen, tea.Cmd) {
 		}
 	}()
 	switch msg.String() {
-	case "L":
-		m.showLog = !m.showLog
 	case "left", "h":
 		m.move(0, -1)
 	case "right", "l":

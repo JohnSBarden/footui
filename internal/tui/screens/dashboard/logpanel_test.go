@@ -3,65 +3,25 @@ package dashboard_test
 import (
 	"strings"
 	"testing"
-	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/muesli/termenv"
 
-	"github.com/JohnSBarden/footui/internal/storage/storagetest"
 	"github.com/JohnSBarden/footui/internal/tui/core"
 	"github.com/JohnSBarden/footui/internal/tui/styles"
 )
 
-func TestLogPanelShowsTheDownloadState(t *testing.T) {
+// The app draws the panel; the header's button follows its state.
+func TestLogButtonFollowsThePanel(t *testing.T) {
 	_, deps, _ := seed(t)
-	deps.Log = core.NewLog(func() time.Time { return storagetest.Fixed })
-	deps.Log.Add(core.LogDone, "MLS: 30 teams")
-	deps.Log.Add(core.LogInfo, "start Premier League (2025)")
-	deps.Log.Add(core.LogProgress, "season 2025: 380 matches")
 	var s core.Screen = load(t, deps, 140)
 	if !strings.Contains(s.View(), "≡ log") {
 		t.Fatalf("the header should offer the log:\n%s", s.View())
 	}
-	s, _ = s.Update(core.RefreshQueueMsg{
-		Active:  &core.RefreshRequest{CompetitionID: "eng-premier-league", Name: "Premier League"},
-		Pending: []core.RefreshRequest{{CompetitionID: "usa-nwsl", Name: "NWSL"}},
-	})
-	s, _ = s.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("L")})
-
-	view := s.View()
-	for _, want := range []string{"× log", "NOW", "🔄 Premier League", "season 2025: 380 matches",
-		"QUEUED 1", "· NWSL", "RECENT", "✓ MLS: 30 teams", "◆"} {
-		if !strings.Contains(view, want) {
-			t.Errorf("missing %q:\n%s", want, view)
-		}
-	}
-	for _, line := range strings.Split(view, "\n") {
-		if w := ansi.StringWidth(line); w > 140 {
-			t.Errorf("line %d wide, past the screen: %q", w, line)
-		}
-	}
-	if strings.Index(view, "season 2025") > strings.Index(view, "MLS: 30") {
-		t.Error("recent entries should run newest first")
-	}
-
-	s, _ = s.Update(core.ClickMsg{ID: "log"})
-	if strings.Contains(s.View(), "RECENT") {
-		t.Error("the header's button should close the log")
-	}
-}
-
-func TestLogPanelWhenIdle(t *testing.T) {
-	_, deps, _ := seed(t)
-	var s core.Screen = load(t, deps, 120)
-	s, _ = s.Update(core.ClickMsg{ID: "log"})
-	view := s.View()
-	for _, want := range []string{"idle — nothing downloading", "nothing yet this session"} {
-		if !strings.Contains(view, want) {
-			t.Errorf("missing %q:\n%s", want, view)
-		}
+	s, _ = s.Update(core.LogPanelMsg{Open: true})
+	if !strings.Contains(s.View(), "× log") {
+		t.Errorf("an open log should offer to close:\n%s", s.View())
 	}
 }
 

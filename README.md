@@ -89,7 +89,7 @@ footui refresh --all --max-age 24h                 # skip anything fetched in th
 | `footui completion <shell>` | Shell completions |
 
 Global flags: `--db PATH`, `--theme weak|strong`, `--no-color`,
-`--stale-after D`.
+`--stale-after D`, `--debug`.
 
 ## Keys
 
@@ -103,7 +103,7 @@ works too.
 | `f` | Star the league, club, nation or player under the cursor |
 | `r` | Refresh what's on screen |
 | `d` | League catalog |
-| `L` | Download log |
+| `L` | Download log, beside any screen |
 | `t` | Toggle theme |
 | `<` `>` | Scroll the scores strip |
 | `←` `→` | Change season, competition or year |
@@ -147,10 +147,16 @@ accent: lime         # lime | #rrggbb | terminal
 stale_after: 6h      # 0 disables refresh-on-open
 db: ~/footui/footui.db
 no_color: false
+debug: false         # write a debug log for bug reports
 ```
 
 Flags override environment variables (`FOOTUI_THEME`, `FOOTUI_ACCENT`,
-`NO_COLOR`), which override the file.
+`NO_COLOR`, `FOOTUI_DEBUG`), which override the file.
+
+Found a bug? Run with `--debug` (or `FOOTUI_DEBUG=1`) and attach
+`~/.local/state/footui/debug.log` to the issue. It records every request,
+retry, rate-limit pause, migration and club or player match, and the log
+panel (`L`) shows the same lines live.
 
 The database lives at `$XDG_DATA_HOME/footui/footui.db`
 (`~/.local/share/footui/footui.db` by default). For scheduled updates, run

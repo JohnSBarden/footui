@@ -28,3 +28,17 @@ func DefaultDBPath() string {
 	}
 	return current
 }
+
+// DebugLogPath returns $XDG_STATE_HOME/footui/debug.log (default
+// ~/.local/state).
+func DebugLogPath() string {
+	stateHome := os.Getenv("XDG_STATE_HOME")
+	if stateHome == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			home = "."
+		}
+		stateHome = filepath.Join(home, ".local", "state")
+	}
+	return filepath.Join(stateHome, "footui", "debug.log")
+}

@@ -74,7 +74,7 @@ var (
 	)
 )
 
-// Log opens and closes the dashboard's log of downloads.
+// Log opens and closes the log panel, from any screen.
 var Log = key.NewBinding(
 	key.WithKeys("L"),
 	key.WithHelp("L", "log"),

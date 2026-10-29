@@ -78,11 +78,19 @@ func showSettings(cmd *cobra.Command, g *globalFlags) error {
 		{"stale_after", staleText(s)},
 		{"db", s.dbPath},
 		{"no_color", strconv.FormatBool(s.noColor)},
+		{"debug", debugText(s)},
 	}
 	for _, r := range rows {
 		fmt.Fprintf(out, "  %-12s %-40s (%s)\n", r.name, r.value, s.sources[r.name])
 	}
 	return nil
+}
+
+func debugText(s settings) string {
+	if s.debug {
+		return "on → " + config.DebugLogPath()
+	}
+	return "off"
 }
 
 func staleText(s settings) string {

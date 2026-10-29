@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/JohnSBarden/footui/internal/data/provider"
+	"github.com/JohnSBarden/footui/internal/trace"
 )
 
 const defaultBaseURL = "https://understat.com"
@@ -53,7 +54,7 @@ type Client struct {
 // NewClient constructs a Client with minGap between outbound requests.
 func NewClient(minGap time.Duration) *Client {
 	return &Client{
-		httpClient: &http.Client{Timeout: requestTimeout},
+		httpClient: &http.Client{Timeout: requestTimeout, Transport: trace.Transport(nil)},
 		baseURL:    defaultBaseURL,
 		minGap:     minGap,
 		cacheDir:   os.Getenv(CacheDirEnv),
@@ -151,6 +152,7 @@ func (c *Client) get(ctx context.Context, leagueKey, season string) ([]byte, err
 	for attempt := 0; attempt < maxAttempts; attempt++ {
 		if attempt > 0 {
 			// Announced here so the final failure isn't reported as a retry.
+			trace.Printf("understat: retry %d/%d of %s: %v", attempt, maxAttempts-1, url, lastErr)
 			if c.OnRetry != nil {
 				c.OnRetry(attempt, maxAttempts, lastErr)
 			}
@@ -170,6 +172,7 @@ func (c *Client) get(ctx context.Context, leagueKey, season string) ([]byte, err
 		}
 	}
 
+	trace.Printf("understat: giving up on %s after %d attempts: %v", url, maxAttempts, lastErr)
 	return nil, &ExhaustedError{Attempts: maxAttempts, Last: lastErr}
 }
 

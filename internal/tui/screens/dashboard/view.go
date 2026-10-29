@@ -41,10 +41,6 @@ func (m *Model) View() string {
 		if !m.strip.Empty() {
 			b.WriteString(m.strip.View(th, m.width) + "\n\n")
 		}
-		if m.showLog {
-			b.WriteString(m.withLog(m.cardsView(), max(m.height-headerLines-m.stripLines(), 8)))
-			break
-		}
 		b.WriteString(m.cardsView())
 	}
 	return b.String()
