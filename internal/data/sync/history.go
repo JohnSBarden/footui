@@ -70,6 +70,21 @@ func ClubHistoryJobs(ctx context.Context, repos storage.Repositories, clubID str
 	return historyJobs(order, now, func(string, string) bool { return true }), nil
 }
 
+// PendingUnits counts the seasons a history run (KeepFinished) would
+// fetch rather than leave alone.
+func PendingUnits(ctx context.Context, repos storage.Repositories, jobs []Job) int {
+	s := &Syncer{repos: repos, KeepFinished: true}
+	n := 0
+	for _, job := range jobs {
+		for _, year := range job.Seasons {
+			if _, fresh := s.isFresh(ctx, job.Competition, NewSeason(job.Competition.ID, year)); !fresh {
+				n++
+			}
+		}
+	}
+	return n
+}
+
 // historyJobs builds jobs of the seasons want selects, in Coverages order.
 func historyJobs(compIDs []string, now time.Time, want func(compID, year string) bool) []Job {
 	var jobs []Job
