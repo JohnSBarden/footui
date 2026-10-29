@@ -13,6 +13,13 @@ import (
 // Open opens or creates the database at path, sets pragmas, and runs
 // pending migrations.
 func Open(path string) (*sql.DB, error) {
+	return OpenNotify(path, nil)
+}
+
+// OpenNotify is Open, calling upgrading first when an existing database
+// has migrations to apply, since those can take a while on a big one. A
+// new database's are quick and go unannounced.
+func OpenNotify(path string, upgrading func(pending int)) (*sql.DB, error) {
 	if dir := filepath.Dir(path); dir != "." {
 		if err := os.MkdirAll(dir, 0o700); err != nil {
 			return nil, fmt.Errorf("sqlite: create db dir: %w", err)
@@ -32,7 +39,7 @@ func Open(path string) (*sql.DB, error) {
 		return nil, fmt.Errorf("sqlite: set pragmas: %w", err)
 	}
 
-	if err := Migrate(db); err != nil {
+	if err := migrateTo(db, "", upgrading); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("sqlite: migrate: %w", err)
 	}
