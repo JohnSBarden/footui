@@ -67,7 +67,8 @@ func (p *Provider) AllRosterStats(ctx context.Context, comp provider.Competition
 	if err != nil {
 		return nil, err
 	}
-	return mapPlayers(data, comp.CompetitionID, season.SeasonID), nil
+	rows := mapPlayers(data, comp.CompetitionID, season.SeasonID)
+	return p.splitMovers(ctx, data, comp.CompetitionID, season.Label, rows), nil
 }
 
 // SeasonMatches implements provider.SeasonMatchesProvider; it costs no

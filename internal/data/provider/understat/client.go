@@ -48,6 +48,8 @@ type Client struct {
 	mu        sync.Mutex
 	lastFetch time.Time
 	cache     map[string]*leagueData
+	// players caches player pages, which cover every season.
+	players map[string]*playerData
 }
 
 // NewClient constructs a Client with minGap between outbound requests.
@@ -58,6 +60,7 @@ func NewClient(minGap time.Duration) *Client {
 		minGap:     minGap,
 		cacheDir:   os.Getenv(CacheDirEnv),
 		cache:      make(map[string]*leagueData),
+		players:    make(map[string]*playerData),
 	}
 }
 
@@ -146,7 +149,12 @@ func (c *Client) writeDiskCache(leagueKey, season string, body []byte) {
 
 func (c *Client) get(ctx context.Context, leagueKey, season string) ([]byte, error) {
 	url := fmt.Sprintf("%s/getLeagueData/%s/%s", c.baseURL, leagueKey, season)
+	return c.getURL(ctx, url, fmt.Sprintf("%s/league/%s", c.baseURL, leagueKey), leagueKey, season)
+}
 
+// getURL fetches url with retries. leagueKey and season only name the
+// request in errors.
+func (c *Client) getURL(ctx context.Context, url, referer, leagueKey, season string) ([]byte, error) {
 	var lastErr error
 	for attempt := 0; attempt < maxAttempts; attempt++ {
 		if attempt > 0 {
@@ -159,7 +167,7 @@ func (c *Client) get(ctx context.Context, leagueKey, season string) ([]byte, err
 			}
 		}
 
-		body, err := c.attempt(ctx, url, leagueKey, season)
+		body, err := c.attempt(ctx, url, referer, leagueKey, season)
 		if err == nil {
 			return body, nil
 		}
@@ -173,7 +181,7 @@ func (c *Client) get(ctx context.Context, leagueKey, season string) ([]byte, err
 	return nil, &ExhaustedError{Attempts: maxAttempts, Last: lastErr}
 }
 
-func (c *Client) attempt(ctx context.Context, url, leagueKey, season string) ([]byte, error) {
+func (c *Client) attempt(ctx context.Context, url, referer, leagueKey, season string) ([]byte, error) {
 	if err := c.throttle(ctx); err != nil {
 		return nil, err
 	}
@@ -184,7 +192,7 @@ func (c *Client) attempt(ctx context.Context, url, leagueKey, season string) ([]
 	}
 	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; footui; +https://github.com/JohnSBarden/footui)")
 	req.Header.Set("X-Requested-With", "XMLHttpRequest")
-	req.Header.Set("Referer", fmt.Sprintf("%s/league/%s", c.baseURL, leagueKey))
+	req.Header.Set("Referer", referer)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {

@@ -153,9 +153,9 @@ func slugify(s string) string {
 	return strings.Trim(s, "-")
 }
 
-// primaryTeamTitle returns the last (most recent) club of a comma-joined
-// team_title. A mid-season mover's single aggregate line is attributed
-// wholly to it (see docs/data-model.md).
+// primaryTeamTitle returns the last-listed club of a comma-joined
+// team_title (understat's order isn't always chronological): where a mid-season mover's aggregate line goes when it
+// can't be split by club (see splitMovers).
 func primaryTeamTitle(teamTitle string) string {
 	parts := strings.Split(teamTitle, ",")
 	return strings.TrimSpace(parts[len(parts)-1])

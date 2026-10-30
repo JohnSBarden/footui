@@ -154,7 +154,7 @@ Same per-competition-per-season grain as `TeamSeasonStats`, keyed by
 | Field | Type | Notes |
 |---|---|---|
 | `PlayerID` | string | Canonical; see Player. |
-| `TeamID` | string | **Caveat:** understat.com reports a comma-joined `team_title` for a player who changed clubs mid-season (e.g. `"Bournemouth,Manchester City"`). footui attributes the row to the **last-listed (most recent) club only** (`understat.primaryTeamTitle`) — the stat line itself is still the player's full-season aggregate across every club, not split per club. A transferred player's numbers will look inflated for whichever club they're attributed to. Regression-tested in `internal/data/provider/understat/mapper_test.go`. |
+| `TeamID` | string | understat.com reports a comma-joined `team_title` for a player who changed clubs mid-season within a league (e.g. `"Barcelona,Atletico Madrid"`), with one aggregate line. footui fetches that player's `getPlayerData/{id}` (one request per mover, cached for every season) and stores one line per club from its `groups.season`. If the page can't be fetched or doesn't split cleanly, the aggregate is kept under the last-listed club (`understat.primaryTeamTitle`). Tested in `internal/data/provider/understat/movers_test.go`. |
 | `Appearances`, `Goals`, `Assists`, `YellowCards`, `RedCards` | int | Both providers. |
 | `Minutes` | int | understat.com only; ESPN reports none. |
 | `XG`, `XA` | `*float64` | understat.com only. |
