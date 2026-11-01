@@ -98,6 +98,8 @@ func (a *App) noteRefreshed(req core.RefreshRequest, err error) {
 	}
 }
 
+const splashKofi = "☕ ko-fi.com/johnnycashmoney"
+
 func (a *App) splashView() string {
 	th := a.theme()
 	body := a.splashBody(th)
@@ -109,6 +111,9 @@ func (a *App) splashView() string {
 	}
 	block := lipgloss.JoinVertical(lipgloss.Center, head, body)
 	hint := " " + th.Keycap.Render("any key") + " " + th.Help.Render("skip")
+	if kofi := th.Faint.Render(splashKofi + " "); a.width >= lipgloss.Width(hint)+lipgloss.Width(kofi)+2 {
+		hint = padBetween(hint, kofi, a.width)
+	}
 	return lipgloss.Place(a.width, room, lipgloss.Center, lipgloss.Center, block) + "\n" + hint
 }
 

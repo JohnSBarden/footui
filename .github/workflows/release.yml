@@ -29,4 +29,5 @@ jobs:
         run: |
           gh release create "$GITHUB_REF_NAME" dist/* \
             --title "$GITHUB_REF_NAME" --generate-notes \
+            --notes "☕ Enjoying footui? [Support it on Ko-fi](https://ko-fi.com/johnnycashmoney)." \
             $([[ "$GITHUB_REF_NAME" == *-* ]] && echo --prerelease)
