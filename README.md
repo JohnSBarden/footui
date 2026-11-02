@@ -11,6 +11,7 @@
   <img alt="Go 1.26+" src="https://img.shields.io/badge/go-1.26%2B-00ADD8?logo=go&logoColor=white">
   <img alt="Linux and macOS" src="https://img.shields.io/badge/platform-linux%20%7C%20macOS-555">
   <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-C8F25A"></a>
+  <a href="https://ko-fi.com/johnnycashmoney"><img alt="Support on Ko-fi" src="https://img.shields.io/badge/Ko--fi-support-FF5E5B?logo=ko-fi&logoColor=white"></a>
 </p>
 
 A terminal UI for football stats. footui downloads league, club, player and
@@ -173,6 +174,11 @@ and [`docs/data-model.md`](docs/data-model.md).
 footui uses [understat.com](https://understat.com) and ESPN's public
 endpoints. It isn't affiliated with either. The endpoints are undocumented
 and may change. Requests are rate-limited; please keep them that way.
+
+## Support
+
+If footui earns a place in your terminal, you can buy me a coffee on
+[Ko-fi](https://ko-fi.com/johnnycashmoney). ☕
 
 ## License
 

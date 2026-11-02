@@ -49,6 +49,9 @@ func TestSplashWithNothingQueuedIsJustTheWordmark(t *testing.T) {
 	if !strings.Contains(v, "▀▀▀▀") {
 		t.Errorf("the full-size splash should draw the balls' shadows\n%s", v)
 	}
+	if !strings.Contains(v, "ko-fi.com/johnnycashmoney") {
+		t.Errorf("the splash should link to Ko-fi\n%s", v)
+	}
 }
 
 func TestSplashTaglineVersion(t *testing.T) {
