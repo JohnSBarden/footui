@@ -162,3 +162,49 @@ func SampleSquad() []PlayerRow {
 		{ID: "p-raya", Name: "David Raya", Position: "GK", Apps: 37, Minutes: 3330, Goals: 0, Assists: 0, XG: 0.0, XA: 0.1},
 	}
 }
+
+// SampleMatchDetail is a home 0–2 away game in full: two away goals (one
+// a penalty), a booking each side, a sub, both whistles, short lineups,
+// a few stats and commentary.
+func SampleMatchDetail(matchID string) models.MatchDetail {
+	n := func(v int) *int { return &v }
+	f := func(v float64) *float64 { return &v }
+	return models.MatchDetail{
+		MatchID: matchID, Final: true, Venue: "Northbridge Park", Attendance: 41250, FetchedAt: Fixed,
+		Home: models.MatchSide{
+			Formation: "4-3-3",
+			Stats: models.MatchDetailStats{Possession: f(44), Shots: n(6), ShotsOnTarget: n(1), Passes: n(380),
+				AccuratePasses: n(300), Corners: n(3), YellowCards: n(1)},
+			Lineup: []models.LineupPlayer{
+				{Name: "Tom Keeper", Shirt: "1", Position: "G", Place: 1, Starter: true},
+				{Name: "Joe Defender", Shirt: "4", Position: "CD", Place: 4, Starter: true, Yellow: true, Off: 70},
+				{Name: "Sam Bench", Shirt: "14", Position: "M", On: 70},
+				{Name: "Unused Ulf", Shirt: "30", Position: "G"},
+			},
+		},
+		Away: models.MatchSide{
+			Formation: "4-2-3-1",
+			Stats: models.MatchDetailStats{Possession: f(56), Shots: n(17), ShotsOnTarget: n(5), Passes: n(510),
+				AccuratePasses: n(460), Corners: n(8), YellowCards: n(1)},
+			Lineup: []models.LineupPlayer{
+				{Name: "David Raya", Shirt: "22", Position: "G", Place: 1, Starter: true},
+				{Name: "Kai Havertz", Shirt: "29", Position: "F", Place: 11, Starter: true, Goals: 1},
+				{Name: "Bukayo Saka", Shirt: "7", Position: "RW", Place: 10, Starter: true, Goals: 1, Assists: 1},
+			},
+		},
+		Events: []models.MatchEvent{
+			{Kind: models.EventGoal, Side: models.SideAway, Period: 1, Minute: 16, Player: "Kai Havertz", Other: "Bukayo Saka"},
+			{Kind: models.EventYellow, Side: models.SideHome, Period: 1, Minute: 33, Player: "Joe Defender"},
+			{Kind: models.EventHalfTime, Period: 1, Minute: 45, Added: 2},
+			{Kind: models.EventPenaltyGoal, Side: models.SideAway, Period: 2, Minute: 54, Player: "Bukayo Saka"},
+			{Kind: models.EventSub, Side: models.SideHome, Period: 2, Minute: 70, Player: "Sam Bench", Other: "Joe Defender"},
+			{Kind: models.EventYellow, Side: models.SideAway, Period: 2, Minute: 81, Player: "David Raya"},
+			{Kind: models.EventFullTime, Period: 2, Minute: 90, Added: 4},
+		},
+		Commentary: []models.CommentaryLine{
+			{Text: "Lineups are announced and players are warming up."},
+			{Clock: "16'", Kind: "Goal", Text: "Goal! Northbridge 0, Arsenal 1. Kai Havertz (Arsenal) header from the centre of the box."},
+			{Clock: "54'", Kind: "Penalty - Scored", Text: "Goal! Northbridge 0, Arsenal 2. Bukayo Saka (Arsenal) converts the penalty."},
+		},
+	}
+}

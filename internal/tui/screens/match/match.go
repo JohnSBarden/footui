@@ -57,9 +57,9 @@ func (m *Model) Title() string { return "Match" }
 // Keys implements core.Screen.
 func (m *Model) Keys() core.KeyMap {
 	return core.KeyMap{
-		Short: []key.Binding{keys.MatchTabs, keys.Move},
+		Short: []key.Binding{keys.MatchTabs, keys.Move, keys.Opponent},
 		Full: [][]key.Binding{
-			{keys.MatchTabs},
+			{keys.MatchTabs, keys.Opponent},
 			{keys.Up, keys.Down, keys.PageUp, keys.PageDown},
 			{keys.Home, keys.End},
 		},
@@ -127,7 +127,7 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 			m.setTab(i)
 		}
 	case tea.KeyMsg:
-		m.handleKey(msg)
+		return m, m.handleKey(msg)
 	}
 	return m, nil
 }
@@ -137,13 +137,15 @@ func (m *Model) setTab(i int) {
 	m.scroll = 0
 }
 
-func (m *Model) handleKey(msg tea.KeyMsg) {
+func (m *Model) handleKey(msg tea.KeyMsg) tea.Cmd {
 	page := max(m.bodyHeight()-1, 1)
 	switch s := msg.String(); s {
-	case "tab":
+	case "tab", "]":
 		m.setTab(m.tab + 1)
-	case "shift+tab":
+	case "shift+tab", "[":
 		m.setTab(m.tab - 1)
+	case "o":
+		return m.openOpponent()
 	case "1", "2", "3", "4":
 		m.setTab(int(s[0] - '1'))
 	case "up", "k":
@@ -159,6 +161,24 @@ func (m *Model) handleKey(msg tea.KeyMsg) {
 	case "end", "G":
 		m.scrollBy(1 << 20)
 	}
+	return nil
+}
+
+// openOpponent opens the side the screen wasn't opened from; with no
+// side, the away team.
+func (m *Model) openOpponent() tea.Cmd {
+	if m.deps.Nav.Team == nil {
+		return nil
+	}
+	opp := m.match.AwayTeamID
+	if m.teamID != "" {
+		opp = m.match.Opponent(m.teamID)
+	}
+	team, ok := m.teams[opp]
+	if !ok {
+		team = models.Team{ID: opp, Name: opp}
+	}
+	return core.Push(m.deps.Nav.Team(m.deps, team, m.match.CompetitionID, m.match.SeasonID))
 }
 
 func (m *Model) scrollBy(delta int) {
@@ -193,7 +213,7 @@ func (m *Model) View() string {
 }
 
 func (m *Model) available() bool {
-	return m.have && (len(m.detail.Events) > 0 || len(m.detail.Home.Lineup) > 0 || len(m.detail.Commentary) > 0)
+	return m.have && !m.detail.Empty()
 }
 
 func (m *Model) emptyState() string {

@@ -3,10 +3,10 @@ package cli
 import (
 	"context"
 	"fmt"
+	gosync "sync"
 	"time"
 
 	"github.com/JohnSBarden/footui/internal/data/models"
-	"github.com/JohnSBarden/footui/internal/data/sources"
 	"github.com/JohnSBarden/footui/internal/data/sync"
 	"github.com/JohnSBarden/footui/internal/storage"
 	"github.com/JohnSBarden/footui/internal/textfold"
@@ -43,7 +43,10 @@ func runClub(ctx context.Context, store storage.Repositories, club models.Team, 
 // refreshLastGame fetches the club's last game in full. Its failure is
 // noted, never the refresh's: the games themselves are already stored.
 func refreshLastGame(ctx context.Context, store storage.Repositories, club models.Team, ev refreshEvents) string {
-	res, err := sync.RefreshLastGame(ctx, store, sources.MatchDetails(ev.retry), club.ID, time.Now())
+	if lastGameFailedRecently(club.ID, time.Now()) {
+		return ""
+	}
+	res, err := sync.RefreshLastGame(ctx, store, newLastGameSource(ev), club.ID, time.Now())
 	note := func(s string) {
 		if ev.note != nil {
 			ev.note(s)
@@ -51,6 +54,7 @@ func refreshLastGame(ctx context.Context, store storage.Repositories, club model
 	}
 	switch {
 	case err != nil:
+		lastGameFailed(club.ID, time.Now())
 		note("last game: " + tuiError(err).Error())
 		return ""
 	case res.Unavailable:
@@ -85,10 +89,33 @@ func clubDue(ctx context.Context, repos storage.Repositories, club models.Team, 
 			return fmt.Sprintf("%s %d %s", u.Competition.Abbrev(), u.Year, why), true
 		}
 	}
-	if _, due := sync.LastGameDue(ctx, repos, club.ID); due {
+	if _, due := sync.LastGameDue(ctx, repos, club.ID); due && !lastGameFailedRecently(club.ID, now) {
 		return "last game", true
 	}
 	return "", false
+}
+
+// lastGameBackoff is how long a club's failed last-game fetch rests before
+// it is due again, as a failed unit does. It is kept in memory: a restart
+// may try once more.
+const lastGameBackoff = 10 * time.Minute
+
+var lastGameFailures = struct {
+	mu gosync.Mutex
+	at map[string]time.Time
+}{at: map[string]time.Time{}}
+
+func lastGameFailed(teamID string, now time.Time) {
+	lastGameFailures.mu.Lock()
+	defer lastGameFailures.mu.Unlock()
+	lastGameFailures.at[teamID] = now
+}
+
+func lastGameFailedRecently(teamID string, now time.Time) bool {
+	lastGameFailures.mu.Lock()
+	defer lastGameFailures.mu.Unlock()
+	at, ok := lastGameFailures.at[teamID]
+	return ok && now.Sub(at) < lastGameBackoff
 }
 
 // clubRefreshes covers starred clubs' cups and European games; their

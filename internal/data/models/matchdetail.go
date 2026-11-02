@@ -23,6 +23,12 @@ type MatchDetail struct {
 	FetchedAt  time.Time
 }
 
+// Empty reports whether there's nothing to show: the source didn't have
+// the game, and the empty detail only records that it was asked.
+func (d MatchDetail) Empty() bool {
+	return len(d.Events) == 0 && len(d.Home.Lineup) == 0 && len(d.Away.Lineup) == 0 && len(d.Commentary) == 0
+}
+
 // MatchSide is one team's half of a MatchDetail.
 type MatchSide struct {
 	Formation string // "4-2-3-1", or "" when unknown

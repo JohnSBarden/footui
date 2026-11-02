@@ -201,7 +201,7 @@ func ShortName(name string) string {
 
 func isParticle(w string) bool {
 	switch strings.ToLower(w) {
-	case "van", "von", "de", "der", "den", "da", "di", "del", "la", "le", "dos", "das", "ter", "el", "al", "bin":
+	case "van", "von", "de", "der", "den", "da", "di", "del", "la", "le", "dos", "das", "ter", "el", "al", "bin", "mac", "mc", "ben", "abu":
 		return true
 	}
 	return false

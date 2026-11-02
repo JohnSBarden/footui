@@ -88,14 +88,18 @@ func (ev refreshEvents) unitFunc() sync.Progress {
 	}
 }
 
-// newDetailSource, newCareerSource and newMatchSource are variables so
-// tests can swap in stubs.
+// newDetailSource, newCareerSource, newMatchSource and newLastGameSource
+// are variables so tests can swap in stubs.
 var newDetailSource = sources.Details
 
 var newCareerSource = sources.Careers
 
 var newMatchSource = func(ev refreshEvents) sync.MatchSource {
 	return sources.Matches(ev.retry)
+}
+
+var newLastGameSource = func(ev refreshEvents) sync.LastGameSource {
+	return sources.MatchDetails(ev.retry)
 }
 
 func newMatchSyncer(store storage.Repositories, ev refreshEvents) *sync.MatchSyncer {

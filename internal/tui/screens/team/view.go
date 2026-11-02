@@ -51,6 +51,9 @@ func (m *Model) View() string {
 		parts = append(parts, m.strip.View(th, m.width))
 	}
 	parts = append(parts, m.recentStrip())
+	if card := m.lastGameCard(); card != "" && rest()-components.Lines(card)-1 >= minCardBody {
+		parts = append(parts, card)
+	}
 	if len(m.competitions) == 0 {
 		// Known only from its games (e.g. a cup opponent): no tables.
 		return strings.Join(parts, "\n\n")

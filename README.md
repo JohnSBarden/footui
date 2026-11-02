@@ -109,6 +109,7 @@ works too.
 | `<` `>` | Scroll the scores strip |
 | `←` `→` | Change season, competition or year |
 | `m` | A club's last 30 games, or a tournament's fixtures |
+| `e` | A club's last game in full: timeline, stats, lineups, commentary |
 | `q` | Quit |
 
 While typing in a search box, use the `ctrl+` versions (`ctrl+f`, `ctrl+r`,
