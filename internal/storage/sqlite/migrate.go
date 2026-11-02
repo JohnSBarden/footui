@@ -8,6 +8,9 @@ import (
 	"io/fs"
 	"sort"
 	"strings"
+	"time"
+
+	"github.com/JohnSBarden/footui/internal/trace"
 )
 
 //go:embed migrations/*.sql
@@ -67,6 +70,8 @@ func migrateTo(db *sql.DB, upTo string) error {
 			return fmt.Errorf("read migration %s: %w", name, err)
 		}
 
+		start := time.Now()
+		trace.Printf("migration %s: applying", name)
 		tx, err := db.Begin()
 		if err != nil {
 			return fmt.Errorf("begin tx for migration %s: %w", name, err)
@@ -85,6 +90,7 @@ func migrateTo(db *sql.DB, upTo string) error {
 		if err := tx.Commit(); err != nil {
 			return fmt.Errorf("commit migration %s: %w", name, err)
 		}
+		trace.Printf("migration %s: done in %s", name, time.Since(start).Round(time.Millisecond))
 	}
 
 	return nil

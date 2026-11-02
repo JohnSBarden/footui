@@ -16,10 +16,12 @@ import (
 
 	"github.com/JohnSBarden/footui/internal/data/models"
 	"github.com/JohnSBarden/footui/internal/storage"
+	"github.com/JohnSBarden/footui/internal/trace"
 	"github.com/JohnSBarden/footui/internal/tui/components"
 	"github.com/JohnSBarden/footui/internal/tui/core"
 	"github.com/JohnSBarden/footui/internal/tui/keys"
 	"github.com/JohnSBarden/footui/internal/tui/kickabout"
+	"github.com/JohnSBarden/footui/internal/tui/logpanel"
 	"github.com/JohnSBarden/footui/internal/tui/screens/browse"
 	"github.com/JohnSBarden/footui/internal/tui/screens/catalog"
 	"github.com/JohnSBarden/footui/internal/tui/screens/dashboard"
@@ -65,6 +67,10 @@ type App struct {
 
 	help     help.Model
 	showFull bool
+	// showLog puts the log panel beside every screen; logTicking is set
+	// while a repaint is pending.
+	showLog    bool
+	logTicking bool
 
 	// splash is the launch screen, nil once it's gone.
 	splash *splashState
@@ -288,8 +294,9 @@ func (a *App) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// A screen pushed mid-refresh learns what's in flight now rather
 		// than at the next queue change.
 		sized, queueCmd := sized.Update(core.RefreshQueueMsg{Active: a.active, Pending: slices.Clone(a.queue)})
+		sized, logCmd := sized.Update(core.LogPanelMsg{Open: a.showLog})
 		a.stack[len(a.stack)-1] = sized
-		return a, tea.Batch(sizeCmd, queueCmd, sized.Init())
+		return a, tea.Batch(sizeCmd, queueCmd, logCmd, sized.Init())
 
 	case core.PopMsg:
 		return a.pop()
@@ -311,6 +318,10 @@ func (a *App) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tickerMsg:
 		return a, a.turnNews()
+
+	case logTickMsg:
+		a.logTicking = false
+		return a, a.logTick()
 
 	case refreshMsg:
 		return a, a.handleRefreshEvent(msg)
@@ -397,10 +408,54 @@ func (a *App) handleGlobalKey(key tea.KeyMsg) (bool, tea.Model, tea.Cmd) {
 		return true, a, a.toggleFavorite()
 	case "ctrl+f":
 		return true, a, a.toggleFavorite()
+	case "L":
+		if a.capturingText() {
+			return false, a, nil
+		}
+		return true, a, a.toggleLog()
 	case "ctrl+k":
 		return true, a, a.startKick()
 	}
 	return false, a, nil
+}
+
+// logTickMsg repaints the open panel in debug mode, whose lines arrive
+// without a message of their own.
+type logTickMsg struct{}
+
+const logTickEvery = 500 * time.Millisecond
+
+func (a *App) logTick() tea.Cmd {
+	if !a.showLog || a.logTicking || !trace.On() {
+		return nil
+	}
+	a.logTicking = true
+	return tea.Tick(logTickEvery, func(time.Time) tea.Msg { return logTickMsg{} })
+}
+
+// toggleLog resizes the stack around the panel and tells each screen.
+func (a *App) toggleLog() tea.Cmd {
+	a.showLog = !a.showLog
+	cmds := []tea.Cmd{a.logTick()}
+	for i, s := range a.stack {
+		updated, sizeCmd := s.Update(a.screenSize(i))
+		updated, logCmd := updated.Update(core.LogPanelMsg{Open: a.showLog})
+		a.stack[i] = updated
+		cmds = append(cmds, a.routeFrom(i, sizeCmd), a.routeFrom(i, logCmd))
+	}
+	return tea.Batch(cmds...)
+}
+
+// logBeside is the panel's width while it shares the screen, zero when
+// it's closed or takes the whole width.
+func (a *App) logBeside() int {
+	if !a.showLog {
+		return 0
+	}
+	if w := logpanel.Width(a.width); w < a.width {
+		return w
+	}
+	return 0
 }
 
 func (a *App) startKick() tea.Cmd {
@@ -524,7 +579,11 @@ func (a *App) screenSize(i int) tea.WindowSizeMsg {
 	if i > 0 {
 		h -= crumbHeight
 	}
-	return tea.WindowSizeMsg{Width: a.width, Height: h}
+	w := a.width
+	if p := a.logBeside(); p > 0 {
+		w -= p + logpanel.Gap
+	}
+	return tea.WindowSizeMsg{Width: w, Height: h}
 }
 
 // chromeHeight: gap, footer, status line. crumbHeight: breadcrumb and gap.
@@ -561,12 +620,20 @@ func (a *App) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 		if !ok {
 			return a, nil
 		}
-		a.status = ""
-		updated, cmd := a.current().Update(core.ClickMsg{ID: id})
-		a.stack[len(a.stack)-1] = updated
-		return a, cmd
+		return a, a.click(id)
 	}
 	return a, nil
+}
+
+// click sends a click to the screen, except the log button's.
+func (a *App) click(id string) tea.Cmd {
+	a.status = ""
+	if id == "log" {
+		return a.toggleLog()
+	}
+	updated, cmd := a.current().Update(core.ClickMsg{ID: id})
+	a.stack[len(a.stack)-1] = updated
+	return cmd
 }
 
 func (a *App) baseView() string {
@@ -596,9 +663,29 @@ func (a *App) baseView() string {
 			lines = append(lines, "")
 		}
 		body = strings.Join(lines, "\n")
+		if a.showLog {
+			body = a.withLog(body, room)
+		}
 	}
 
 	return styles.Paint(top.String()+body+bottom.String(), a.theme(), a.width, a.height)
+}
+
+// withLog puts the panel beside body, or in its place on a narrow
+// terminal.
+func (a *App) withLog(body string, height int) string {
+	p := logpanel.Panel{
+		Theme: a.theme(),
+		Log:   a.deps.Log,
+		Queue: core.RefreshQueueMsg{Active: a.active, Pending: a.queue},
+		Pause: a.deps.ProviderPause,
+		Now:   a.now(),
+	}
+	w := a.logBeside()
+	if w == 0 {
+		return p.View(a.width, height)
+	}
+	return logpanel.Beside(body, p.View(w, height), a.width-w-logpanel.Gap)
 }
 
 func (a *App) breadcrumb() string {
@@ -649,7 +736,7 @@ func (a *App) footer() string {
 		if !isSearch {
 			full = append(full, keys.Find)
 		}
-		full = append(full, keys.Theme, keys.Help, keys.Back, keys.Quit, keys.Kickabout)
+		full = append(full, keys.Theme, keys.Log, keys.Help, keys.Back, keys.Quit, keys.Kickabout)
 	}
 	// Favourite goes first: it's the one action that depends on what's on
 	// screen.

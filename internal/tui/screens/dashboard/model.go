@@ -137,10 +137,9 @@ type Model struct {
 	// active and pending are keyed like core.RefreshRequest.Key.
 	active  map[string]bool
 	pending map[string]bool
-	// queue holds the same requests, for the log panel.
-	queue core.RefreshQueueMsg
 
-	showLog bool
+	// logOpen is whether the app's log panel is showing, for the button.
+	logOpen bool
 	// frame counts animation frames since the cursor last moved.
 	frame int
 
@@ -162,7 +161,7 @@ func (m *Model) Title() string { return Title }
 // Keys implements core.Screen.
 func (m *Model) Keys() core.KeyMap {
 	return core.KeyMap{
-		Short: []key.Binding{keys.MoveCard, keys.Open, keys.Scores, keys.Log},
+		Short: []key.Binding{keys.MoveCard, keys.Open, keys.Scores},
 	}
 }
 

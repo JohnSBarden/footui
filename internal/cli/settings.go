@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -28,6 +29,7 @@ type settings struct {
 	staleAfter time.Duration
 	dbPath     string
 	noColor    bool
+	debug      bool
 	// sources records where each value came from, keyed by setting name.
 	sources map[string]string
 }
@@ -117,6 +119,21 @@ func (g *globalFlags) resolveSettings(cmd *cobra.Command) error {
 		s.noColor, s.sources["no_color"] = *file.NoColor, fromFile
 	default:
 		s.sources["no_color"] = fromDefault
+	}
+
+	switch env := envSetting("FOOTUI_DEBUG"); {
+	case changed("debug"):
+		s.debug, s.sources["debug"] = g.debug, fromFlag
+	case env != "":
+		on, err := strconv.ParseBool(env)
+		if err != nil {
+			return fmt.Errorf("FOOTUI_DEBUG=%q: want 1 or 0 (from %s)", env, fromEnv)
+		}
+		s.debug, s.sources["debug"] = on, fromEnv
+	case file.Debug != nil:
+		s.debug, s.sources["debug"] = *file.Debug, fromFile
+	default:
+		s.sources["debug"] = fromDefault
 	}
 
 	g.settings = s

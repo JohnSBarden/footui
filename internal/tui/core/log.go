@@ -4,6 +4,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/JohnSBarden/footui/internal/trace"
 )
 
 // LogLevel says what kind of thing a log entry records.
@@ -16,6 +18,8 @@ const (
 	LogDone
 	// LogError is a failed download, or the source refusing more.
 	LogError
+	// LogDebug is a debug-mode line from below the interface.
+	LogDebug
 )
 
 // String is the level as it reads in a log line.
@@ -27,6 +31,8 @@ func (l LogLevel) String() string {
 		return "DONE"
 	case LogError:
 		return "FAIL"
+	case LogDebug:
+		return "DBUG"
 	}
 	return "INFO"
 }
@@ -63,7 +69,8 @@ func NewLog(clock func() time.Time) *Log {
 }
 
 // Add drops a progress line repeating the one before it. A nil log
-// records nothing.
+// records nothing. Everything but debug lines, which came from it, goes to
+// the debug log too.
 func (l *Log) Add(level LogLevel, text string) {
 	if l == nil {
 		return
@@ -71,6 +78,9 @@ func (l *Log) Add(level LogLevel, text string) {
 	text = strings.TrimSpace(text)
 	if text == "" {
 		return
+	}
+	if level != LogDebug {
+		trace.Line(level.String(), text)
 	}
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -83,6 +93,14 @@ func (l *Log) Add(level LogLevel, text string) {
 	}
 }
 
+// FollowTrace adds every debug-mode line to the log.
+func (l *Log) FollowTrace() {
+	if l == nil {
+		return
+	}
+	trace.Watch(func(_, text string) { l.Add(LogDebug, text) })
+}
+
 // Entries is a copy of the log, oldest first.
 func (l *Log) Entries() []LogEntry {
 	if l == nil {
@@ -92,6 +110,9 @@ func (l *Log) Entries() []LogEntry {
 	defer l.mu.Unlock()
 	return append([]LogEntry(nil), l.entries...)
 }
+
+// LogPanelMsg tells screens whether the app's log panel is open.
+type LogPanelMsg struct{ Open bool }
 
 // FrameMsg is one animation frame for the top screen while it's Animating.
 type FrameMsg struct{}

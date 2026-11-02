@@ -12,6 +12,7 @@ import (
 	"github.com/JohnSBarden/footui/internal/data/models"
 	"github.com/JohnSBarden/footui/internal/storage"
 	"github.com/JohnSBarden/footui/internal/textfold"
+	"github.com/JohnSBarden/footui/internal/trace"
 )
 
 // Identity resolution maps provider IDs ("espn:359") to canonical teams
@@ -217,12 +218,15 @@ func (r *resolver) team(ctx context.Context, provider, local string, t models.Te
 	if err != nil {
 		return models.Team{}, err
 	}
-	if !ok {
+	if ok {
+		trace.Printf("identity: team %s:%s %q matched %s %q", provider, local, t.Name, row.ID, row.Name)
+	} else {
 		row = t
 		row.ID = r.newTeamID(t)
 		if canonicalLocalIDs[provider] {
 			row.ID = local
 		}
+		trace.Printf("identity: team %s:%s %q is new, as %s", provider, local, t.Name, row.ID)
 	}
 	if err := r.repos.PutExternalRef(ctx, "team", row.ID, provider, local); err != nil {
 		return models.Team{}, err
@@ -456,6 +460,7 @@ func (r *resolver) player(ctx context.Context, provider, local string, p models.
 		}
 		if ok {
 			row = enrich(existing, p)
+			trace.Printf("identity: player %s:%s %q matched %s %q in %s's squad", provider, local, p.Name, existing.ID, existing.Name, club)
 		}
 	}
 	if err := r.repos.PutExternalRef(ctx, "player", row.ID, provider, local); err != nil {

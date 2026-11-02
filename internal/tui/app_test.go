@@ -23,6 +23,7 @@ type fakeScreen struct {
 	keyMap      core.KeyMap
 	target      string
 	refreshed   *[]string
+	logOpen     *bool
 }
 
 func newFake(name string) fakeScreen {
@@ -32,6 +33,7 @@ func newFake(name string) fakeScreen {
 		keys:        new([]string),
 		width:       new(int),
 		refreshed:   new([]string),
+		logOpen:     new(bool),
 	}
 }
 
@@ -48,6 +50,8 @@ func (f fakeScreen) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 		*f.width = msg.Width
 	case core.RefreshedMsg:
 		*f.refreshed = append(*f.refreshed, msg.CompetitionID)
+	case core.LogPanelMsg:
+		*f.logOpen = msg.Open
 	}
 	return f, nil
 }

@@ -25,6 +25,8 @@ type File struct {
 	// DB overrides the database path. A leading ~/ is expanded.
 	DB      *string `yaml:"db"`
 	NoColor *bool   `yaml:"no_color"`
+	// Debug writes a debug log for bug reports.
+	Debug *bool `yaml:"debug"`
 }
 
 // Duration is a time.Duration in Go syntax ("6h", "90m", "0").
@@ -117,6 +119,12 @@ const Template = `# footui settings. Every line is optional; a flag on the comma
 
 # Where the database lives. Flag: --db.
 # db: ~/.local/share/footui/footui.db
+
+# Write a debug log of every request, retry, rate-limit pause, migration
+# and identity match to ~/.local/state/footui/debug.log, to attach to a
+# bug report. The log panel (L) shows the same lines. Environment:
+# FOOTUI_DEBUG=1. Flag: --debug.
+# debug: false
 
 # Turn color off entirely. Environment: NO_COLOR. Flag: --no-color.
 # no_color: false

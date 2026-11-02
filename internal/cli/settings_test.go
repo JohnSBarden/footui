@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/JohnSBarden/footui/internal/trace"
 	"github.com/JohnSBarden/footui/internal/tui/styles"
 )
 
@@ -45,6 +46,45 @@ func TestDefaultsWhenNothingIsSet(t *testing.T) {
 	}
 	if v, src := setting(t, out, "stale_after"); v != "6h0m0s" || src != fromDefault {
 		t.Errorf("stale_after %q from %q", v, src)
+	}
+}
+
+// Debug mode comes from the file, then FOOTUI_DEBUG, then --debug, and
+// writes its log under XDG_STATE_HOME.
+func TestDebugFromFileThenEnvThenFlag(t *testing.T) {
+	withConfig(t, "debug: true\n")
+	state := t.TempDir()
+	t.Setenv("XDG_STATE_HOME", state)
+	t.Setenv("FOOTUI_DEBUG", "")
+	t.Cleanup(func() { _ = trace.Stop() })
+	log := filepath.Join(state, "footui", "debug.log")
+
+	out, _ := run(t, "config")
+	if v, src := setting(t, out, "debug"); v != "on → "+log || src != fromFile {
+		t.Errorf("file: debug %q from %q", v, src)
+	}
+	if trace.Path() != log {
+		t.Errorf("debug log at %q, want %q", trace.Path(), log)
+	}
+	_ = trace.Stop()
+
+	t.Setenv("FOOTUI_DEBUG", "0")
+	out, _ = run(t, "config")
+	if v, src := setting(t, out, "debug"); v != "off" || src != fromEnv {
+		t.Errorf("env: debug %q from %q", v, src)
+	}
+	if trace.On() {
+		t.Error("FOOTUI_DEBUG=0 should leave debug mode off")
+	}
+
+	out, _ = run(t, "config", "--debug")
+	if _, src := setting(t, out, "debug"); src != fromFlag {
+		t.Errorf("flag: debug from %q", src)
+	}
+
+	t.Setenv("FOOTUI_DEBUG", "maybe")
+	if _, err := run(t, "config"); err == nil || !strings.Contains(err.Error(), "FOOTUI_DEBUG") {
+		t.Errorf("a bad FOOTUI_DEBUG should say so, got %v", err)
 	}
 }
 

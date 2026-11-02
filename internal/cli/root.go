@@ -4,9 +4,12 @@ package cli
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 
+	"github.com/JohnSBarden/footui/internal/config"
+	"github.com/JohnSBarden/footui/internal/trace"
 	"github.com/JohnSBarden/footui/internal/tui"
 	"github.com/JohnSBarden/footui/internal/tui/core"
 )
@@ -32,7 +35,17 @@ func NewRootCmd() *cobra.Command {
 			if cmd.Annotations[skipSettings] != "" {
 				return nil
 			}
-			return g.resolveSettings(cmd)
+			if err := g.resolveSettings(cmd); err != nil {
+				return err
+			}
+			if !g.settings.debug {
+				return nil
+			}
+			if err := trace.Start(config.DebugLogPath()); err != nil {
+				return err
+			}
+			trace.Printf("footui %s: %s", Version, strings.Join(os.Args[1:], " "))
+			return nil
 		},
 		// Bare `footui` opens the dashboard of favourites, or Browse over
 		// whatever is cached when there are none.
@@ -50,6 +63,8 @@ func NewRootCmd() *cobra.Command {
 		"disable color output (also honours the NO_COLOR environment variable)")
 	root.PersistentFlags().StringVar(&g.theme, "theme", "",
 		"club theme: weak (club colors as highlights) or strong (screen painted in club colors); default $FOOTUI_THEME, then the config file, then weak")
+	root.PersistentFlags().BoolVar(&g.debug, "debug", false,
+		"write a debug log for bug reports to $XDG_STATE_HOME/footui/debug.log (also FOOTUI_DEBUG=1; config: debug)")
 	root.PersistentFlags().DurationVar(&g.staleAfter, "stale-after", DefaultStaleAfter,
 		"when the interface opens, refresh followed leagues whose current season is older than this (0 disables; config: stale_after)")
 
@@ -68,7 +83,15 @@ func NewRootCmd() *cobra.Command {
 
 // Execute runs the root command, exiting the process on error.
 func Execute() {
-	if err := NewRootCmd().Execute(); err != nil {
+	err := NewRootCmd().Execute()
+	if err != nil {
+		trace.Line("FAIL", err.Error())
+	}
+	if path := trace.Path(); path != "" {
+		_ = trace.Stop()
+		fmt.Fprintln(os.Stderr, "debug log:", path)
+	}
+	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}

@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/JohnSBarden/footui/internal/data/provider"
+	"github.com/JohnSBarden/footui/internal/trace"
 )
 
 const (
@@ -71,7 +72,7 @@ type Client struct {
 // NewClient returns a client against the real API.
 func NewClient() *Client {
 	return &Client{
-		httpClient: &http.Client{Timeout: requestTimeout},
+		httpClient: &http.Client{Timeout: requestTimeout, Transport: trace.Transport(nil)},
 		siteURL:    siteBaseURL,
 		coreURL:    coreBaseURL,
 		searchURL:  searchBaseURL,
@@ -174,6 +175,7 @@ func (c *Client) get(ctx context.Context, url string, gap time.Duration) ([]byte
 		return body, nil
 	}
 	if c.breaker.open(time.Now()) {
+		trace.Printf("espn: paused for rate limiting, skipped %s", url)
 		return nil, errRateLimited
 	}
 	var last error
@@ -189,6 +191,7 @@ func (c *Client) get(ctx context.Context, url string, gap time.Duration) ([]byte
 		if errors.As(err, &se) && se.Status == http.StatusTooManyRequests && ctx.Err() == nil {
 			if refusals == len(c.rateWaits) || se.RetryAfter > maxRetryAfter {
 				c.breaker.trip(time.Now())
+				trace.Printf("espn: 429 %d times (Retry-After %s); pausing all requests for %s", refusals+1, se.RetryAfter, breakerOpen)
 				return nil, errRateLimited
 			}
 			wait := c.rateWaits[refusals]
@@ -196,6 +199,7 @@ func (c *Client) get(ctx context.Context, url string, gap time.Duration) ([]byte
 				wait = se.RetryAfter
 			}
 			refusals++
+			trace.Printf("espn: 429 on %s; waiting %s", url, wait)
 			if c.OnRetry != nil {
 				c.OnRetry(refusals, len(c.rateWaits)+1, fmt.Errorf("ESPN asked footui to slow down; waiting %s", wait))
 			}
@@ -211,8 +215,10 @@ func (c *Client) get(ctx context.Context, url string, gap time.Duration) ([]byte
 		failures++
 		last = err
 		if failures == maxAttempts {
+			trace.Printf("espn: giving up on %s after %d attempts: %v", url, maxAttempts, err)
 			break
 		}
+		trace.Printf("espn: retry %d/%d of %s: %v", failures, maxAttempts-1, url, err)
 		if c.OnRetry != nil {
 			c.OnRetry(failures, maxAttempts, err)
 		}
