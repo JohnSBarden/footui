@@ -116,6 +116,13 @@ func TestKeepFinished(t *testing.T) {
 	if !reflect.DeepEqual(fresh, want) {
 		t.Errorf("fresh = %v, want %v", fresh, want)
 	}
+
+	// PendingUnits counts what the next run would fetch: the current
+	// season and the never-fetched 2013, now that 2014 is kept too.
+	jobs := []sync.Job{{Competition: laLiga, Seasons: []string{current, "2015", "2014", "2013"}}}
+	if n := sync.PendingUnits(ctx, repos, jobs); n != 2 {
+		t.Errorf("PendingUnits = %d, want 2", n)
+	}
 }
 
 func must(t *testing.T, err error) {

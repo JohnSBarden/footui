@@ -354,6 +354,9 @@ func refreshPlayerHistory(ctx context.Context, store storage.Repositories, playe
 	if err != nil {
 		return "", tuiError(err)
 	}
+	if scope := historyScope(ctx, store, jobs); scope != "" {
+		progress(scope)
+	}
 	ev.unit = historyProgress(sync.Units(jobs), progress)
 	results := runHistory(ctx, store, jobs, ev)
 	if rateLimited(results) {
@@ -379,6 +382,9 @@ func refreshClubHistory(ctx context.Context, store storage.Repositories, club mo
 	if err != nil {
 		return "", err
 	}
+	if scope := historyScope(ctx, store, jobs); scope != "" {
+		progress(scope)
+	}
 	ev.unit = historyProgress(sync.Units(jobs), progress)
 	results := runHistory(ctx, store, jobs, ev)
 	if rateLimited(results) {
@@ -396,6 +402,44 @@ func refreshClubHistory(ctx context.Context, store storage.Repositories, club mo
 		return "", err
 	}
 	return historySummary(results) + "; " + recent, nil
+}
+
+// seasonTime is roughly how long a season takes to fetch, measured: ESPN
+// makes about 60 requests a season, understat one.
+var seasonTime = map[string]time.Duration{
+	sync.ProviderESPN:      25 * time.Second,
+	sync.ProviderUnderstat: 3 * time.Second,
+}
+
+// historyScope says up front how big a history run is, since the first
+// season can take a while to land: "30 seasons to fetch, 5 cached —
+// about 12 minutes". Empty when everything is cached.
+func historyScope(ctx context.Context, store storage.Repositories, jobs []sync.Job) string {
+	var estimate time.Duration
+	fetch := 0
+	for _, g := range groupByProvider(jobs) {
+		n := sync.PendingUnits(ctx, store, g.jobs)
+		fetch += n
+		estimate += time.Duration(n) * seasonTime[g.provider]
+	}
+	if fetch == 0 {
+		return ""
+	}
+	scope := components.Plural(fetch, "season") + " to fetch"
+	if cached := sync.Units(jobs) - fetch; cached > 0 {
+		scope += fmt.Sprintf(", %d cached", cached)
+	}
+	return scope + " — " + roughly(estimate)
+}
+
+func roughly(d time.Duration) string {
+	switch {
+	case d < time.Minute:
+		return "under a minute"
+	case d < 90*time.Second:
+		return "about a minute"
+	}
+	return fmt.Sprintf("about %d minutes", int(d.Minutes()+0.5))
 }
 
 func historyProgress(total int, progress func(string)) func(sync.UnitResult) {
