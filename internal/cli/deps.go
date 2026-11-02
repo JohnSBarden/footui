@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -17,6 +18,7 @@ import (
 	"github.com/JohnSBarden/footui/internal/storage/sqlite"
 	"github.com/JohnSBarden/footui/internal/textfold"
 	"github.com/JohnSBarden/footui/internal/tui"
+	"github.com/JohnSBarden/footui/internal/tui/components"
 	"github.com/JohnSBarden/footui/internal/tui/core"
 	"github.com/JohnSBarden/footui/internal/tui/styles"
 )
@@ -39,7 +41,12 @@ type globalFlags struct {
 // openStore opens and migrates the database; the caller closes the
 // *sql.DB.
 func (g *globalFlags) openStore() (*sql.DB, storage.Repositories, error) {
-	db, err := sqlite.Open(g.dbPathOrDefault())
+	// Printed before the interface takes the screen, which would otherwise
+	// stay blank while a big database upgrades.
+	db, err := sqlite.OpenNotify(g.dbPathOrDefault(), func(pending int) {
+		fmt.Fprintf(os.Stderr, "Upgrading your footui database (%s) — once after an update; this can take a minute…\n",
+			components.Plural(pending, "change"))
+	})
 	if err != nil {
 		return nil, nil, err
 	}

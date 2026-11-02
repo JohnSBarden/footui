@@ -20,15 +20,17 @@ var migrationFiles embed.FS
 // transaction each. It refuses a database migrated by a newer build, so a
 // downgrade can't corrupt the cache.
 func Migrate(db *sql.DB) error {
-	return migrateTo(db, "")
+	return migrateTo(db, "", nil)
 }
 
 // ErrNewerSchema means the database was migrated by a newer build.
 var ErrNewerSchema = errors.New("the database was created by a newer version of footui")
 
 // migrateTo applies migrations up to and including upTo (all when
-// empty); tests use it to build older schemas.
-func migrateTo(db *sql.DB, upTo string) error {
+// empty); tests use it to build older schemas. upgrading, if set, hears
+// how many are pending before they run on a database that has some
+// already.
+func migrateTo(db *sql.DB, upTo string, upgrading func(pending int)) error {
 	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS schema_migrations (
 		version TEXT PRIMARY KEY,
 		applied_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -53,6 +55,8 @@ func migrateTo(db *sql.DB, upTo string) error {
 		return err
 	}
 
+	var pending []string
+	seen := false
 	for _, name := range names {
 		if upTo != "" && name > upTo && !strings.HasPrefix(name, upTo) {
 			break
@@ -62,9 +66,16 @@ func migrateTo(db *sql.DB, upTo string) error {
 			return fmt.Errorf("check migration %s: %w", name, err)
 		}
 		if applied > 0 {
+			seen = true
 			continue
 		}
+		pending = append(pending, name)
+	}
+	if len(pending) > 0 && seen && upgrading != nil {
+		upgrading(len(pending))
+	}
 
+	for _, name := range pending {
 		contents, err := migrationFiles.ReadFile("migrations/" + name)
 		if err != nil {
 			return fmt.Errorf("read migration %s: %w", name, err)

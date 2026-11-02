@@ -51,7 +51,7 @@ func TestEveryOlderSchemaUpgradesWithItsData(t *testing.T) {
 		t.Run("from "+last, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "old.db")
 			db := rawOpen(t, path)
-			if err := migrateTo(db, last); err != nil {
+			if err := migrateTo(db, last, nil); err != nil {
 				t.Fatalf("building the %s schema: %v", last, err)
 			}
 			// Only tables and columns present since 0001.
@@ -335,7 +335,7 @@ func checkFixture(t *testing.T, s *Store) {
 func TestOldFoldsAreRedoneOnUpgrade(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "old.db")
 	db := rawOpen(t, path)
-	if err := migrateTo(db, "0005"); err != nil {
+	if err := migrateTo(db, "0005", nil); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := db.Exec(`INSERT INTO team (id, name, name_folded, gender) VALUES ('int-bodo-glimt', 'Bodø/Glimt', 'bodø/glimt', 'men')`); err != nil {
@@ -351,6 +351,31 @@ func TestOldFoldsAreRedoneOnUpgrade(t *testing.T) {
 	teams, err := NewStore(upgraded).FindTeamsByName(ctx, "bodo")
 	if err != nil || len(teams) != 1 {
 		t.Errorf("searching bodo after upgrade found %v, %v", teams, err)
+	}
+}
+
+// Upgrading an existing database is announced with its pending count; a
+// new one, or one already current, is not.
+func TestUpgradingIsAnnouncedForAnExistingDatabase(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "old.db")
+	db := rawOpen(t, path)
+	if err := migrateTo(db, "0005", nil); err != nil {
+		t.Fatal(err)
+	}
+	db.Close()
+
+	var heard []int
+	listen := func(n int) { heard = append(heard, n) }
+	for _, p := range []string{path, path, filepath.Join(t.TempDir(), "new.db")} {
+		db, err := OpenNotify(p, listen)
+		if err != nil {
+			t.Fatal(err)
+		}
+		db.Close()
+	}
+	entries, _ := fs.ReadDir(migrationFiles, "migrations")
+	if want := len(entries) - 5; len(heard) != 1 || heard[0] != want {
+		t.Errorf("heard %v, want one announcement of %d", heard, want)
 	}
 }
 
