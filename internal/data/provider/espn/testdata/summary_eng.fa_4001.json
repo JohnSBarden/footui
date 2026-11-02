@@ -1,0 +1,110 @@
+{
+  "header": {
+    "competitions": [
+      {
+        "date": "2026-01-10T15:00Z",
+        "status": {"type": {"name": "STATUS_FULL_TIME", "completed": true}},
+        "competitors": [
+          {"homeAway": "home", "score": "1", "team": {"id": "7101", "displayName": "Wessex Rovers"}},
+          {"homeAway": "away", "score": "1", "team": {"id": "7102", "displayName": "Northbridge City"}}
+        ]
+      }
+    ]
+  },
+  "gameInfo": {
+    "venue": {"fullName": "Harrowdene Park"},
+    "attendance": 18432
+  },
+  "boxscore": {
+    "teams": [
+      {
+        "homeAway": "home",
+        "team": {"id": "7101", "displayName": "Wessex Rovers"},
+        "statistics": [
+          {"name": "possessionPct", "displayValue": "58.2"},
+          {"name": "totalShots", "displayValue": "14"},
+          {"name": "shotsOnTarget", "displayValue": "5"},
+          {"name": "blockedShots", "displayValue": "4"},
+          {"name": "totalPasses", "displayValue": "512"},
+          {"name": "accuratePasses", "displayValue": "441"},
+          {"name": "passPct", "displayValue": "0.9"},
+          {"name": "totalCrosses", "displayValue": "21"},
+          {"name": "accurateCrosses", "displayValue": "6"},
+          {"name": "totalLongBalls", "displayValue": "40"},
+          {"name": "accurateLongBalls", "displayValue": "19"},
+          {"name": "totalTackles", "displayValue": "15"},
+          {"name": "effectiveTackles", "displayValue": "11"},
+          {"name": "interceptions", "displayValue": "7"},
+          {"name": "totalClearance", "displayValue": "18"},
+          {"name": "effectiveClearance", "displayValue": "18"},
+          {"name": "saves", "displayValue": "2"},
+          {"name": "offsides", "displayValue": "3"},
+          {"name": "wonCorners", "displayValue": "8"},
+          {"name": "foulsCommitted", "displayValue": "12"},
+          {"name": "yellowCards", "displayValue": "2"},
+          {"name": "redCards", "displayValue": "1"}
+        ]
+      },
+      {
+        "homeAway": "away",
+        "team": {"id": "7102", "displayName": "Northbridge City"},
+        "statistics": [
+          {"name": "possessionPct", "displayValue": "41.8"},
+          {"name": "totalShots", "displayValue": "9"},
+          {"name": "shotsOnTarget", "displayValue": "3"},
+          {"name": "totalPasses", "displayValue": "366"},
+          {"name": "accuratePasses", "displayValue": "290"},
+          {"name": "wonCorners", "displayValue": "4"},
+          {"name": "foulsCommitted", "displayValue": "15"},
+          {"name": "yellowCards", "displayValue": "1"},
+          {"name": "redCards", "displayValue": "0"},
+          {"name": "saves", "displayValue": "4"}
+        ]
+      }
+    ]
+  },
+  "keyEvents": [
+    {"type": {"type": "kickoff", "text": "Kickoff"}, "text": "First Half begins.", "period": {"number": 1}, "clock": {"displayValue": ""}},
+    {"type": {"type": "start-delay", "text": "Start Delay"}, "period": {"number": 1}, "clock": {"displayValue": "9'"}, "team": {"id": "7101"}},
+    {"type": {"type": "goal---header", "text": "Goal - Header"}, "text": "Goal! Wessex Rovers 1, Northbridge City 0. Tom Ashdown (Wessex Rovers) header from the centre of the box. Assisted by Leo Marsh with a cross.", "period": {"number": 1}, "clock": {"displayValue": "23'"}, "scoringPlay": true, "team": {"id": "7101"}, "participants": [{"athlete": {"id": "9101", "displayName": "Tom Ashdown"}}, {"athlete": {"id": "9102", "displayName": "Leo Marsh"}}]},
+    {"type": {"type": "yellow-card", "text": "Yellow Card"}, "text": "Owen Pryce (Northbridge City) is shown the yellow card for a bad foul.", "period": {"number": 1}, "clock": {"displayValue": "45'+1'"}, "team": {"id": "7102"}, "participants": [{"athlete": {"id": "9201", "displayName": "Owen Pryce"}}]},
+    {"type": {"type": "halftime", "text": "Halftime"}, "text": "First Half ends, Wessex Rovers 1, Northbridge City 0.", "period": {"number": 1}, "clock": {"displayValue": "45'+3'"}},
+    {"type": {"type": "start-2nd-half", "text": "Start 2nd Half"}, "period": {"number": 2}, "clock": {"displayValue": "45'"}},
+    {"type": {"type": "substitution", "text": "Substitution"}, "text": "Substitution, Northbridge City. Dan Vickers replaces Owen Pryce.", "period": {"number": 2}, "clock": {"displayValue": "58'"}, "team": {"id": "7102"}, "participants": [{"athlete": {"id": "9203", "displayName": "Dan Vickers"}}, {"athlete": {"id": "9201", "displayName": "Owen Pryce"}}]},
+    {"type": {"type": "own-goal", "text": "Own Goal"}, "text": "Own Goal by Sam Kerrow, Wessex Rovers. Wessex Rovers 1, Northbridge City 1.", "period": {"number": 2}, "clock": {"displayValue": "71'"}, "scoringPlay": true, "team": {"id": "7102"}, "participants": [{"athlete": {"id": "9103", "displayName": "Sam Kerrow"}}]},
+    {"type": {"type": "yellow-card", "text": "Yellow Card"}, "text": "Leo Marsh (Wessex Rovers) is shown the yellow card.", "period": {"number": 2}, "clock": {"displayValue": "64'"}, "team": {"id": "7101"}, "participants": [{"athlete": {"id": "9102", "displayName": "Leo Marsh"}}]},
+    {"type": {"type": "red-card", "text": "Red Card"}, "text": "Second yellow card to Leo Marsh (Wessex Rovers) for a bad foul.", "period": {"number": 2}, "clock": {"displayValue": "80'"}, "team": {"id": "7101"}, "participants": [{"athlete": {"id": "9102", "displayName": "Leo Marsh"}}]},
+    {"type": {"type": "penalty---saved", "text": "Penalty - Saved"}, "text": "Penalty saved. Dan Vickers (Northbridge City) right footed shot saved by Ian Holt.", "period": {"number": 2}, "clock": {"displayValue": "88'"}, "team": {"id": "7102"}, "participants": [{"athlete": {"id": "9203", "displayName": "Dan Vickers"}}, {"athlete": {"id": "9100", "displayName": "Ian Holt"}}]},
+    {"type": {"type": "end-regular-time", "text": "End Regular Time"}, "period": {"number": 2}, "clock": {"displayValue": "90'+4'"}}
+  ],
+  "rosters": [
+    {
+      "homeAway": "home",
+      "formation": "4-3-3",
+      "team": {"id": "7101", "displayName": "Wessex Rovers"},
+      "roster": [
+        {"starter": false, "subbedIn": false, "subbedOut": false, "jersey": "23", "athlete": {"id": "9105", "displayName": "Ray Colley"}, "position": {"abbreviation": "SUB"}, "stats": []},
+        {"starter": true, "subbedIn": false, "subbedOut": false, "jersey": "9", "formationPlace": "9", "athlete": {"id": "9101", "displayName": "Tom Ashdown"}, "position": {"abbreviation": "F"}, "stats": [{"abbreviation": "G", "value": 1}, {"abbreviation": "A", "value": 0}]},
+        {"starter": true, "subbedIn": false, "subbedOut": false, "jersey": "1", "formationPlace": "1", "athlete": {"id": "9100", "displayName": "Ian Holt"}, "position": {"abbreviation": "G"}, "stats": [{"abbreviation": "SV", "value": 2}]},
+        {"starter": true, "subbedIn": false, "subbedOut": false, "jersey": "8", "formationPlace": "8", "athlete": {"id": "9102", "displayName": "Leo Marsh"}, "position": {"abbreviation": "CM"}, "stats": [{"abbreviation": "A", "value": 1}, {"abbreviation": "YC", "value": 1}, {"abbreviation": "RC", "value": 1}]},
+        {"starter": true, "subbedIn": false, "subbedOut": false, "jersey": "5", "formationPlace": "4", "athlete": {"id": "9103", "displayName": "Sam Kerrow"}, "position": {"abbreviation": "CD"}, "stats": [{"abbreviation": "OG", "value": 1}]}
+      ]
+    },
+    {
+      "homeAway": "away",
+      "formation": "4-4-2",
+      "team": {"id": "7102", "displayName": "Northbridge City"},
+      "roster": [
+        {"starter": true, "subbedIn": false, "subbedOut": true, "jersey": "6", "formationPlace": "6", "athlete": {"id": "9201", "displayName": "Owen Pryce"}, "position": {"abbreviation": "DM"}, "stats": [{"abbreviation": "YC", "value": 1}], "plays": [{"clock": {"displayValue": "45'+1'"}, "substitution": false}, {"clock": {"displayValue": "58'"}, "substitution": true}]},
+        {"starter": false, "subbedIn": true, "subbedOut": false, "jersey": "17", "athlete": {"id": "9203", "displayName": "Dan Vickers"}, "position": {"abbreviation": "SUB"}, "stats": [], "plays": [{"clock": {"displayValue": "58'"}, "substitution": true}]}
+      ]
+    }
+  ],
+  "commentary": [
+    {"sequence": 0, "time": {"displayValue": ""}, "text": "Lineups are announced and players are warming up."},
+    {"sequence": 1, "time": {"displayValue": ""}, "text": "First Half begins.", "play": {"type": {"text": "Kickoff"}}},
+    {"sequence": 2, "time": {"displayValue": "23'"}, "text": "Goal! Wessex Rovers 1, Northbridge City 0. Tom Ashdown (Wessex Rovers) header from the centre of the box.", "play": {"type": {"text": "Goal - Header"}}},
+    {"sequence": 3, "time": {"displayValue": "40'"}, "text": "  "},
+    {"sequence": 4, "time": {"displayValue": "45'+1'"}, "text": "Owen Pryce (Northbridge City) is shown the yellow card for a bad foul.", "play": {"type": {"text": "Yellow Card"}}}
+  ]
+}

@@ -287,6 +287,32 @@ the matches that have the stat — "61% possession" from the two matches that
 reported it, not diluted by the one that didn't. A shoot-out counts as a
 draw, as FIFA records it; an aet result counts by its score.
 
+## MatchDetail
+
+A club's **last game** in full (schema 0015): its events, every team stat,
+both lineups and the commentary, from ESPN's per-match summary. One large
+response per match, so it is fetched only for the last finished game of a
+club being refreshed, never for a whole season. A detail fetched after full
+time (`final`) is kept for good; one that isn't is fetched again. understat
+league games have no ESPN event ID, so the first fetch finds it from that
+day's ESPN scoreboard (matching the two teams) and records it in
+`external_ref`.
+
+`match_detail` (one row per match; its presence means "fetched") holds the
+venue, attendance, both formations and `fetched_at`. The rest hang off it
+and are replaced whole on each fetch; sides are `home`/`away` rather than
+team IDs, since the `match` row already says who they are.
+
+| Table | Rows | Notes |
+|---|---|---|
+| `match_detail_stats` | one per side | Possession and 19 counts: shots, on target, blocked, passes and accurate passes, crosses, long balls, tackles and tackles won, interceptions, clearances, saves, offsides, corners, fouls, cards. Each nullable. Its own table because the scoreboards rewrite `match_team_stats`. |
+| `match_event` | in match order | `goal`, `own_goal`, `penalty_goal`, `penalty_miss`, `yellow`, `second_yellow`, `red`, `sub`, `half_time`, `full_time`, with period, minute and stoppage minute. `side` is the side it counts for, so an own goal's scorer plays for the other side. `other` is the assist, or the player going off. Kick-offs and injury delays are dropped. |
+| `match_lineup` | per side, starters by formation place then the bench | Shirt, position, minutes on and off, goals, assists, own goals, cards, saves. |
+| `match_commentary` | in match order | The clock as footui writes it (`45+2'`), the play (`Goal`, `Foul`) or empty for narration, and the text. |
+
+Player IDs in events and lineups are canonical when footui already knows the
+player through `external_ref`, and empty otherwise.
+
 ## team_match_filter
 
 The competition filter last used on each nation: a preset (`all`,

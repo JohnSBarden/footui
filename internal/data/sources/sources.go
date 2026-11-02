@@ -49,6 +49,10 @@ func Careers() sync.CareerSource { return people(nil) }
 // Matches builds the source of international matches.
 func Matches(retry Retry) sync.MatchSource { return people(retry) }
 
+// MatchDetails builds the source of a last game's events, stats, lineups
+// and commentary.
+func MatchDetails(retry Retry) sync.LastGameSource { return people(retry) }
+
 // Players builds the search for players who aren't cached.
 func Players() provider.PlayerSearcher { return people(nil) }
 

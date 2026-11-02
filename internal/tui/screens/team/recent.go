@@ -18,6 +18,7 @@ const recentGames = 5
 type recentLoadedMsg struct {
 	matches []models.Match
 	strip   scorestrip.Strip
+	last    *lastGame
 }
 
 func (m *Model) loadRecent() tea.Cmd {
@@ -27,7 +28,11 @@ func (m *Model) loadRecent() tea.Cmd {
 		if err != nil {
 			return core.ErrMsg{Err: err}
 		}
-		return recentLoadedMsg{matches: matches, strip: loadStrip(deps, teamID)}
+		last, err := loadLastGame(deps, matches)
+		if err != nil {
+			return core.ErrMsg{Err: err}
+		}
+		return recentLoadedMsg{matches: matches, strip: loadStrip(deps, teamID), last: last}
 	}
 }
 

@@ -88,14 +88,18 @@ func (ev refreshEvents) unitFunc() sync.Progress {
 	}
 }
 
-// newDetailSource, newCareerSource and newMatchSource are variables so
-// tests can swap in stubs.
+// newDetailSource, newCareerSource, newMatchSource and newLastGameSource
+// are variables so tests can swap in stubs.
 var newDetailSource = sources.Details
 
 var newCareerSource = sources.Careers
 
 var newMatchSource = func(ev refreshEvents) sync.MatchSource {
 	return sources.Matches(ev.retry)
+}
+
+var newLastGameSource = func(ev refreshEvents) sync.LastGameSource {
+	return sources.MatchDetails(ev.retry)
 }
 
 func newMatchSyncer(store storage.Repositories, ev refreshEvents) *sync.MatchSyncer {
@@ -240,11 +244,15 @@ func tuiRefresher(store storage.Repositories, staleAfter time.Duration) core.Ref
 					ev.unit = func(u sync.UnitResult) {
 						progress(fmt.Sprintf("%s %s %s", u.Competition.Abbrev(), components.SeasonName(u.Season), unitOutcome(u)))
 					}
-					results, err := runClub(ctx, store, team, stale, ev)
+					results, lastGame, err := runClub(ctx, store, team, stale, ev)
 					if err != nil {
 						return "", err
 					}
-					return summarizeMatches(results, "recent games up to date", false)
+					summary, err := summarizeMatches(results, "recent games up to date", false)
+					if err != nil {
+						return "", err
+					}
+					return withLastGame(summary, lastGame), nil
 				}
 				gender = team.Gender
 			}
@@ -393,7 +401,7 @@ func refreshClubHistory(ctx context.Context, store storage.Repositories, club mo
 	ev.unit = func(u sync.UnitResult) {
 		progress(fmt.Sprintf("%s %s %s", u.Competition.Abbrev(), components.SeasonName(u.Season), unitOutcome(u)))
 	}
-	games, err := runClub(ctx, store, club, 0, ev)
+	games, lastGame, err := runClub(ctx, store, club, 0, ev)
 	if err != nil {
 		return "", err
 	}
@@ -401,7 +409,19 @@ func refreshClubHistory(ctx context.Context, store storage.Repositories, club mo
 	if err != nil {
 		return "", err
 	}
-	return historySummary(results) + "; " + recent, nil
+	return historySummary(results) + "; " + withLastGame(recent, lastGame), nil
+}
+
+// withLastGame adds what the last-game step fetched to a club summary;
+// "nothing to fetch" becomes just that.
+func withLastGame(summary, lastGame string) string {
+	switch {
+	case lastGame == "":
+		return summary
+	case summary == "nothing to fetch" || summary == "recent games up to date":
+		return lastGame
+	}
+	return summary + "; " + lastGame
 }
 
 // seasonTime is roughly how long a season takes to fetch, measured: ESPN

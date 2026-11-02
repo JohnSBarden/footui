@@ -87,7 +87,10 @@ type Navigator struct {
 	Team   func(deps Deps, team models.Team, competitionID, seasonID string) Screen
 	Nation func(deps Deps, team models.Team) Screen
 	// Games opens a club's last games in every competition.
-	Games   func(deps Deps, team models.Team) Screen
+	Games func(deps Deps, team models.Team) Screen
+	// Match opens one game in full, seen from teamID's side ("" for
+	// neither).
+	Match   func(deps Deps, match models.Match, teamID string) Screen
 	Player  func(deps Deps, player models.Player, teamID string) Screen
 	Browse  func(deps Deps, query string) Screen
 	Catalog func(deps Deps) Screen

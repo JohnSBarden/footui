@@ -255,7 +255,7 @@ internal/tui/
 ├── scorestrip/       # the strip of score tiles across the top of a page
 ├── ticker/           # the news line beneath the footer
 ├── tuitest/          # shared helpers for driving screens in tests
-└── screens/{dashboard,browse,catalog,league,team,games,nation,player}/
+└── screens/{dashboard,browse,catalog,league,team,games,match,nation,player}/
 ```
 
 Three rules make this hold together:
@@ -312,7 +312,8 @@ optionally cached on disk via `FOOTUI_HTTP_CACHE` during development.
 ## International football: the unit, and politeness
 
 A nation's matches can't be fetched per nation without hundreds of
-requests, and per-match summaries are 440 KB each. Instead the unit is
+requests, and per-match summaries are 440 KB each (footui fetches one only
+for a club's last game, below). Instead the unit is
 **one calendar year of one competition** — ESPN's scoreboard returns every
 match of, say, the 2025 friendlies, every nation's, in one request. A
 nation's matches are the units of every international competition of its
@@ -375,6 +376,27 @@ starred clubs. So the first English club opened costs about ten requests
 and the next none. A season row stored only because a club's matches came
 from it doesn't make its competition "followed": the stale check counts
 seasons refreshed for their table, and skips cups.
+
+### The last game in full
+
+The Team screen's Last game card and the Match screen show one game in
+full: its events, every team stat, both lineups and the commentary
+(`match_detail`, `match_event`, `match_lineup`, `match_commentary`;
+migration 0015). It is fetched for **the club's last finished game only**,
+never on aggregate screens, as the last step of the club's refresh
+(`sync.RefreshLastGame`):
+
+- one request, ESPN's match summary, when ESPN supplied the game (its id
+  is in `external_ref`);
+- for a game from another source (understat leagues), ESPN's league
+  scoreboard for the kick-off day is searched first, then the day either
+  side — up to three requests — matching the two clubs by recorded ref or
+  name; the ESPN id is then recorded so it is never searched again;
+- a detail fetched after full time is final and never fetched again, so
+  the second of two clubs that played each other costs nothing; one
+  fetched before then is fetched once more;
+- a game ESPN doesn't have stores an empty final detail, so it isn't asked
+  again, and shows no card.
 
 ## Curated datasets
 

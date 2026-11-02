@@ -61,7 +61,10 @@ type Model struct {
 	// recent feeds the form line: last finished games, all competitions.
 	recent       []models.Match
 	recentLoaded bool
-	strip        scorestrip.Strip
+	// last is the newest of recent in full; nil when its detail isn't
+	// stored.
+	last  *lastGame
+	strip scorestrip.Strip
 	// fetching and queued: recent games are being fetched / waiting to be.
 	fetching bool
 	queued   bool
@@ -125,6 +128,10 @@ func (m *Model) Keys() core.KeyMap {
 			{keys.Home, keys.End, keys.Competition},
 			{keys.Pane, keys.Open, keys.Matches},
 		},
+	}
+	if len(m.recent) > 0 {
+		km.Short = append(km.Short, keys.LastGame)
+		km.Full[len(km.Full)-1] = append(km.Full[len(km.Full)-1], keys.LastGame)
 	}
 	if !m.strip.Empty() {
 		km.Short = append(km.Short, keys.Scores)

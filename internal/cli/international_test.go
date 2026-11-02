@@ -34,7 +34,11 @@ func withDirectory(t *testing.T) storage.Repositories {
 // by kind. Every competition-year has one match: Arcadia v Borduria.
 type fakeESPN struct {
 	scoreboards, directories, standings int32
-	status                              int // non-zero: answer every request with it
+	// days and summaries are the last-game lookups: a day's scoreboard,
+	// and a match summary.
+	days, summaries int32
+	status          int // non-zero: answer every request with it
+	dayStatus       int // non-zero: answer a day's scoreboard with it
 }
 
 func (f *fakeESPN) serve(t *testing.T) string {
@@ -45,6 +49,17 @@ func (f *fakeESPN) serve(t *testing.T) string {
 			return
 		}
 		switch {
+		case strings.HasSuffix(r.URL.Path, "/scoreboard") && len(r.URL.Query().Get("dates")) == len("20060102"):
+			// A day's games, where a club's last game is looked for.
+			atomic.AddInt32(&f.days, 1)
+			if f.dayStatus != 0 {
+				w.WriteHeader(f.dayStatus)
+				return
+			}
+			fmt.Fprint(w, `{"events":[]}`)
+		case strings.HasSuffix(r.URL.Path, "/summary"):
+			atomic.AddInt32(&f.summaries, 1)
+			http.NotFound(w, r)
 		case strings.HasSuffix(r.URL.Path, "/scoreboard"):
 			n := atomic.AddInt32(&f.scoreboards, 1)
 			dates := r.URL.Query().Get("dates")
@@ -71,9 +86,10 @@ func useFakeESPN(t *testing.T) *fakeESPN {
 	t.Helper()
 	f := &fakeESPN{}
 	url := f.serve(t)
-	old := newMatchSource
+	old, oldLast := newMatchSource, newLastGameSource
 	newMatchSource = func(refreshEvents) sync.MatchSource { return espn.NewAt(url) }
-	t.Cleanup(func() { newMatchSource = old })
+	newLastGameSource = func(refreshEvents) sync.LastGameSource { return espn.NewAt(url) }
+	t.Cleanup(func() { newMatchSource, newLastGameSource = old, oldLast })
 	return f
 }
 
