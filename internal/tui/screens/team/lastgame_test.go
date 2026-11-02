@@ -39,8 +39,8 @@ func TestTheLastGameCardShowsTheNewestGameInFull(t *testing.T) {
 	card := out[i:]
 	for _, want := range []string{
 		"Premier League", "Northbridge Park", "e details",
-		"Northbridge  0–2  Arsenal", "Havertz 16'", "Saka 54' (pen)",
-		"0' ", " 90'", "poss  44%", "56%", "shots 6 · 17", "on target 1 · 5",
+		"Northbridge  0–2  Arsenal", "Arsenal: Havertz 16', Saka 54' (pen)",
+		"0' ", " 90'", "poss 44%", "56%", "shots 6 · 17", "on target 1 · 5",
 	} {
 		if !strings.Contains(card, want) {
 			t.Errorf("card lacks %q\n---\n%s", want, card)

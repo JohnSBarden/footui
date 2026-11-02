@@ -66,8 +66,35 @@ func TestTheHeaderHasTheScoreScorersAndVenue(t *testing.T) {
 	deps, g := seed(t, true)
 	out := open(t, deps, g, away).View()
 	contains(t, out, "Northbridge  0–2  Arsenal", "Premier League", "Wed 18 Mar 2026",
-		"Northbridge Park", "41,250", "Havertz 16', Saka 54' (pen)", "0' ", " 90'",
+		"Northbridge Park", "41,250", "● Arsenal: Havertz 16', Saka 54' (pen)", "0' ", " 90'",
 		"1 Timeline", "2 Stats", "3 Lineups", "4 Commentary")
+}
+
+func TestTheTitleNamesTheGame(t *testing.T) {
+	deps, g := seed(t, true)
+	if got := open(t, deps, g, away).Title(); got != "Northbridge v Arsenal" {
+		t.Errorf("title %q", got)
+	}
+}
+
+// Each team's name sits over its end of the bar.
+func TestStatsNamesSitOverTheirNumbers(t *testing.T) {
+	deps, g := seed(t, true)
+	lines := strings.Split(tuitest.Key(t, open(t, deps, g, away), "2").View(), "\n")
+	var head, poss string
+	for i, l := range lines {
+		if strings.Contains(l, "Possession") {
+			head, poss = lines[i-1], l
+		}
+	}
+	bar := []rune(poss)
+	start, end := strings.IndexRune(string(bar), '#'), strings.LastIndex(string(bar), ".")+1
+	if strings.Index(head, "Northbridge") != start {
+		t.Errorf("home name not over the bar's left end\n%s\n%s", head, poss)
+	}
+	if strings.Index(head, "Arsenal")+len("Arsenal") != end {
+		t.Errorf("away name not over the bar's right end\n%s\n%s", head, poss)
+	}
 }
 
 func TestTheTimelineKeepsTheRunningScore(t *testing.T) {

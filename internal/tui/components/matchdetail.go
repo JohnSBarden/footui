@@ -184,6 +184,18 @@ func Scorers(events []models.MatchEvent, side string) string {
 	return strings.Join(parts, ", ")
 }
 
+// TeamScorers names who scored for whom, home first: "Liverpool: Salah
+// 12' · Arsenal: Saka 57'"; a side that didn't score is left out.
+func TeamScorers(events []models.MatchEvent, homeName, awayName string) string {
+	var parts []string
+	for _, side := range []struct{ side, name string }{{models.SideHome, homeName}, {models.SideAway, awayName}} {
+		if s := Scorers(events, side.side); s != "" {
+			parts = append(parts, side.name+": "+s)
+		}
+	}
+	return strings.Join(parts, " · ")
+}
+
 // ShortName is the surname a match report uses: "Kai Havertz" is
 // "Havertz", "Virgil van Dijk" is "van Dijk"; a single name is kept.
 func ShortName(name string) string {

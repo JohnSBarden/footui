@@ -38,6 +38,19 @@ func TestScorersListOneSide(t *testing.T) {
 	}
 }
 
+func TestTeamScorersSayWhoScoredForWhom(t *testing.T) {
+	ev := []models.MatchEvent{
+		{Kind: models.EventGoal, Side: models.SideHome, Minute: 12, Player: "Mohamed Salah"},
+		{Kind: models.EventGoal, Side: models.SideAway, Minute: 57, Player: "Bukayo Saka"},
+	}
+	if got := components.TeamScorers(ev, "Liverpool", "Arsenal"); got != "Liverpool: Salah 12' · Arsenal: Saka 57'" {
+		t.Errorf("both %q", got)
+	}
+	if got := components.TeamScorers(ev[1:], "Liverpool", "Arsenal"); got != "Arsenal: Saka 57'" {
+		t.Errorf("one side %q", got)
+	}
+}
+
 func TestTimelinePutsEventsOnTheAxis(t *testing.T) {
 	th := styles.Plain()
 	ev := []models.MatchEvent{

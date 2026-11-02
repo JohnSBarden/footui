@@ -102,7 +102,7 @@ func (m *Model) lastGameCard() string {
 	title += strings.Repeat(" ", max(width-lipgloss.Width(title)-lipgloss.Width(hint), 2)) + hint
 
 	score := th.TableCell.Bold(true).Render(lg.name(g.HomeTeamID) + "  " + components.Score(g) + "  " + lg.name(g.AwayTeamID))
-	if scorers := cardScorers(d.Events); scorers != "" {
+	if scorers := components.TeamScorers(d.Events, lg.name(g.HomeTeamID), lg.name(g.AwayTeamID)); scorers != "" {
 		room := width - lipgloss.Width(score) - 3
 		if room >= 12 {
 			score += "   " + th.Muted.Render(components.Truncate(scorers, room))
@@ -131,17 +131,6 @@ func (m *Model) lastGameCard() string {
 	return components.Zone(lastGameZone, strings.Join(lines, "\n"))
 }
 
-// cardScorers is both sides' goals, home first: "Salah 12' · Saka 54'".
-func cardScorers(events []models.MatchEvent) string {
-	var parts []string
-	for _, side := range []string{models.SideHome, models.SideAway} {
-		if s := components.Scorers(events, side); s != "" {
-			parts = append(parts, s)
-		}
-	}
-	return strings.Join(parts, " · ")
-}
-
 // cardStats is the one line of numbers: possession as a split bar, then
 // shots and shots on target, home first.
 func (m *Model) cardStats(d models.MatchDetail) string {
@@ -151,7 +140,7 @@ func (m *Model) cardStats(d models.MatchDetail) string {
 	if h.Possession != nil && a.Possession != nil {
 		bar := components.SplitBar(th, *h.Possession, *a.Possession, 18)
 		parts = append(parts, th.Muted.Render("poss ")+
-			th.TableCell.Render(fmt.Sprintf("%3.0f%% ", *h.Possession))+bar+
+			th.TableCell.Render(fmt.Sprintf("%.0f%% ", *h.Possession))+bar+
 			th.TableCell.Render(fmt.Sprintf(" %.0f%%", *a.Possession)))
 	}
 	pair := func(label string, x, y *int) {

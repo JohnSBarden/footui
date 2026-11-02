@@ -52,7 +52,9 @@ func New(deps core.Deps, m models.Match, teamID string) *Model {
 }
 
 // Title implements core.Screen.
-func (m *Model) Title() string { return "Match" }
+func (m *Model) Title() string {
+	return m.name(m.match.HomeTeamID) + " v " + m.name(m.match.AwayTeamID)
+}
 
 // Keys implements core.Screen.
 func (m *Model) Keys() core.KeyMap {
@@ -281,11 +283,8 @@ func (m *Model) header() string {
 		return strings.Join(lines, "\n")
 	}
 
-	home, away := components.Scorers(m.detail.Events, models.SideHome), components.Scorers(m.detail.Events, models.SideAway)
-	if home != "" || away != "" {
-		half := max((m.width-3)/2, 10)
-		lines = append(lines, th.Muted.Render(padLeft(components.Truncate(home, half), half)+" "+
-			components.GlyphGoal+" "+components.Truncate(away, half)))
+	if s := components.TeamScorers(m.detail.Events, m.name(g.HomeTeamID), m.name(g.AwayTeamID)); s != "" {
+		lines = append(lines, th.Muted.Render(components.GlyphGoal+" "+components.Truncate(s, max(m.width-2, 10))))
 	}
 	if tl := components.Timeline(th, m.detail.Events, m.side(), min(m.width, 100)); tl != "" {
 		lines = append(lines, tl)
@@ -452,8 +451,13 @@ func (m *Model) statsLines() []string {
 	const valWidth, labelWidth = 9, 15
 	bar := max(min(m.width-2*valWidth-labelWidth-4, 40), 8)
 	home, away := m.detail.Home.Stats, m.detail.Away.Stats
-	out := []string{th.Muted.Render(padLeft(components.Truncate(m.name(m.match.HomeTeamID), valWidth+bar/2), valWidth+bar/2) +
-		strings.Repeat(" ", bar-bar/2+1) + components.Truncate(m.name(m.match.AwayTeamID), valWidth+bar/2))}
+	// The names sit over the bar's ends: home's fill starts on the left,
+	// away's on the right.
+	homeName := components.Truncate(m.name(m.match.HomeTeamID), max(bar/2-1, 4))
+	awayName := components.Truncate(m.name(m.match.AwayTeamID), max(bar/2-1, 4))
+	head := strings.Repeat(" ", valWidth+1) + homeName +
+		strings.Repeat(" ", max(bar-lipgloss.Width(homeName)-lipgloss.Width(awayName), 1)) + awayName
+	out := []string{th.Muted.Render(head)}
 	for _, r := range statRows {
 		hv, hs, hok := r.val(&home)
 		av, as, aok := r.val(&away)

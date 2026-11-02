@@ -186,7 +186,7 @@ var (
 	// commentary, or jumps to one by number.
 	MatchTabs = key.NewBinding(
 		key.WithKeys("tab", "shift+tab", "[", "]", "1", "2", "3", "4"),
-		key.WithHelp("[/]/1-4", "section"),
+		key.WithHelp("[ ] 1-4", "section"),
 	)
 )
 
