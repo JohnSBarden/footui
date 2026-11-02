@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/JohnSBarden/footui/internal/data/models"
+	"github.com/JohnSBarden/footui/internal/storage"
 )
 
 // updateFixture is only for adding a fixture for a new schema version —
@@ -224,6 +225,9 @@ func writeFixture(t *testing.T, path string) {
 			HomePens: new(2), AwayPens: new(4), Source: "espn", UpdatedAt: fixtureTime},
 	}))
 
+	// From schema 0015: a last game's detail.
+	mustNoErr(t, s.PutMatchDetail(ctx, fixtureDetail("espn-900003")))
+
 	mustNoErr(t, os.MkdirAll(filepath.Dir(path), 0o755))
 	_ = os.Remove(path)
 	if _, err := db.Exec(`VACUUM INTO ?`, path); err != nil {
@@ -328,6 +332,64 @@ func checkFixture(t *testing.T, s *Store) {
 		SeasonID: "eng-premier-league:2025", Kickoff: fixtureTime.Add(48 * time.Hour), Status: models.MatchFullTime,
 		HomeTeamID: "eng-arsenal", AwayTeamID: "nat-spain", HomeScore: new(0), AwayScore: new(0),
 		HomeStats: &models.MatchTeamStats{XG: new(0.4)}, Source: "understat", UpdatedAt: fixtureTime}}))
+
+	if d, err := s.MatchDetail(ctx, "espn-900003"); err == nil {
+		checkDetail(t, d)
+	} else if !errors.Is(err, storage.ErrNotFound) {
+		t.Errorf("match detail: %v", err)
+	}
+	mustNoErr(t, s.PutMatchDetail(ctx, fixtureDetail("understat-1")))
+	if d, err := s.MatchDetail(ctx, "understat-1"); err != nil {
+		t.Errorf("an upgraded fixture can't read back a match detail: %v", err)
+	} else {
+		checkDetail(t, d)
+	}
+}
+
+func fixtureDetail(matchID string) models.MatchDetail {
+	return models.MatchDetail{
+		MatchID: matchID, Final: true, Venue: "Harrowdene Park", Attendance: 18432, FetchedAt: fixtureTime,
+		Home: models.MatchSide{
+			Formation: "4-3-3",
+			Stats:     models.MatchDetailStats{Possession: new(58.2), Passes: new(512), AccuratePasses: new(441), RedCards: new(1)},
+			Lineup: []models.LineupPlayer{
+				{Name: "Ian Holt", Shirt: "1", Position: "G", Place: 1, Starter: true, Saves: 2},
+				{Name: "Ray Colley", Shirt: "23", Position: "SUB", On: 70},
+			},
+		},
+		Away: models.MatchSide{Formation: "4-4-2", Stats: models.MatchDetailStats{Saves: new(4)}},
+		Events: []models.MatchEvent{
+			{Kind: models.EventGoal, Side: models.SideHome, Period: 1, Minute: 23, Player: "Tom Ashdown", PlayerID: "p-ashdown", Other: "Leo Marsh"},
+			{Kind: models.EventHalfTime, Period: 1, Minute: 45, Added: 3},
+			{Kind: models.EventOwnGoal, Side: models.SideAway, Period: 2, Minute: 71, Player: "Sam Kerrow"},
+		},
+		Commentary: []models.CommentaryLine{{Text: "Lineups are announced."}, {Clock: "23'", Kind: "Goal", Text: "Goal!"}},
+	}
+}
+
+func checkDetail(t *testing.T, d models.MatchDetail) {
+	t.Helper()
+	if !d.Final || d.Venue != "Harrowdene Park" || d.Attendance != 18432 || !d.FetchedAt.Equal(fixtureTime) ||
+		d.Home.Formation != "4-3-3" || d.Away.Formation != "4-4-2" {
+		t.Errorf("detail header %+v", d)
+	}
+	if h := d.Home.Stats; *h.Possession != 58.2 || *h.AccuratePasses != 441 || *h.RedCards != 1 || h.Shots != nil {
+		t.Errorf("home stats %+v", h)
+	}
+	if *d.Away.Stats.Saves != 4 || d.Away.Stats.Possession != nil {
+		t.Errorf("away stats %+v", d.Away.Stats)
+	}
+	if len(d.Home.Lineup) != 2 || d.Home.Lineup[0].Name != "Ian Holt" || d.Home.Lineup[0].Saves != 2 ||
+		!d.Home.Lineup[0].Starter || d.Home.Lineup[1].On != 70 || len(d.Away.Lineup) != 0 {
+		t.Errorf("lineups %+v / %+v", d.Home.Lineup, d.Away.Lineup)
+	}
+	if len(d.Events) != 3 || d.Events[0].PlayerID != "p-ashdown" || d.Events[0].Other != "Leo Marsh" ||
+		d.Events[1].Clock() != "45+3'" || d.Events[1].Side != models.SideNone || d.Events[2].Kind != models.EventOwnGoal {
+		t.Errorf("events %+v", d.Events)
+	}
+	if len(d.Commentary) != 2 || d.Commentary[0].Clock != "" || d.Commentary[1].Kind != "Goal" {
+		t.Errorf("commentary %+v", d.Commentary)
+	}
 }
 
 // Names folded by the old rules (which left Ø alone) are refolded on

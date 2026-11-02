@@ -228,7 +228,8 @@ func (f *refreshFlags) runTeam(cmd *cobra.Command, g *globalFlags) error {
 		if club, ok := exactClub(ctx, store, f.team); ok {
 			// Ignores --years: matches what the Team screen shows.
 			fmt.Fprintf(out, "Refreshing %s's recent games: its league, cups and European matches…\n\n", club.Name)
-			results, err := runClub(ctx, store, club, f.maxAge, ev)
+			ev.note = func(s string) { fmt.Fprintf(out, "  %s\n", s) }
+			results, _, err := runClub(ctx, store, club, f.maxAge, ev)
 			if err != nil {
 				return err
 			}

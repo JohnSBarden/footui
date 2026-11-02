@@ -16,7 +16,8 @@ import (
 )
 
 // International football is fetched a competition-year per scoreboard
-// request. Per-match summaries (440 KB each) are too heavy to use.
+// request. Per-match summaries (440 KB each) are too heavy to fetch for
+// every match; they are fetched only for a club's last game (summary.go).
 
 // scoreboardLimit: ESPN's default is small and truncates silently; the
 // busiest year of friendlies is about 300 matches.

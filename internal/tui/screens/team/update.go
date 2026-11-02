@@ -40,6 +40,7 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 		m.recent = msg.matches
 		m.recentLoaded = true
 		m.strip = msg.strip
+		m.last = msg.last
 		return m, nil
 
 	case historyLoadedMsg:
@@ -110,6 +111,9 @@ func (m *Model) click(msg core.ClickMsg) tea.Cmd {
 	if i, ok := msg.ClickedIndex("tab"); ok {
 		return m.selectCompetition(i)
 	}
+	if msg.ID == lastGameZone {
+		return m.openLastGame()
+	}
 	pane, i, ok := paneSeasons, 0, false
 	if i, ok = msg.ClickedIndex("season"); !ok {
 		pane = paneSquad
@@ -149,6 +153,8 @@ func (m *Model) handleKey(msg tea.KeyMsg) (core.Screen, tea.Cmd) {
 		return m, m.setCursor(m.paneLen() - 1)
 	case "enter":
 		return m, m.drillDown()
+	case "e":
+		return m, m.openLastGame()
 	case "m":
 		if m.deps.Nav.Games == nil {
 			return m, nil

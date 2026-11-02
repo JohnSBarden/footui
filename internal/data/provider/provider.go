@@ -60,6 +60,19 @@ type SeasonMatchesProvider interface {
 	SeasonMatches(ctx context.Context, comp CompetitionRef, season SeasonRef) ([]models.Match, error)
 }
 
+// MatchDetailsProvider supplies one match's events, full stats, lineups
+// and commentary. It is heavy (one large response per match), so it is
+// asked for a club's last game only.
+type MatchDetailsProvider interface {
+	// MatchDetail fetches the match the source calls nativeID. Player IDs
+	// in it are the source's ("espn:231182"); MatchID is left empty.
+	MatchDetail(ctx context.Context, comp CompetitionRef, nativeID string) (models.MatchDetail, error)
+	// DayMatches lists comp's matches kicked off on day (UTC), with the
+	// teams that played them, to find the source's ID for a match another
+	// source supplied.
+	DayMatches(ctx context.Context, comp CompetitionRef, day time.Time) ([]models.Match, []models.Team, error)
+}
+
 // SquadMember is one player on a provider's club roster.
 type SquadMember struct {
 	ID       string

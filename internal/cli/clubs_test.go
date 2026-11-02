@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"net/http"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -111,5 +112,53 @@ func TestAClubRefreshFetchesItsUnitsOnce(t *testing.T) {
 	}
 	if _, due := clubDue(context.Background(), repos, arsenal, now, 6*time.Hour); due {
 		t.Error("still due after a refresh")
+	}
+	// The last game came from understat: looked for on its day and the
+	// days either side, not found, and not looked for again.
+	if days, sums := atomic.LoadInt32(&fake.days), atomic.LoadInt32(&fake.summaries); days != 3 || sums != 0 {
+		t.Errorf("last game: %d day scoreboards, %d summaries; want 3 and none", days, sums)
+	}
+}
+
+// A last game that failed to fetch rests ten minutes, as a failed unit
+// does, rather than being asked for every time the Team screen opens.
+func TestAFailedLastGameRests(t *testing.T) {
+	t.Cleanup(func() { lastGameFailures.at = map[string]time.Time{} })
+	fake := useFakeESPN(t)
+	fake.dayStatus = http.StatusInternalServerError
+	repos := withDirectory(t)
+	now := time.Now()
+	arsenal := seedArsenal(t, repos, now, time.Hour, true)
+
+	refresh := tuiRefresher(repos, 6*time.Hour)
+	req := core.RefreshRequest{TeamID: arsenal.ID, Name: arsenal.Name, Automatic: true}
+	if _, err := refresh(context.Background(), req, func(string) {}); err != nil {
+		t.Fatalf("a failed last game failed the refresh: %v", err)
+	}
+	if atomic.LoadInt32(&fake.days) == 0 {
+		t.Fatal("the last game wasn't looked for")
+	}
+	if why, due := clubDue(context.Background(), repos, arsenal, now, 6*time.Hour); due {
+		t.Errorf("due again at once (%s)", why)
+	}
+	asked := atomic.LoadInt32(&fake.days)
+	if _, err := refresh(context.Background(), req, func(string) {}); err != nil || atomic.LoadInt32(&fake.days) != asked {
+		t.Errorf("asked again within the rest: %v, %d requests", err, atomic.LoadInt32(&fake.days)-asked)
+	}
+	if why, due := clubDue(context.Background(), repos, arsenal, now.Add(11*time.Minute), 6*time.Hour); !due || why != "last game" {
+		t.Errorf("not due after the rest: %v (%s)", due, why)
+	}
+}
+
+func TestAClubSummaryNamesTheLastGame(t *testing.T) {
+	for _, c := range []struct{ summary, lastGame, want string }{
+		{"fetched 2, 14 matches", "last game in full", "fetched 2, 14 matches; last game in full"},
+		{"recent games up to date", "last game in full", "last game in full"},
+		{"nothing to fetch", "last game in full", "last game in full"},
+		{"recent games up to date", "", "recent games up to date"},
+	} {
+		if got := withLastGame(c.summary, c.lastGame); got != c.want {
+			t.Errorf("withLastGame(%q, %q) = %q, want %q", c.summary, c.lastGame, got, c.want)
+		}
 	}
 }
