@@ -96,6 +96,16 @@ type MatchesRepo interface {
 	SetTeamMatchFilter(ctx context.Context, teamID string, f models.MatchFilter) error
 }
 
+// MatchDetailRepo persists one match's events, full stats, lineups and
+// commentary.
+type MatchDetailRepo interface {
+	// PutMatchDetail replaces everything stored for d.MatchID; the match
+	// itself must already be stored.
+	PutMatchDetail(ctx context.Context, d models.MatchDetail) error
+	// MatchDetail returns ErrNotFound when none was fetched.
+	MatchDetail(ctx context.Context, matchID string) (models.MatchDetail, error)
+}
+
 // TrophiesRepo persists and queries a club's honours.
 type TrophiesRepo interface {
 	InsertTrophy(ctx context.Context, t models.Trophy) error
@@ -198,4 +208,5 @@ type Repositories interface {
 	ExternalRefRepo
 	FavoritesRepo
 	MatchesRepo
+	MatchDetailRepo
 }

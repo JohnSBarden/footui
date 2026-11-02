@@ -113,3 +113,16 @@ func TestAClubRefreshFetchesItsUnitsOnce(t *testing.T) {
 		t.Error("still due after a refresh")
 	}
 }
+
+func TestAClubSummaryNamesTheLastGame(t *testing.T) {
+	for _, c := range []struct{ summary, lastGame, want string }{
+		{"fetched 2, 14 matches", "last game in full", "fetched 2, 14 matches; last game in full"},
+		{"recent games up to date", "last game in full", "last game in full"},
+		{"nothing to fetch", "last game in full", "last game in full"},
+		{"recent games up to date", "", "recent games up to date"},
+	} {
+		if got := withLastGame(c.summary, c.lastGame); got != c.want {
+			t.Errorf("withLastGame(%q, %q) = %q, want %q", c.summary, c.lastGame, got, c.want)
+		}
+	}
+}

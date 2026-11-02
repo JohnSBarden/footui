@@ -177,6 +177,17 @@ var (
 		key.WithKeys("m"),
 		key.WithHelp("m", "tables"),
 	)
+	// LastGame opens a club's last game in full.
+	LastGame = key.NewBinding(
+		key.WithKeys("e"),
+		key.WithHelp("e", "last game"),
+	)
+	// MatchTabs steps through a match's timeline, stats, lineups and
+	// commentary, or jumps to one by number.
+	MatchTabs = key.NewBinding(
+		key.WithKeys("tab", "shift+tab", "1", "2", "3", "4"),
+		key.WithHelp("tab/1-4", "section"),
+	)
 )
 
 // Navigation bindings screens share; each declares those it handles.
