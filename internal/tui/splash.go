@@ -20,8 +20,11 @@ const (
 	// splashSettleAfter plus ~0.9 s of settling ends as splashFor does.
 	splashSettleAfter = 1100 * time.Millisecond
 	splashSpinEvery   = 80 * time.Millisecond
-	splashListWidth   = 50
-	splashBarWidth    = 44
+	// splashHold keeps "ready" on screen for a moment once the startup
+	// refreshes finish after splashFor, so the last ✓ is seen.
+	splashHold      = 700 * time.Millisecond
+	splashListWidth = 50
+	splashBarWidth  = 44
 )
 
 var splashSpinner = []rune("⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏")
@@ -30,15 +33,20 @@ type splashDoneMsg struct{}
 
 type splashFrameMsg struct{}
 
-// splashState is the launch screen. It never blocks: any key skips it.
+// splashState is the launch screen. It stays at least splashFor and then
+// until the startup refreshes finish, but never blocks: any key skips it.
 type splashState struct {
-	// waitForData keeps it up on an empty database until the first
-	// refresh lands.
+	// waitForData ends it on an empty database as soon as the first
+	// refresh lands, rather than after the whole queue.
 	waitForData bool
 	done        []splashDone
 	// elapsed is counted in frames, so it doesn't depend on the clock.
 	elapsed time.Duration
 	balls   splashBalls
+	// timedOut: splashFor has passed, so it goes as soon as it's idle.
+	timedOut bool
+	// idleSince is the elapsed time the queue last emptied, -1 while busy.
+	idleSince time.Duration
 }
 
 type splashDone struct {
@@ -48,7 +56,12 @@ type splashDone struct {
 
 // ShowSplash puts the splash in front of the first screen.
 func (a *App) ShowSplash(waitForData bool) {
-	a.splash = &splashState{waitForData: waitForData, balls: newSplashBalls()}
+	a.splash = &splashState{waitForData: waitForData, balls: newSplashBalls(), idleSince: -1}
+}
+
+// splashBusy: a startup refresh is running or waiting.
+func (a *App) splashBusy() bool {
+	return a.active != nil || len(a.queue) > 0
 }
 
 func splashTimer() tea.Cmd {
@@ -60,26 +73,38 @@ func splashFrame() tea.Cmd {
 }
 
 // splashAnimate settles the balls once they've bounced and nothing is left
-// to refresh.
+// to refresh, and ends the splash once the refreshes that outlasted
+// splashFor are done and "ready" has been up for splashHold.
 func (a *App) splashAnimate() tea.Cmd {
 	if a.splash == nil {
 		return nil
 	}
 	s := a.splash
 	s.elapsed += splashFrameEvery
-	settling := s.elapsed >= splashSettleAfter && a.active == nil && len(a.queue) == 0
+	busy := a.splashBusy()
+	switch {
+	case busy:
+		s.idleSince = -1
+	case s.idleSince < 0:
+		s.idleSince = s.elapsed
+	}
+	if s.timedOut && !busy && s.elapsed-s.idleSince >= splashHold {
+		a.splash = nil
+		return nil
+	}
+	settling := s.elapsed >= splashSettleAfter && !busy
 	s.balls.step(splashFrameEvery.Seconds(), settling)
 	return splashFrame()
 }
 
-// splashTimedOut ends the splash unless it is waiting for a first league
-// that is actually on its way.
+// splashTimedOut ends the splash if nothing is refreshing; otherwise it
+// stays until the queue is done (see splashAnimate).
 func (a *App) splashTimedOut() {
 	if a.splash == nil {
 		return
 	}
-	coming := a.active != nil || len(a.queue) > 0
-	if !a.splash.waitForData || !coming {
+	a.splash.timedOut = true
+	if !a.splashBusy() {
 		a.splash = nil
 	}
 }

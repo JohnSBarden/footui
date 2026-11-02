@@ -160,6 +160,56 @@ func TestTheSplashTimesOut(t *testing.T) {
 	}
 }
 
+func frames(app *App, d time.Duration) *App {
+	for range int(d / splashFrameEvery) {
+		app = send(app, splashFrameMsg{})
+	}
+	return app
+}
+
+func TestTheSplashWaitsForStartupRefreshesToFinish(t *testing.T) {
+	app := newApp(newFake("Dashboard"))
+	app.ShowSplash(false)
+	app.active = &core.RefreshRequest{CompetitionID: "eng-premier-league", Name: "Premier League"}
+	app.queue = []core.RefreshRequest{{CompetitionID: "ita-serie-a", Name: "Serie A"}}
+	app = frames(app, splashFor)
+	app = send(app, splashDoneMsg{})
+	app = frames(app, 5*time.Second)
+	if app.splash == nil {
+		t.Fatal("the splash went while leagues were still downloading")
+	}
+
+	app.active, app.queue = nil, nil
+	app.splash.done = []splashDone{{label: "Premier League"}, {label: "Serie A"}}
+	app = send(app, splashFrameMsg{})
+	if v := ansi.Strip(app.View()); app.splash == nil || !strings.Contains(v, "ready · cache up to date") {
+		t.Fatalf("finishing should show ready before the splash goes\n%s", v)
+	}
+	app = frames(app, splashHold)
+	if app.splash != nil {
+		t.Error("the splash should go once the refreshes are done")
+	}
+}
+
+func TestTheSplashHoldRestartsIfMoreIsQueued(t *testing.T) {
+	app := newApp(newFake("Dashboard"))
+	app.ShowSplash(false)
+	app.active = &core.RefreshRequest{CompetitionID: "eng-premier-league"}
+	app = send(app, splashDoneMsg{})
+	app.active = nil
+	app = frames(app, splashHold/2)
+	app.active = &core.RefreshRequest{CompetitionID: "ita-serie-a"}
+	app = frames(app, splashHold)
+	if app.splash == nil {
+		t.Fatal("a refresh starting again should keep the splash up")
+	}
+	app.active = nil
+	app = frames(app, splashHold+splashFrameEvery)
+	if app.splash != nil {
+		t.Error("the splash should go once idle for the hold")
+	}
+}
+
 func TestSplashShowsThePause(t *testing.T) {
 	app := newApp(newFake("Dashboard"))
 	app.deps.ProviderPause = func() time.Time { return time.Now().Add(47 * time.Minute) }
