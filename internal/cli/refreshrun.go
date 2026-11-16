@@ -230,94 +230,98 @@ func tuiRefresher(store storage.Repositories, staleAfter time.Duration) core.Ref
 				return "", tuiError(err)
 			}
 			return fmt.Sprintf("%d national teams, ready to search", n), nil
-		case req.TeamID != "" || req.Nations != "":
-			gender := req.Nations
-			if req.TeamID != "" {
-				team, err := store.GetTeam(ctx, req.TeamID)
-				if err != nil {
-					return "", err
-				}
-				if !team.National {
-					if req.History {
-						return refreshClubHistory(ctx, store, team, req.CompetitionID, ev, progress)
-					}
-					ev.unit = func(u sync.UnitResult) {
-						progress(fmt.Sprintf("%s %s %s", u.Competition.Abbrev(), components.SeasonName(u.Season), unitOutcome(u)))
-					}
-					results, lastGame, err := runClub(ctx, store, team, stale, ev)
-					if err != nil {
-						return "", err
-					}
-					summary, err := summarizeMatches(results, "recent games up to date", false)
-					if err != nil {
-						return "", err
-					}
-					return withLastGame(summary, lastGame), nil
-				}
-				gender = team.Gender
-			}
-			years, err := calendarYears(req.Seasons, time.Now())
-			if err != nil {
-				return "", err
-			}
-			units := sync.NationUnits(gender, years)
-			done := 0
-			ev.unit = func(u sync.UnitResult) {
-				done++
-				outcome := "fetched"
-				switch {
-				case u.Fresh:
-					outcome = "up to date"
-				case u.Failed():
-					outcome = "failed"
-				}
-				progress(fmt.Sprintf("%s %s %s (%d of %d)", u.Competition.Abbrev(), u.Season.Label, outcome, done, len(units)))
-			}
-			return summarizeMatches(runNations(ctx, store, gender, years, stale, ev), "already up to date", true)
+		case req.TeamID != "":
+			return refreshTeam(ctx, store, req, stale, ev, progress)
+		case req.Nations != "":
+			return refreshNations(ctx, store, req.Nations, req.Seasons, stale, ev, progress)
 		}
-
-		cov, ok := sync.FindCoverage(req.CompetitionID)
-		if !ok {
-			return "", fmt.Errorf("footui doesn't cover %q — see `footui competitions`", req.CompetitionID)
-		}
-		comp := cov.Competition
-		seasons := req.Seasons
-		if len(seasons) == 0 {
-			seasons = []string{cov.CurrentSeason(time.Now())}
-		}
-
-		if comp.International() {
-			ev.unit = func(u sync.UnitResult) {
-				progress(fmt.Sprintf("%s %s %s", comp.Abbrev(), components.SeasonName(u.Season), unitOutcome(u)))
-			}
-			return summarizeMatches(runRefresh(ctx, store, []sync.Job{{Competition: comp, Seasons: seasons}}, stale, ev), "already up to date", true)
-		}
-
-		done := 0
-		results := runRefresh(ctx, store, []sync.Job{{Competition: comp, Seasons: seasons}}, 0, refreshEvents{
-			unit: func(u sync.UnitResult) {
-				done++
-				if len(seasons) == 1 {
-					return
-				}
-				outcome := "ok"
-				if u.Failed() {
-					outcome = "failed"
-				}
-				progress(fmt.Sprintf("%s %s %s (%d of %d)",
-					comp.ID, components.SeasonName(u.Season), outcome, done, len(seasons)))
-			},
-			retry: func(attempt, of int, err error) {
-				progress(fmt.Sprintf("retry %d of %d: %v", attempt, of, tuiError(err)))
-			},
-			note: progress,
-		})
-		if rateLimited(results) {
-			return "", core.ErrRateLimited
-		}
-		summary, err := summarizeUnits(results)
-		return summary, tuiError(err)
+		return refreshCompetition(ctx, store, req, stale, ev, progress)
 	}
+}
+
+// refreshTeam refreshes a club's recent games (or, with History, every
+// covered season), or a nation's matches.
+func refreshTeam(ctx context.Context, store storage.Repositories, req core.RefreshRequest,
+	stale time.Duration, ev refreshEvents, progress func(string)) (string, error) {
+	team, err := store.GetTeam(ctx, req.TeamID)
+	if err != nil {
+		return "", err
+	}
+	if team.National {
+		return refreshNations(ctx, store, team.Gender, req.Seasons, stale, ev, progress)
+	}
+	if req.History {
+		return refreshClubHistory(ctx, store, team, req.CompetitionID, ev, progress)
+	}
+	ev.unit = func(u sync.UnitResult) {
+		progress(fmt.Sprintf("%s %s %s", u.Competition.Abbrev(), components.SeasonName(u.Season), unitOutcome(u)))
+	}
+	results, lastGame, err := runClub(ctx, store, team, stale, ev)
+	if err != nil {
+		return "", err
+	}
+	summary, err := summarizeMatches(results, "recent games up to date", false)
+	if err != nil {
+		return "", err
+	}
+	return withLastGame(summary, lastGame), nil
+}
+
+// refreshNations fetches the international competition-years every
+// nation of gender shares.
+func refreshNations(ctx context.Context, store storage.Repositories, gender string, seasons []string,
+	stale time.Duration, ev refreshEvents, progress func(string)) (string, error) {
+	years, err := calendarYears(seasons, time.Now())
+	if err != nil {
+		return "", err
+	}
+	units := sync.NationUnits(gender, years)
+	done := 0
+	ev.unit = func(u sync.UnitResult) {
+		done++
+		progress(fmt.Sprintf("%s %s %s (%d of %d)", u.Competition.Abbrev(), u.Season.Label, unitOutcome(u), done, len(units)))
+	}
+	return summarizeMatches(runNations(ctx, store, gender, years, stale, ev), "already up to date", true)
+}
+
+// refreshCompetition refreshes the requested seasons of one competition,
+// the current one by default.
+func refreshCompetition(ctx context.Context, store storage.Repositories, req core.RefreshRequest,
+	stale time.Duration, ev refreshEvents, progress func(string)) (string, error) {
+	cov, ok := sync.FindCoverage(req.CompetitionID)
+	if !ok {
+		return "", fmt.Errorf("footui doesn't cover %q — see `footui competitions`", req.CompetitionID)
+	}
+	comp := cov.Competition
+	seasons := req.Seasons
+	if len(seasons) == 0 {
+		seasons = []string{cov.CurrentSeason(time.Now())}
+	}
+	jobs := []sync.Job{{Competition: comp, Seasons: seasons}}
+
+	if comp.International() {
+		ev.unit = func(u sync.UnitResult) {
+			progress(fmt.Sprintf("%s %s %s", comp.Abbrev(), components.SeasonName(u.Season), unitOutcome(u)))
+		}
+		return summarizeMatches(runRefresh(ctx, store, jobs, stale, ev), "already up to date", true)
+	}
+
+	done := 0
+	ev.unit = func(u sync.UnitResult) {
+		done++
+		if len(seasons) > 1 {
+			progress(fmt.Sprintf("%s %s %s (%d of %d)",
+				comp.ID, components.SeasonName(u.Season), unitOutcome(u), done, len(seasons)))
+		}
+	}
+	// No staleness check here: an automatic league refresh is only queued
+	// once startup has found its season stale.
+	results := runRefresh(ctx, store, jobs, 0, ev)
+	if rateLimited(results) {
+		return "", core.ErrRateLimited
+	}
+	summary, err := summarizeUnits(results)
+	return summary, tuiError(err)
 }
 
 // refreshPlayer fetches a player's season detail.
