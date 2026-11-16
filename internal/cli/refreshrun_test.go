@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/JohnSBarden/footui/internal/data/provider"
 	"strings"
 	"testing"
 	"time"
@@ -61,5 +62,15 @@ func TestTUIErrorPassesUnknownErrorsThrough(t *testing.T) {
 	err := errors.New("database is locked")
 	if got := tuiError(err); got != err {
 		t.Errorf("tuiError(%v) = %v, want the error unchanged", err, got)
+	}
+}
+
+// A maintenance page served with a 200 reads as maintenance, without
+// naming the source (the TUI never does).
+func TestTUIErrorExplainsAMaintenancePage(t *testing.T) {
+	err := fmt.Errorf("sync: fetch teams: understat: EPL 2026: %w", provider.ErrNotData)
+	got := tuiError(err).Error()
+	if !strings.Contains(got, "maintenance") || strings.Contains(got, "understat") {
+		t.Errorf("tuiError = %q, want a maintenance message without the source", got)
 	}
 }

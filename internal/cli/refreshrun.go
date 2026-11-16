@@ -585,6 +585,8 @@ func tuiError(err error) error {
 		return core.ErrRateLimited
 	case errors.Is(err, provider.ErrNoTable):
 		return errors.New("no table for that season yet")
+	case errors.Is(err, provider.ErrNotData):
+		return errors.New("got a web page, not data: the source may be down for maintenance")
 	default:
 		return err
 	}

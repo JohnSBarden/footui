@@ -223,7 +223,7 @@ func (c *Client) attempt(ctx context.Context, url, referer, leagueKey, season st
 
 	body, err := provider.ReadBody(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("understat: read %s %s: %w", leagueKey, season, err)
+		return nil, fmt.Errorf("understat: %s %s: %w", leagueKey, season, err)
 	}
 	return body, nil
 }

@@ -107,6 +107,10 @@ var ErrNoTable = errors.New("no table for that season")
 // change that.
 var ErrNotFound = errors.New("not found")
 
+// ErrNotData means the source answered with a web page instead of data,
+// which is how a site down for maintenance looks. Retrying won't help.
+var ErrNotData = errors.New("sent a web page instead of data; the site may be down for maintenance")
+
 // ErrIncomplete means the source truncated the data. What is returned
 // alongside it is worth storing but must not be recorded as complete.
 var ErrIncomplete = errors.New("incomplete")
