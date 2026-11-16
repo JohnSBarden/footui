@@ -22,7 +22,8 @@ func MatchColumns(opponentWidth int) []Column {
 }
 
 // MatchCells is one match in a team's list, from teamID's side, with last
-// as the final cell. A fixture shows its kickoff instead of a score.
+// as the final cell. A fixture shows its kickoff time instead of a score;
+// the date column already has the day.
 func MatchCells(th styles.Theme, m models.Match, teamID string, comp models.Competition, opponent, last string) []Cell {
 	venue := "A"
 	switch {
@@ -40,7 +41,7 @@ func MatchCells(th styles.Theme, m models.Match, teamID string, comp models.Comp
 		style = th.Negative
 	case "":
 		if score == "" {
-			score = Kickoff(m.Kickoff)[4:] // "14 Nov 19:45"
+			score = m.Kickoff.Local().Format("15:04")
 		}
 		style = th.Muted
 	}
