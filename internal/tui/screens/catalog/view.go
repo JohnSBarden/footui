@@ -76,7 +76,7 @@ func (m *Model) leagueTable() string {
 				cursor++
 			}
 		}
-		cached := th.Muted.Render("—")
+		cached := th.Muted.Render(components.Missing)
 		if n := l.cachedCount(); n > 0 {
 			cached = fmt.Sprintf("%d of %d", n, len(l.Seasons))
 		}

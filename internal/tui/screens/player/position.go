@@ -102,7 +102,7 @@ func appsOf(r SeasonRow) int {
 // per90 is "—" when unrecorded or the minutes are too few.
 func per90(n *int, minutes int) string {
 	if n == nil || minutes < 90 {
-		return "—"
+		return components.Missing
 	}
 	return strconv.FormatFloat(float64(*n)*90/float64(minutes), 'f', 2, 64)
 }
@@ -117,14 +117,14 @@ func sumPtr(a, b *int) *int {
 
 func pct(p *float64) string {
 	if p == nil {
-		return "—"
+		return components.Missing
 	}
 	return strconv.Itoa(int(*p*100+0.5)) + "%"
 }
 
 func ratio(num, den int) string {
 	if den <= 0 {
-		return "—"
+		return components.Missing
 	}
 	return strconv.Itoa(int(float64(num)*100/float64(den)+0.5)) + "%"
 }
@@ -133,14 +133,14 @@ func ratio(num, den int) string {
 // trusted, but every shot on target was either saved or went in.
 func savePct(d *models.PlayerSeasonDetail) string {
 	if d == nil || d.Saves == nil || d.GoalsConceded == nil {
-		return "—"
+		return components.Missing
 	}
 	return ratio(*d.Saves, *d.Saves+*d.GoalsConceded)
 }
 
 func countOr(n *int) string {
 	if n == nil {
-		return "—"
+		return components.Missing
 	}
 	return strconv.Itoa(*n)
 }
@@ -155,7 +155,7 @@ func (m *Model) positionCards(r SeasonRow) []components.Stat {
 	}
 	notRecorded := func(st components.Stat, n *int) components.Stat {
 		if n == nil {
-			st.Value, st.Hint = "—", "not recorded"
+			st.Value, st.Hint = components.Missing, "not recorded"
 		}
 		return st
 	}
@@ -210,7 +210,7 @@ func (m *Model) positionCards(r SeasonRow) []components.Stat {
 			passing,
 		}
 	}
-	onTarget := components.Stat{Label: "On target", Value: "—", Hint: "not recorded"}
+	onTarget := components.Stat{Label: "On target", Value: components.Missing, Hint: "not recorded"}
 	if d.ShotsOnTarget != nil && s.Shots != nil && *s.Shots > 0 {
 		onTarget.Value, onTarget.Hint = ratio(*d.ShotsOnTarget, *s.Shots), fmt.Sprintf("%d of %d", *d.ShotsOnTarget, *s.Shots)
 	}
@@ -234,14 +234,14 @@ func lineCount(label string, n *int, minutes, apps int) components.Stat {
 func minutesCell(r SeasonRow) string {
 	mins := minutesOf(r)
 	if mins == 0 && appsOf(r) > 0 {
-		return "—"
+		return components.Missing
 	}
 	return strconv.Itoa(mins)
 }
 
 func minutesTile(minutes, apps int) components.Stat {
 	if minutes == 0 && apps > 0 {
-		return components.Stat{Label: "Minutes", Value: "—", Hint: "not recorded · " + strconv.Itoa(apps) + " apps"}
+		return components.Stat{Label: "Minutes", Value: components.Missing, Hint: "not recorded · " + strconv.Itoa(apps) + " apps"}
 	}
 	return components.Stat{Label: "Minutes", Value: strconv.Itoa(minutes), Hint: strconv.Itoa(apps) + " apps"}
 }
@@ -339,7 +339,7 @@ func (m *Model) positionTable(rows []SeasonRow) (base []components.Column, extra
 		}
 		switch m.group {
 		case playerstats.GK:
-			pm := components.Text("—")
+			pm := components.Text(components.Missing)
 			if r.XGA != nil && d.GoalsConceded != nil {
 				diff := *r.XGA - float64(*d.GoalsConceded)
 				pm = components.Styled(components.SignedFloat(diff, 1), m.deltaStyle(diff))

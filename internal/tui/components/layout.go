@@ -81,7 +81,7 @@ func DropBlankColumns(base []Column, groups [][]Column, rows [][]Cell) ([][]Colu
 
 func blankColumn(rows [][]Cell, i int) bool {
 	for _, row := range rows {
-		if i < len(row) && row[i].Text != "—" {
+		if i < len(row) && row[i].Text != Missing {
 			return false
 		}
 	}
