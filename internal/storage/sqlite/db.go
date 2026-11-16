@@ -34,7 +34,11 @@ func OpenNotify(path string, upgrading func(pending int)) (*sql.DB, error) {
 	// One connection avoids SQLite writer-lock contention.
 	db.SetMaxOpenConns(1)
 
-	if _, err := db.Exec(`PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL;`); err != nil {
+	// synchronous = NORMAL is the usual pairing with WAL: a crash can't
+	// corrupt the database, only a power cut can lose the last commits,
+	// and a refresh's row-by-row writes stop waiting on an fsync each
+	// (about 5x faster).
+	if _, err := db.Exec(`PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL;`); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("sqlite: set pragmas: %w", err)
 	}
