@@ -34,3 +34,27 @@ func TestInternationalCompetitionsShowTheirCategory(t *testing.T) {
 		t.Errorf("results:\n%s", out)
 	}
 }
+
+// Clubs are listed before nations, but typing a nation's exact name puts
+// the cursor on it rather than on a club that merely contains the word.
+func TestCursorStartsOnAnExactNameMatch(t *testing.T) {
+	repos := storagetest.New(t)
+	for _, n := range []models.Team{
+		{ID: "usa-new-arcadia-fc", Name: "New Arcadia FC", Gender: "men"},
+		{ID: "nat-arcadia", Name: "Arcadia", Gender: "men", National: true},
+	} {
+		if err := repos.UpsertTeam(context.Background(), n); err != nil {
+			t.Fatal(err)
+		}
+	}
+	out := open(t, newDeps(repos), "arcadia").View()
+	selected := ""
+	for _, line := range strings.Split(out, "\n") {
+		if strings.Contains(line, "←") {
+			selected = line
+		}
+	}
+	if !strings.Contains(selected, "● Arcadia") {
+		t.Errorf("cursor is on %q, want the nation Arcadia:\n%s", selected, out)
+	}
+}
