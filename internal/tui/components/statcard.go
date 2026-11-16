@@ -12,7 +12,9 @@ import (
 type Stat struct {
 	Label string
 	Value string
-	// Hint is an optional third line; empty collapses the card to two.
+	// Hint is an optional third line. A row where no card has one
+	// collapses to two lines; otherwise every card keeps the third so the
+	// row lines up.
 	Hint string
 	// Style optionally colours the value.
 	Style *lipgloss.Style
@@ -35,9 +37,14 @@ func StatCards(theme styles.Theme, stats []Stat, maxWidth int) string {
 		if end > len(stats) {
 			end = len(stats)
 		}
-		rendered := make([]string, 0, end-start)
-		for _, s := range stats[start:end] {
-			rendered = append(rendered, renderCard(theme, s, inner))
+		row := stats[start:end]
+		hinted := false
+		for _, s := range row {
+			hinted = hinted || s.Hint != ""
+		}
+		rendered := make([]string, 0, len(row))
+		for _, s := range row {
+			rendered = append(rendered, renderCard(theme, s, inner, hinted))
 		}
 		lines = append(lines, lipgloss.JoinHorizontal(lipgloss.Top, rendered...))
 	}
@@ -45,10 +52,10 @@ func StatCards(theme styles.Theme, stats []Stat, maxWidth int) string {
 	return strings.Join(lines, "\n")
 }
 
-func renderCard(theme styles.Theme, s Stat, inner int) string {
+func renderCard(theme styles.Theme, s Stat, inner int, hinted bool) string {
 	body := theme.Label.Render(pad(strings.ToUpper(s.Label), inner, false)) + "\n" +
 		valueStyle(theme, s).Render(pad(s.Value, inner, false))
-	if s.Hint != "" {
+	if hinted {
 		body += "\n" + theme.Muted.Render(pad(s.Hint, inner, false))
 	}
 

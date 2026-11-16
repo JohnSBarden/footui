@@ -89,3 +89,26 @@ func TestTrimRowMatchesTheRenderedColumns(t *testing.T) {
 		t.Errorf("TrimRow should not pad, got %d cells", len(got))
 	}
 }
+
+func TestDropBlankColumnsRemovesAllDashColumns(t *testing.T) {
+	base := []Column{{Title: "Season"}}
+	groups := [][]Column{{{Title: "xG"}, {Title: "xA"}}, {{Title: "Sh"}, {Title: "KP"}}}
+	rows := [][]Cell{
+		{Text("2025"), Text("—"), Text("—"), Text("3"), Text("—")},
+		{Text("2024"), Text("—"), Text("—"), Text("—"), Text("—")},
+	}
+	gotGroups, gotRows := DropBlankColumns(base, groups, rows)
+	if len(gotGroups) != 1 || len(gotGroups[0]) != 1 || gotGroups[0][0].Title != "Sh" {
+		t.Fatalf("groups = %+v, want only Sh", gotGroups)
+	}
+	if len(gotRows[0]) != 2 || gotRows[0][1].Text != "3" || gotRows[1][1].Text != "—" {
+		t.Errorf("rows = %+v, want Season and Sh cells", gotRows)
+	}
+}
+
+func TestDropBlankColumnsKeepsEverythingWithNoRows(t *testing.T) {
+	groups := [][]Column{{{Title: "xG"}}}
+	if got, _ := DropBlankColumns(nil, groups, nil); len(got) != 1 {
+		t.Errorf("groups = %+v, want them kept when there are no rows", got)
+	}
+}

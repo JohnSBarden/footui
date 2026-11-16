@@ -334,6 +334,7 @@ func (m *Model) tableColumns(width int) []components.Column {
 func (m *Model) tableParts(rows []SeasonRow, width int) ([]components.Column, [][]components.Cell, []string) {
 	th := m.deps.Theme
 	if base, extra, cells, ok := m.positionTable(rows); ok {
+		extra, cells = components.DropBlankColumns(base, extra, cells)
 		cols := components.FitColumns(width, base, 0, extra)
 		for i := range cells {
 			cells[i] = components.TrimRow(cells[i], len(cols))
@@ -360,7 +361,9 @@ func (m *Model) tableParts(rows []SeasonRow, width int) ([]components.Column, []
 		})
 	}
 
-	cols := m.columns(width)
+	base, extra := forwardColumns()
+	extra, cells = components.DropBlankColumns(base, extra, cells)
+	cols := components.FitColumns(width, base, 0, extra)
 	for i := range cells {
 		cells[i] = components.TrimRow(cells[i], len(cols))
 	}
@@ -376,8 +379,10 @@ func (m *Model) tableParts(rows []SeasonRow, width int) ([]components.Column, []
 // never shrinks; see components.FitColumns.
 const wantTeamCol = 22
 
-func (m *Model) columns(width int) []components.Column {
-	base := []components.Column{
+// forwardColumns are the season table's columns for forwards and players
+// without detail; the groups drop right to left when narrow.
+func forwardColumns() (base []components.Column, extra [][]components.Column) {
+	base = []components.Column{
 		{Title: "Season", Width: 8},
 		{Title: "Team", Width: wantTeamCol},
 		{Title: "Apps", Width: 5, Right: true},
@@ -385,8 +390,7 @@ func (m *Model) columns(width int) []components.Column {
 		{Title: "G", Width: 4, Right: true},
 		{Title: "A", Width: 4, Right: true},
 	}
-
-	return components.FitColumns(width, base, 0, [][]components.Column{
+	extra = [][]components.Column{
 		{
 			{Title: "xG", Width: 6, Right: true},
 			{Title: "xA", Width: 6, Right: true},
@@ -395,7 +399,8 @@ func (m *Model) columns(width int) []components.Column {
 			{Title: "Sh", Width: 4, Right: true},
 			{Title: "KP", Width: 4, Right: true},
 		},
-	})
+	}
+	return base, extra
 }
 
 // careerLines sit below the table, not as a row, so they can't be
