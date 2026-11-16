@@ -267,40 +267,10 @@ func (a *App) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, a.splashAnimate()
 
 	case tea.WindowSizeMsg:
-		// A terminal that can't report its size sends zeroes (some ptys,
-		// CI); keep the default rather than collapse every column.
-		if msg.Width <= 0 || msg.Height <= 0 {
-			return a, nil
-		}
-		a.width, a.height = msg.Width, msg.Height
-		// Resize the whole stack, so a popped-back screen isn't stale.
-		var cmds []tea.Cmd
-		for i, s := range a.stack {
-			updated, cmd := s.Update(a.screenSize(i))
-			a.stack[i] = updated
-			cmds = append(cmds, a.routeFrom(i, cmd))
-		}
-		if a.kick != nil {
-			// The pitch is built from the screen, so rebuild it.
-			cmds = append(cmds, a.startKick())
-		}
-		return a, tea.Batch(cmds...)
+		return a, a.resize(msg)
 
 	case core.PushMsg:
-		if msg.Screen == nil {
-			return a, nil
-		}
-		a.status = ""
-		a.stack = append(a.stack, msg.Screen)
-		a.ids = append(a.ids, a.nextID)
-		a.nextID++
-		sized, sizeCmd := msg.Screen.Update(a.screenSize(len(a.stack) - 1))
-		// A screen pushed mid-refresh learns what's in flight now rather
-		// than at the next queue change.
-		sized, queueCmd := sized.Update(core.RefreshQueueMsg{Active: a.active, Pending: slices.Clone(a.queue)})
-		sized, logCmd := sized.Update(core.LogPanelMsg{Open: a.showLog})
-		a.stack[len(a.stack)-1] = sized
-		return a, tea.Batch(sizeCmd, queueCmd, logCmd, sized.Init())
+		return a, a.push(msg.Screen)
 
 	case core.PopMsg:
 		return a.pop()
@@ -351,6 +321,45 @@ func (a *App) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	updated, cmd := a.current().Update(msg)
 	a.stack[len(a.stack)-1] = updated
 	return a, cmd
+}
+
+// resize passes a new terminal size to every screen on the stack, so a
+// popped-back screen isn't stale. A terminal that can't report its size
+// sends zeroes (some ptys, CI); keep the default rather than collapse
+// every column.
+func (a *App) resize(msg tea.WindowSizeMsg) tea.Cmd {
+	if msg.Width <= 0 || msg.Height <= 0 {
+		return nil
+	}
+	a.width, a.height = msg.Width, msg.Height
+	var cmds []tea.Cmd
+	for i, s := range a.stack {
+		updated, cmd := s.Update(a.screenSize(i))
+		a.stack[i] = updated
+		cmds = append(cmds, a.routeFrom(i, cmd))
+	}
+	if a.kick != nil {
+		// The pitch is built from the screen, so rebuild it.
+		cmds = append(cmds, a.startKick())
+	}
+	return tea.Batch(cmds...)
+}
+
+// push opens screen on top of the stack, sized, and told what's being
+// refreshed now rather than at the next queue change.
+func (a *App) push(screen core.Screen) tea.Cmd {
+	if screen == nil {
+		return nil
+	}
+	a.status = ""
+	a.stack = append(a.stack, screen)
+	a.ids = append(a.ids, a.nextID)
+	a.nextID++
+	sized, sizeCmd := screen.Update(a.screenSize(len(a.stack) - 1))
+	sized, queueCmd := sized.Update(core.RefreshQueueMsg{Active: a.active, Pending: slices.Clone(a.queue)})
+	sized, logCmd := sized.Update(core.LogPanelMsg{Open: a.showLog})
+	a.stack[len(a.stack)-1] = sized
+	return tea.Batch(sizeCmd, queueCmd, logCmd, sized.Init())
 }
 
 // handleGlobalKey reports whether it consumed key as a global binding.
