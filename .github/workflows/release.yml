@@ -23,6 +23,16 @@ jobs:
       - run: make release
       - name: Checksums
         run: cd dist && sha256sum footui-* > SHA256SUMS
+      # The AUR PKGBUILD/.SRCINFO and the Homebrew formula for this tag,
+      # attached to the release so publishing them is a copy.
+      - name: Package files
+        run: |
+          packaging/render.sh "$GITHUB_REF_NAME" dist/SHA256SUMS dist/packaging
+          if [[ -d dist/packaging ]]; then # not made for a pre-release
+            mv dist/packaging/PKGBUILD dist/packaging/footui.rb dist/
+            mv dist/packaging/.SRCINFO dist/SRCINFO # a release asset can't start with a dot
+            rmdir dist/packaging
+          fi
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
