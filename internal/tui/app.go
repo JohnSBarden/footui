@@ -757,7 +757,7 @@ func (a *App) footer() string {
 		full = slices.DeleteFunc(slices.Clone(full), isEsc)
 	}
 	km.Full = append(append([][]key.Binding{}, km.FullHelp()...), full)
-	km.Short = append(append([]key.Binding{}, km.Short...), short...)
+	km.Short = a.fitShortHelp(km.Short, short)
 
 	a.help.Width = a.width
 	a.help.Styles.ShortKey = a.theme().Keycap
@@ -774,6 +774,42 @@ func (a *App) footer() string {
 		lines[i] = ansi.Truncate(line, a.width, "…")
 	}
 	return strings.Join(lines, "\n")
+}
+
+// essentialKeys always stay in the short footer: the way back, the full
+// key list and the way out.
+var essentialKeys = []string{"esc", "?", "q", "ctrl+c"}
+
+// fitShortHelp joins the screen's keys and the global ones, dropping from
+// the end until the line fits: first the optional global keys, then the
+// screen's own, so esc, ? and q are never the ones cut.
+func (a *App) fitShortHelp(screen, global []key.Binding) []key.Binding {
+	screen, global = slices.Clone(screen), slices.Clone(global)
+	width := a.help.Width
+	a.help.Width = 0 // measure untruncated
+	defer func() { a.help.Width = width }()
+	fits := func() bool {
+		return ansi.StringWidth(a.help.ShortHelpView(append(slices.Clone(screen), global...))) <= a.width
+	}
+	lastOptional := func() int {
+		for i := len(global) - 1; i >= 0; i-- {
+			if !slices.Contains(essentialKeys, global[i].Help().Key) {
+				return i
+			}
+		}
+		return -1
+	}
+	for !fits() {
+		switch i := lastOptional(); {
+		case i >= 0:
+			global = slices.Delete(global, i, i+1)
+		case len(screen) > 0:
+			screen = screen[:len(screen)-1]
+		default:
+			return global
+		}
+	}
+	return append(screen, global...)
 }
 
 // statusLine is cut to the width: a wrapped status would push the chrome
