@@ -2,6 +2,7 @@ package provider
 
 import (
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 )
@@ -33,5 +34,12 @@ func TestReadBodyRejectsOversizedBody(t *testing.T) {
 	big := strings.NewReader(strings.Repeat("x", MaxBody+1))
 	if _, err := ReadBody(big); err == nil {
 		t.Fatal("want an error for a body over MaxBody")
+	}
+}
+
+func TestReadBodyRejectsHTML(t *testing.T) {
+	page := strings.NewReader("\n  <!DOCTYPE html><html><body>We will come back soon</body></html>")
+	if _, err := ReadBody(page); !errors.Is(err, ErrNotData) {
+		t.Fatalf("err = %v, want ErrNotData", err)
 	}
 }

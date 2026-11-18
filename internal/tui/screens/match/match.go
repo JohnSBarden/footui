@@ -465,10 +465,10 @@ func (m *Model) statsLines() []string {
 			continue
 		}
 		if !hok {
-			hs = "—"
+			hs = components.Missing
 		}
 		if !aok {
-			as = "—"
+			as = components.Missing
 		}
 		line := th.TableCell.Render(padLeft(hs, valWidth)) + " " +
 			lipgloss.NewStyle().Width(bar).Render(components.SplitBar(th, hv, av, bar)) + " " +

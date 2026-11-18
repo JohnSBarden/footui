@@ -76,7 +76,7 @@ func (m *Model) leagueTable() string {
 				cursor++
 			}
 		}
-		cached := th.Muted.Render("—")
+		cached := th.Muted.Render(components.Missing)
 		if n := l.cachedCount(); n > 0 {
 			cached = fmt.Sprintf("%d of %d", n, len(l.Seasons))
 		}
@@ -100,7 +100,7 @@ func (m *Model) leagueTable() string {
 			{Title: "League", Width: 24},
 			{Title: "Country", Width: 8},
 			{Title: "Seasons", Width: 8},
-			{Title: "Refreshed", Width: 13},
+			{Title: "Refreshed", Width: 14}, // "59 minutes ago"
 		},
 		Rows:    rows,
 		Cursor:  cursor,

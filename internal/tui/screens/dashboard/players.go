@@ -76,14 +76,14 @@ func detailApps(c Card) int {
 
 func rate(n *int, minutes int) string {
 	if n == nil || minutes < 90 {
-		return "—"
+		return components.Missing
 	}
 	return strconv.FormatFloat(float64(*n)*90/float64(minutes), 'f', 2, 64)
 }
 
 func share(num, den int) string {
 	if den <= 0 {
-		return "—"
+		return components.Missing
 	}
 	return strconv.Itoa(int(float64(num)*100/float64(den)+0.5)) + "%"
 }

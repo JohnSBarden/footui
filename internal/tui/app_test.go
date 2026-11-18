@@ -3,6 +3,7 @@ package tui
 import (
 	"context"
 	"errors"
+	"github.com/charmbracelet/x/ansi"
 	"strings"
 	"testing"
 
@@ -648,5 +649,28 @@ func TestScreensFillTheTerminalAboveAPinnedFooter(t *testing.T) {
 	lines = strings.Split(app.View(), "\n")
 	if len(lines) != 20 || lines[len(lines)-2] == "" {
 		t.Errorf("the footer should stay on the bottom rows under a short screen:\n%s", strings.Join(lines, "\n"))
+	}
+}
+
+// On a narrow terminal the screen's least important keys and the optional
+// global ones go first; esc, ? and q always stay.
+func TestNarrowFooterKeepsTheEssentialKeys(t *testing.T) {
+	screen := newFake("Team")
+	for _, k := range []string{"↑/↓ move", "←/→ competition", "tab seasons/squad", "enter open", "m matches", "e last game"} {
+		k, desc, _ := strings.Cut(k, " ")
+		screen.keyMap.Short = append(screen.keyMap.Short, key.NewBinding(key.WithKeys(k), key.WithHelp(k, desc)))
+	}
+	app := newApp(screen)
+	app.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+
+	lines := strings.Split(app.View(), "\n")
+	footer := ansi.Strip(lines[len(lines)-2])
+	for _, want := range []string{"esc back", "? keys", "q quit", "↑/↓ move"} {
+		if !strings.Contains(footer, want) {
+			t.Errorf("footer %q should keep %q", footer, want)
+		}
+	}
+	if strings.Contains(footer, "…") {
+		t.Errorf("footer %q should drop whole keys, not cut one", footer)
 	}
 }

@@ -54,8 +54,13 @@ func printStatus(out io.Writer, summary []models.CompetitionCache, dbPath string
 		return
 	}
 
-	fmt.Fprintf(out, "\n%-22s %-16s %6s %9s  %s\n",
-		"COMPETITION", "SEASONS", "TEAMS", "PLAYERS", "LAST REFRESH")
+	// Wide enough for the longest ID ("concacaf-nations-league").
+	idWidth := len("COMPETITION")
+	for _, e := range summary {
+		idWidth = max(idWidth, len(e.Competition.ID))
+	}
+	fmt.Fprintf(out, "\n%-*s %-16s %6s %9s  %s\n",
+		idWidth, "COMPETITION", "SEASONS", "TEAMS", "PLAYERS", "LAST REFRESH")
 
 	var totalPlayers int
 	stale := 0
@@ -69,8 +74,8 @@ func printStatus(out io.Writer, summary []models.CompetitionCache, dbPath string
 			seasons = components.SeasonLabelFor(e.Competition.CalendarYear, e.LatestSeason)
 		}
 
-		fmt.Fprintf(out, "%-22s %-16s %6d %9d  %s\n",
-			e.Competition.ID, seasons, e.Teams, e.PlayerSeasons, refreshNote(e.LastSync, now))
+		fmt.Fprintf(out, "%-*s %-16s %6d %9d  %s\n",
+			idWidth, e.Competition.ID, seasons, e.Teams, e.PlayerSeasons, refreshNote(e.LastSync, now))
 
 		totalPlayers += e.PlayerSeasons
 		if e.LastSync != nil && !e.LastSync.Succeeded() {

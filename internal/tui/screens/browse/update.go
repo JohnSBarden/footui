@@ -38,7 +38,7 @@ func (m *Model) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 		m.local = msg.results
 		m.colors = msg.colors
 		if fresh {
-			m.cursor = 0
+			m.cursor = firstExact(msg.results, m.query)
 		}
 		m.merge()
 		m.loading = false

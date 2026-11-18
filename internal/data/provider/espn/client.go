@@ -254,7 +254,11 @@ func (c *Client) attempt(ctx context.Context, url string, gap time.Duration) ([]
 		return nil, &statusError{URL: url, Status: resp.StatusCode,
 			RetryAfter: retryAfter(resp.Header.Get("Retry-After"), time.Now())}
 	}
-	return provider.ReadBody(resp.Body)
+	body, err := provider.ReadBody(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("espn: %s: %w", url, err)
+	}
+	return body, nil
 }
 
 // retryAfter reads a Retry-After header: seconds, or an HTTP date.

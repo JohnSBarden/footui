@@ -555,17 +555,27 @@ func (m *Model) squadGroups() []extraGroup[models.PlayerSeasonStats] {
 			},
 		})
 	}
-	if has(func(s models.PlayerSeasonStats) bool { return s.Shots != nil || s.KeyPasses != nil }) {
+	// Shots and key passes are one group, but each column only when some
+	// source has it: ESPN counts shots and not key passes.
+	var cols []components.Column
+	var cellFns []func(models.PlayerSeasonStats) components.Cell
+	if has(func(s models.PlayerSeasonStats) bool { return s.Shots != nil }) {
+		cols = append(cols, components.Column{Title: "Sh", Width: 4, Right: true})
+		cellFns = append(cellFns, func(s models.PlayerSeasonStats) components.Cell { return components.Text(components.Int(s.Shots)) })
+	}
+	if has(func(s models.PlayerSeasonStats) bool { return s.KeyPasses != nil }) {
+		cols = append(cols, components.Column{Title: "KP", Width: 4, Right: true})
+		cellFns = append(cellFns, func(s models.PlayerSeasonStats) components.Cell { return components.Text(components.Int(s.KeyPasses)) })
+	}
+	if len(cols) > 0 {
 		groups = append(groups, extraGroup[models.PlayerSeasonStats]{
-			columns: []components.Column{
-				{Title: "Sh", Width: 4, Right: true},
-				{Title: "KP", Width: 4, Right: true},
-			},
+			columns: cols,
 			cells: func(s models.PlayerSeasonStats) []components.Cell {
-				return []components.Cell{
-					components.Text(components.Int(s.Shots)),
-					components.Text(components.Int(s.KeyPasses)),
+				cells := make([]components.Cell, len(cellFns))
+				for i, f := range cellFns {
+					cells[i] = f(s)
 				}
+				return cells
 			},
 		})
 	}

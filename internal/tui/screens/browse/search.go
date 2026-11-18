@@ -170,6 +170,18 @@ func (m *Model) merge() {
 	m.cursor = min(m.cursor, max(len(m.results)-1, 0))
 }
 
+// firstExact is where the cursor starts: on the first result named exactly
+// what was typed ("england" picks the nation, not New England Revolution,
+// though clubs are listed first), else the top.
+func firstExact(results []Result, query string) int {
+	for i, r := range results {
+		if matchScore(r.Name(), query) == scoreExact {
+			return i
+		}
+	}
+	return 0
+}
+
 // rank orders substring matches by closeness and truncates to maxPerKind.
 func rank[T any](items []T, name func(T) string, query string) []T {
 	sorted := make([]T, len(items))
